@@ -1,0 +1,2064 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>THE ORACLE OF COLD CALLS</title>
+<style>
+/* ===== 1998 GEOCITIES ENERGY ===== */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;700&family=MedievalSharp&display=swap');
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 0;
+    background: #000 url('https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Milky_Way_Night_Sky_Black_Rock_Desert_Nevada.jpg/1280px-Milky_Way_Night_Sky_Black_Rock_Desert_Nevada.jpg') fixed center center;
+    background-size: cover;
+    color: #FFD700;
+    font-family: 'Times New Roman', 'MedievalSharp', serif;
+    cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><text y="20" font-size="20">🔱</text></svg>'), auto;
+}
+
+::selection { background: #8B0000; color: #FFD700; }
+
+/* MARQUEE BAR */
+.marquee-bar {
+    background: linear-gradient(90deg, #8B0000, #FFD700, #8B0000);
+    padding: 4px 0;
+    font-size: 14px;
+    color: #000;
+    font-weight: bold;
+    font-family: 'Comic Sans MS', cursive;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    overflow: hidden;
+}
+.marquee-inner {
+    display: inline-block;
+    white-space: nowrap;
+    animation: marquee 20s linear infinite;
+}
+@keyframes marquee {
+    0% { transform: translateX(100vw); }
+    100% { transform: translateX(-100%); }
+}
+
+/* HEADER */
+.header {
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(40,0,0,0.8) 100%);
+    border-bottom: 4px ridge #FFD700;
+    position: relative;
+}
+.header h1 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 48px;
+    color: #FFD700;
+    text-shadow: 0 0 20px #FF4500, 0 0 40px #8B0000, 2px 2px 0 #000;
+    margin: 10px 0 5px;
+    letter-spacing: 4px;
+    animation: glow 2s ease-in-out infinite alternate;
+}
+@keyframes glow {
+    from { text-shadow: 0 0 20px #FF4500, 0 0 40px #8B0000, 2px 2px 0 #000; }
+    to { text-shadow: 0 0 30px #FFD700, 0 0 60px #FF4500, 0 0 80px #8B0000, 2px 2px 0 #000; }
+}
+.header .subtitle {
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    color: #CD853F;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+}
+.header .hero-img {
+    width: 100%;
+    max-width: 800px;
+    height: 200px;
+    object-fit: cover;
+    border: 3px ridge #FFD700;
+    margin: 15px auto;
+    display: block;
+    filter: sepia(30%) contrast(1.2);
+}
+
+/* ANIMATED TORCH COLUMNS */
+.torch-row {
+    display: flex;
+    justify-content: center;
+    gap: 60px;
+    margin: -10px 0 5px;
+}
+.torch {
+    font-size: 36px;
+    animation: torch-flicker 0.3s infinite alternate;
+    filter: drop-shadow(0 0 12px #FF4500);
+}
+.torch:nth-child(2) { animation-delay: 0.1s; }
+.torch:nth-child(3) { animation-delay: 0.2s; }
+@keyframes torch-flicker {
+    0% { transform: scale(1) rotate(-2deg); opacity: 0.9; }
+    100% { transform: scale(1.1) rotate(2deg); opacity: 1; }
+}
+
+/* ZEUS LIGHTNING BOLT (animated decoration) */
+.zeus-bolt {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9998;
+    opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.4) 0%, transparent 70%);
+    transition: opacity 0.05s;
+}
+.zeus-bolt.flash {
+    animation: lightning-flash 0.4s ease-out;
+}
+@keyframes lightning-flash {
+    0% { opacity: 0.8; }
+    10% { opacity: 0; }
+    15% { opacity: 0.6; }
+    20% { opacity: 0; }
+    25% { opacity: 0.3; }
+    100% { opacity: 0; }
+}
+
+/* FLOATING MYTHOLOGY SPRITES */
+.sprite-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+}
+.floating-sprite {
+    position: absolute;
+    font-size: 24px;
+    opacity: 0.15;
+    animation: float-up 15s linear infinite;
+}
+@keyframes float-up {
+    0% { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.15; }
+    90% { opacity: 0.15; }
+    100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+}
+
+/* FIRE DIVIDER */
+.fire-divider-css {
+    height: 8px;
+    background: linear-gradient(90deg, #000, #8B0000, #FF4500, #FFD700, #FF4500, #8B0000, #000);
+    background-size: 200px 100%;
+    animation: fire-shift 2s linear infinite;
+    margin: 10px 0;
+}
+@keyframes fire-shift {
+    0% { background-position: 0 0; }
+    100% { background-position: 200px 0; }
+}
+
+/* MAIN CONTAINER */
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+    position: relative;
+    z-index: 1;
+}
+
+/* FORM SECTION */
+.oracle-form {
+    background: linear-gradient(135deg, rgba(20,0,0,0.95), rgba(40,10,0,0.95));
+    border: 3px ridge #FFD700;
+    padding: 30px;
+    margin: 20px 0;
+    box-shadow: 0 0 30px rgba(255,69,0,0.3), inset 0 0 30px rgba(0,0,0,0.5);
+}
+.oracle-form h2 {
+    font-family: 'Cinzel Decorative', serif;
+    color: #FFD700;
+    text-align: center;
+    font-size: 28px;
+    margin: 0 0 5px;
+    text-shadow: 0 0 10px #FF4500;
+}
+.oracle-form .form-subtitle {
+    text-align: center;
+    color: #CD853F;
+    font-style: italic;
+    margin-bottom: 25px;
+    font-family: 'MedievalSharp', cursive;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+.form-group label {
+    display: block;
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    color: #FFD700;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+.form-group label .label-desc {
+    font-family: 'MedievalSharp', cursive;
+    font-size: 11px;
+    color: #CD853F;
+    text-transform: none;
+    letter-spacing: 0;
+    display: block;
+    margin-top: 2px;
+}
+
+/* SEARCHABLE DROPDOWN */
+.search-dropdown {
+    position: relative;
+    width: 100%;
+}
+.search-dropdown input {
+    width: 100%;
+    padding: 12px 40px 12px 15px;
+    background: #1a0a00;
+    border: 2px inset #8B4513;
+    color: #FFD700;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    outline: none;
+}
+.search-dropdown input:focus {
+    border-color: #FFD700;
+    box-shadow: 0 0 10px rgba(255,215,0,0.3);
+}
+.search-dropdown input::placeholder { color: #8B4513; }
+.search-dropdown .dd-arrow {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #8B4513;
+    font-size: 14px;
+    pointer-events: none;
+    transition: transform 0.2s;
+}
+.search-dropdown.open .dd-arrow { transform: translateY(-50%) rotate(180deg); }
+.search-dropdown .dd-list {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #1a0a00;
+    border: 2px solid #8B4513;
+    border-top: none;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 100;
+}
+.search-dropdown.open .dd-list { display: block; }
+.search-dropdown .dd-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    color: #FFD700;
+    border-bottom: 1px solid rgba(139,69,19,0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.search-dropdown .dd-item:hover {
+    background: rgba(255,69,0,0.15);
+}
+.search-dropdown .dd-item.selected {
+    background: rgba(139,69,19,0.3);
+}
+.search-dropdown .dd-item .dd-meta {
+    font-size: 11px;
+    color: #8B4513;
+}
+.search-dropdown .dd-item .dd-size {
+    font-size: 11px;
+    color: #CD853F;
+    background: rgba(139,69,19,0.2);
+    padding: 2px 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+.search-dropdown .dd-empty {
+    padding: 15px;
+    color: #666;
+    text-align: center;
+    font-style: italic;
+    font-family: 'MedievalSharp', cursive;
+}
+.search-dropdown .dd-loading {
+    padding: 15px;
+    color: #FF4500;
+    text-align: center;
+    font-family: 'MedievalSharp', cursive;
+    animation: pulse 1s infinite;
+}
+
+/* DATE PICKER STYLING */
+.form-group input[type="date"] {
+    width: 100%;
+    padding: 12px 15px;
+    background: #1a0a00;
+    border: 2px inset #8B4513;
+    color: #FFD700;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+.form-group input[type="date"]:focus {
+    border-color: #FFD700;
+    box-shadow: 0 0 10px rgba(255,215,0,0.3);
+}
+.form-group input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7) sepia(1) hue-rotate(0deg) saturate(5);
+    cursor: pointer;
+    font-size: 20px;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+}
+.checkbox-group input[type="checkbox"] {
+    width: 20px; height: 20px;
+    accent-color: #FFD700;
+}
+.checkbox-group label {
+    font-family: 'MedievalSharp', cursive;
+    color: #CD853F;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+/* THE BIG BUTTON */
+.oracle-btn {
+    display: block;
+    width: 100%;
+    padding: 18px;
+    margin-top: 25px;
+    background: linear-gradient(180deg, #8B0000, #4a0000);
+    border: 3px ridge #FFD700;
+    color: #FFD700;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 22px;
+    letter-spacing: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px #FF4500;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+.oracle-btn:hover {
+    background: linear-gradient(180deg, #B22222, #8B0000);
+    box-shadow: 0 0 30px rgba(255,69,0,0.6);
+    transform: scale(1.02);
+}
+.oracle-btn:active { transform: scale(0.98); }
+.oracle-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+.oracle-btn::before {
+    content: '\26A1 ';
+    position: absolute;
+    left: 20px;
+    animation: bolt 1.5s infinite;
+}
+.oracle-btn::after {
+    content: '\26A1 ';
+    position: absolute;
+    right: 20px;
+    animation: bolt 1.5s infinite 0.75s;
+}
+@keyframes bolt {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* PROGRESS SECTION */
+.progress-section {
+    display: none;
+    background: linear-gradient(135deg, rgba(0,0,0,0.95), rgba(20,5,0,0.95));
+    border: 3px ridge #8B4513;
+    padding: 20px;
+    margin: 20px 0;
+    position: relative;
+    overflow: hidden;
+}
+.progress-section h2 {
+    font-family: 'Cinzel Decorative', serif;
+    color: #FF4500;
+    text-align: center;
+    margin: 0 0 15px;
+    text-shadow: 0 0 15px #8B0000;
+}
+/* Animated eye of the oracle during processing */
+.oracle-eye {
+    text-align: center;
+    font-size: 64px;
+    margin: 10px 0;
+    animation: oracle-eye-pulse 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px #FF4500);
+}
+@keyframes oracle-eye-pulse {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px #FF4500); }
+    50% { transform: scale(1.15); filter: drop-shadow(0 0 40px #FFD700) drop-shadow(0 0 60px #FF4500); }
+}
+/* Spinning runes around the oracle eye */
+.rune-ring {
+    text-align: center;
+    font-size: 18px;
+    letter-spacing: 12px;
+    color: #8B4513;
+    animation: rune-spin 8s linear infinite;
+    margin: -5px 0 15px;
+}
+@keyframes rune-spin {
+    0% { letter-spacing: 12px; color: #8B4513; }
+    50% { letter-spacing: 20px; color: #FFD700; }
+    100% { letter-spacing: 12px; color: #8B4513; }
+}
+
+.progress-bar-container {
+    background: #1a0a00;
+    border: 2px inset #8B4513;
+    height: 30px;
+    margin: 10px 0;
+    position: relative;
+}
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #8B0000, #FF4500, #FFD700);
+    width: 0%;
+    transition: width 0.5s;
+    position: relative;
+}
+.progress-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 20px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+    animation: shimmer 1s infinite;
+}
+@keyframes shimmer {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
+}
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #FFD700;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 12px;
+    text-shadow: 1px 1px 2px #000;
+    z-index: 1;
+}
+/* Current action display */
+.current-action {
+    text-align: center;
+    font-family: 'MedievalSharp', cursive;
+    font-size: 16px;
+    color: #FFD700;
+    margin: 12px 0 5px;
+    min-height: 24px;
+    animation: action-glow 1.5s ease-in-out infinite alternate;
+}
+@keyframes action-glow {
+    from { text-shadow: 0 0 5px transparent; }
+    to { text-shadow: 0 0 15px #FF4500; }
+}
+.current-action-sub {
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #8B4513;
+    margin-bottom: 12px;
+    min-height: 18px;
+}
+
+.log-box {
+    background: #0a0500;
+    border: 2px inset #333;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+}
+.log-box .log-entry { margin: 2px 0; }
+.log-entry.status { color: #FFD700; }
+.log-entry.skip { color: #808080; }
+.log-entry.generating { color: #FF4500; animation: pulse 1s infinite; }
+.log-entry.done { color: #00FF00; }
+.log-entry.error { color: #FF0000; font-weight: bold; }
+.log-entry.warn { color: #FFA500; }
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* STATS COUNTER DURING PROCESSING */
+.live-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 12px 0;
+}
+.live-stat {
+    text-align: center;
+    padding: 8px;
+    border: 1px solid rgba(139,69,19,0.3);
+    background: rgba(0,0,0,0.4);
+}
+.live-stat .ls-num {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 22px;
+    color: #FFD700;
+}
+.live-stat .ls-label {
+    font-family: 'MedievalSharp', cursive;
+    font-size: 10px;
+    color: #8B4513;
+    text-transform: uppercase;
+}
+
+/* REVIEW SECTION */
+.review-section {
+    display: none;
+    margin: 20px 0;
+}
+.review-section h2 {
+    font-family: 'Cinzel Decorative', serif;
+    color: #FFD700;
+    text-align: center;
+    font-size: 32px;
+    text-shadow: 0 0 20px #FF4500;
+    margin-bottom: 5px;
+}
+.review-subtitle {
+    text-align: center;
+    color: #CD853F;
+    font-family: 'MedievalSharp', cursive;
+    font-size: 16px;
+    margin-bottom: 20px;
+}
+
+/* STATS BOX */
+.stats-box {
+    background: linear-gradient(135deg, rgba(20,0,0,0.95), rgba(40,10,0,0.95));
+    border: 3px ridge #FFD700;
+    padding: 20px;
+    margin: 15px 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+.stat-item {
+    text-align: center;
+    padding: 10px;
+    border: 1px solid #8B4513;
+    background: rgba(0,0,0,0.5);
+}
+.stat-item .stat-num {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 36px;
+    color: #FFD700;
+    text-shadow: 0 0 10px #FF4500;
+}
+.stat-item .stat-label {
+    font-family: 'MedievalSharp', cursive;
+    color: #CD853F;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 5px;
+}
+
+/* CALL SHEET */
+.call-sheet { margin: 20px 0; }
+.time-block {
+    margin: 15px 0;
+    border: 2px ridge;
+    overflow: hidden;
+}
+.time-block.green { border-color: #228B22; }
+.time-block.yellow { border-color: #DAA520; }
+.time-block.red { border-color: #8B0000; }
+.time-block-header {
+    padding: 10px 15px;
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+.green .time-block-header {
+    background: linear-gradient(90deg, #006400, #228B22);
+    color: #90EE90;
+}
+.yellow .time-block-header {
+    background: linear-gradient(90deg, #8B6914, #DAA520);
+    color: #FAFAD2;
+}
+.red .time-block-header {
+    background: linear-gradient(90deg, #4a0000, #8B0000);
+    color: #FF6B6B;
+}
+.time-block-body { padding: 0; }
+.contact-row {
+    display: grid;
+    grid-template-columns: 30px 1fr 1fr 50px 150px;
+    gap: 10px;
+    padding: 8px 15px;
+    border-bottom: 1px solid rgba(139,69,19,0.3);
+    font-size: 13px;
+    align-items: center;
+}
+.contact-row:hover { background: rgba(255,215,0,0.05); }
+.contact-row .num { color: #8B4513; font-weight: bold; text-align: right; }
+.contact-row .name-title { color: #FFD700; }
+.contact-row .name-title .title { color: #CD853F; font-size: 11px; }
+.contact-row .company { color: #BDB76B; }
+.contact-row .tz-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: rgba(139,69,19,0.4);
+    border: 1px solid #8B4513;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #FFD700;
+    text-align: center;
+}
+.contact-row .phone-email {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #CD853F;
+}
+.dead-zone-msg {
+    padding: 20px;
+    text-align: center;
+    font-family: 'MedievalSharp', cursive;
+    color: #FF6B6B;
+    font-size: 14px;
+    font-style: italic;
+}
+.empty-block {
+    padding: 10px 15px;
+    color: #555;
+    font-style: italic;
+    font-size: 12px;
+}
+
+/* UNKNOWN TZ WARNING */
+.unknown-tz-block {
+    margin: 15px 0;
+    border: 2px dashed #FFA500;
+    background: rgba(255,165,0,0.05);
+}
+.unknown-tz-block .time-block-header {
+    background: linear-gradient(90deg, #8B4500, #FFA500);
+    color: #000;
+}
+
+/* CONTACT DETAIL CARDS */
+.contact-cards { margin: 20px 0; }
+.contact-card {
+    background: rgba(20,0,0,0.9);
+    border: 2px ridge #8B4513;
+    margin: 10px 0;
+    overflow: hidden;
+}
+.contact-card-header {
+    padding: 12px 15px;
+    background: linear-gradient(90deg, rgba(139,69,19,0.3), transparent);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.contact-card-header:hover { background: rgba(139,69,19,0.4); }
+.contact-card-header .card-name {
+    font-family: 'Cinzel', serif;
+    color: #FFD700;
+    font-size: 15px;
+}
+.contact-card-header .card-meta {
+    color: #CD853F;
+    font-size: 12px;
+}
+.contact-card-header .toggle-arrow {
+    color: #FFD700;
+    font-size: 18px;
+    transition: transform 0.3s;
+}
+.contact-card-body {
+    display: none;
+    padding: 18px 20px;
+    border-top: 1px solid #8B4513;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #DDD;
+    font-family: Georgia, 'Times New Roman', serif;
+}
+.contact-card-body p { margin: 6px 0; }
+.contact-card-body strong { color: #FF4500; }
+.contact-card-body em { color: #CD853F; }
+.contact-card-body ul { margin: 8px 0 8px 25px; padding: 0; }
+.contact-card-body li { margin: 5px 0; color: #CCC; }
+.contact-card.open .contact-card-body { display: block; }
+.contact-card.open .toggle-arrow { transform: rotate(180deg); }
+
+/* APPROVE BUTTONS */
+.approve-section {
+    display: none;
+    text-align: center;
+    margin: 30px 0;
+    padding: 30px;
+    background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(30,0,0,0.9));
+    border: 3px ridge #FFD700;
+}
+.approve-section h2 {
+    font-family: 'Cinzel Decorative', serif;
+    color: #FFD700;
+    margin-bottom: 10px;
+}
+.approve-section p {
+    color: #CD853F;
+    font-family: 'MedievalSharp', cursive;
+    margin-bottom: 25px;
+}
+.btn-row { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+.kraken-btn {
+    padding: 20px 40px;
+    background: linear-gradient(180deg, #006400, #003300);
+    border: 3px ridge #00FF00;
+    color: #00FF00;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 20px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px #00FF00;
+    transition: all 0.3s;
+    animation: kraken-pulse 2s infinite;
+}
+@keyframes kraken-pulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(0,255,0,0.3); }
+    50% { box-shadow: 0 0 30px rgba(0,255,0,0.6); }
+}
+.kraken-btn:hover {
+    background: linear-gradient(180deg, #008000, #004d00);
+    box-shadow: 0 0 40px rgba(0,255,0,0.8);
+    transform: scale(1.05);
+}
+.tartarus-btn {
+    padding: 20px 40px;
+    background: linear-gradient(180deg, #333, #111);
+    border: 3px ridge #666;
+    color: #999;
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.3s;
+}
+.tartarus-btn:hover {
+    background: linear-gradient(180deg, #4a0000, #1a0000);
+    border-color: #8B0000;
+    color: #FF6B6B;
+}
+
+/* WRITE PROGRESS */
+.write-section {
+    display: none;
+    background: linear-gradient(135deg, rgba(0,0,0,0.95), rgba(0,20,0,0.95));
+    border: 3px ridge #00FF00;
+    padding: 20px;
+    margin: 20px 0;
+}
+.write-section h2 {
+    font-family: 'Cinzel Decorative', serif;
+    color: #00FF00;
+    text-align: center;
+    text-shadow: 0 0 15px #006400;
+}
+
+/* CLEANUP SECTION */
+.cleanup-section {
+    display: none;
+    background: linear-gradient(135deg, rgba(0,0,0,0.95), rgba(30,0,30,0.95));
+    border: 3px ridge #9370DB;
+    padding: 20px;
+    margin: 20px 0;
+}
+.cleanup-section h2 {
+    font-family: 'Cinzel Decorative', serif;
+    color: #9370DB;
+    text-align: center;
+    text-shadow: 0 0 15px #4B0082;
+}
+.cleanup-manifest {
+    max-height: 400px;
+    overflow-y: auto;
+    margin: 15px 0;
+    padding: 10px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #9370DB;
+}
+.cleanup-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(147,112,219,0.2);
+    font-family: Georgia, serif;
+    font-size: 14px;
+    color: #CCC;
+}
+.cleanup-row:last-child { border-bottom: none; }
+.cleanup-row .cname { color: #FFD700; font-weight: bold; }
+.cleanup-row .cremove { color: #FF6B6B; }
+.cleanup-row .ckeep { color: #00FF00; }
+.cleanup-row .cnone { color: #666; font-style: italic; }
+.cleanup-summary {
+    text-align: center;
+    padding: 15px;
+    font-family: 'MedievalSharp', cursive;
+    color: #CD853F;
+    font-size: 16px;
+}
+.smite-btn {
+    padding: 20px 40px;
+    background: linear-gradient(180deg, #4B0082, #1a0030);
+    border: 3px ridge #9370DB;
+    color: #DDA0DD;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px #9370DB;
+    transition: all 0.3s;
+    animation: smite-pulse 2s infinite;
+}
+@keyframes smite-pulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(147,112,219,0.3); }
+    50% { box-shadow: 0 0 30px rgba(147,112,219,0.6); }
+}
+.smite-btn:hover {
+    background: linear-gradient(180deg, #6a0dad, #2d004d);
+    box-shadow: 0 0 40px rgba(147,112,219,0.8);
+    transform: scale(1.05);
+}
+.smite-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    animation: none;
+}
+.cleanup-cancel-btn {
+    padding: 15px 30px;
+    background: linear-gradient(180deg, #333, #111);
+    border: 3px ridge #666;
+    color: #999;
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.3s;
+}
+.cleanup-cancel-btn:hover {
+    border-color: #999;
+    color: #CCC;
+}
+
+/* ========================================= */
+/*      FULL-SCREEN ERROR OVERLAY            */
+/* ========================================= */
+.error-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 10000;
+    background: rgba(0,0,0,0.92);
+    backdrop-filter: blur(5px);
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    animation: error-overlay-in 0.3s ease-out;
+}
+.error-overlay.visible {
+    display: flex;
+}
+@keyframes error-overlay-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.error-overlay .error-icon {
+    font-size: 120px;
+    margin-bottom: 10px;
+    animation: error-shake 0.5s ease-in-out infinite alternate;
+    filter: drop-shadow(0 0 40px #FF0000);
+}
+@keyframes error-shake {
+    0% { transform: rotate(-5deg) scale(1); }
+    100% { transform: rotate(5deg) scale(1.05); }
+}
+.error-overlay h1 {
+    font-family: 'Cinzel Decorative', serif;
+    color: #FF0000;
+    font-size: 42px;
+    text-shadow: 0 0 30px #FF0000, 0 0 60px #8B0000;
+    margin: 10px 0;
+    text-align: center;
+    letter-spacing: 4px;
+    animation: error-glow 1s infinite alternate;
+}
+@keyframes error-glow {
+    from { text-shadow: 0 0 30px #FF0000, 0 0 60px #8B0000; }
+    to { text-shadow: 0 0 50px #FF4500, 0 0 80px #FF0000, 0 0 100px #8B0000; }
+}
+.error-overlay .error-msg {
+    font-family: 'MedievalSharp', cursive;
+    color: #FF6B6B;
+    font-size: 18px;
+    max-width: 600px;
+    text-align: center;
+    margin: 15px 0 30px;
+    line-height: 1.6;
+    padding: 0 20px;
+}
+.error-overlay .error-detail {
+    font-family: 'Courier New', monospace;
+    color: #CD853F;
+    font-size: 12px;
+    max-width: 600px;
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 10px 20px;
+    background: rgba(139,69,19,0.1);
+    border: 1px solid rgba(139,69,19,0.3);
+    word-break: break-word;
+}
+.error-overlay .dismiss-btn {
+    padding: 15px 40px;
+    background: linear-gradient(180deg, #8B0000, #4a0000);
+    border: 3px ridge #FF0000;
+    color: #FFD700;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 16px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.3s;
+}
+.error-overlay .dismiss-btn:hover {
+    background: linear-gradient(180deg, #B22222, #8B0000);
+    box-shadow: 0 0 20px rgba(255,0,0,0.5);
+}
+/* Lightning cracks on the error overlay */
+.error-overlay .crack-left,
+.error-overlay .crack-right {
+    position: absolute;
+    top: 0;
+    width: 3px;
+    height: 100%;
+    opacity: 0;
+}
+.error-overlay .crack-left { left: 30%; }
+.error-overlay .crack-right { right: 25%; }
+.error-overlay.visible .crack-left {
+    animation: crack-flash 3s infinite;
+}
+.error-overlay.visible .crack-right {
+    animation: crack-flash 3s infinite 1.5s;
+}
+@keyframes crack-flash {
+    0%, 95%, 100% { opacity: 0; }
+    96% {
+        opacity: 1;
+        background: linear-gradient(180deg,
+            transparent 0%, #FFD700 10%, transparent 12%,
+            transparent 20%, #FFF 22%, transparent 24%,
+            transparent 40%, #FFD700 42%, transparent 44%,
+            transparent 55%, #FFF 57%, transparent 59%,
+            transparent 75%, #FFD700 77%, transparent 80%,
+            transparent 100%
+        );
+        box-shadow: 0 0 30px #FFD700, 0 0 60px #FF4500;
+    }
+    97% { opacity: 0.5; }
+}
+
+/* FOOTER */
+.footer {
+    text-align: center;
+    padding: 30px;
+    border-top: 4px ridge #8B4513;
+    background: rgba(0,0,0,0.8);
+    margin-top: 40px;
+    position: relative;
+    z-index: 1;
+}
+.footer .counter {
+    font-family: 'Courier New', monospace;
+    color: #00FF00;
+    background: #000;
+    border: 2px inset #333;
+    display: inline-block;
+    padding: 5px 15px;
+    margin: 10px;
+}
+.footer .links {
+    margin: 10px 0;
+    font-size: 12px;
+}
+.footer .links a {
+    color: #4169E1;
+    margin: 0 10px;
+    text-decoration: underline;
+    font-family: 'Comic Sans MS', cursive;
+}
+.footer .best-viewed {
+    font-family: 'Comic Sans MS', cursive;
+    font-size: 11px;
+    color: #808080;
+    margin-top: 10px;
+}
+
+/* BLINK */
+.blink { animation: blinker 1s step-end infinite; }
+@keyframes blinker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* UNDER CONSTRUCTION */
+.under-construction {
+    text-align: center;
+    font-family: 'Comic Sans MS', cursive;
+    color: #FFD700;
+    font-size: 12px;
+    padding: 5px;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 12px; }
+::-webkit-scrollbar-track { background: #1a0a00; }
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #8B4513, #4a2000);
+    border: 1px solid #FFD700;
+}
+
+/* RESPONSIVE */
+@media (max-width: 700px) {
+    .header h1 { font-size: 28px; }
+    .contact-row { grid-template-columns: 25px 1fr 80px; }
+    .contact-row .company, .contact-row .phone-email { display: none; }
+    .error-overlay h1 { font-size: 28px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== FLOATING MYTHOLOGY SPRITES ===== -->
+<div class="sprite-layer" id="spriteLayer"></div>
+
+<!-- ===== ZEUS LIGHTNING FLASH ===== -->
+<div class="zeus-bolt" id="zeusBolt"></div>
+
+<!-- ===== ERROR OVERLAY ===== -->
+<div class="error-overlay" id="errorOverlay">
+    <div class="crack-left"></div>
+    <div class="crack-right"></div>
+    <div class="error-icon">&#9889;</div>
+    <h1>ZEUS HURLS A THUNDERBOLT!</h1>
+    <div class="error-msg" id="errorMsg">An unknown force has disrupted the Oracle's vision.</div>
+    <div class="error-detail" id="errorDetail"></div>
+    <button class="dismiss-btn" onclick="dismissError()">&#128737; APPEASE THE GODS</button>
+</div>
+
+<!-- ===== MARQUEE ===== -->
+<div class="marquee-bar">
+    <div class="marquee-inner">
+        &#9876; WELCOME MORTAL TO THE ORACLE OF COLD CALLS &#9876; &bull; POWERED BY THE GODS OF OLYMPUS &bull; &#9876; FORGED IN THE FIRES OF MOUNT ETNA &bull; WHERE HEPHAESTUS CRAFTS YOUR SALES WEAPONS &bull; &#9876; NO QUARTER SHALL BE GIVEN &bull; EVERY DIAL IS A BATTLE &bull; EVERY CONNECT IS A CONQUEST &#9876;
+    </div>
+</div>
+
+<!-- ===== HEADER ===== -->
+<div class="header">
+    <img class="hero-img"
+         src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/John_William_Waterhouse_-_Consulting_the_Oracle_-_1884.jpg/1280px-John_William_Waterhouse_-_Consulting_the_Oracle_-_1884.jpg"
+         alt="Consulting the Oracle"
+         onerror="this.style.display='none'">
+    <h1>THE ORACLE</h1>
+    <div class="subtitle">of Cold Calls</div>
+    <div class="torch-row">
+        <span class="torch">&#128293;</span>
+        <span class="torch">&#127942;</span>
+        <span class="torch">&#128293;</span>
+    </div>
+</div>
+
+<div class="fire-divider-css"></div>
+
+<div class="container">
+
+    <!-- ===== FORM ===== -->
+    <div class="oracle-form" id="formSection">
+        <h2>&#128293; Prepare for Battle &#128293;</h2>
+        <p class="form-subtitle">Speak thy commands, and the Oracle shall prepare thy warriors for conquest</p>
+
+        <div class="form-group">
+            <label>
+                &#9876; Choose Thy Legion
+                <span class="label-desc">The HubSpot list containing thy warriors</span>
+            </label>
+            <div class="search-dropdown" id="segmentDropdown">
+                <input type="text" id="segmentInput" placeholder="Search thy Legions..." autocomplete="off"
+                       onfocus="openDropdown('segment')" oninput="filterDropdown('segment')">
+                <span class="dd-arrow">&#9660;</span>
+                <div class="dd-list" id="segmentList">
+                    <div class="dd-loading">&#128293; Summoning the list of Legions from HubSpot...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>
+                &#9876; Current Campaign Enrollment
+                <span class="label-desc">The campaign under which thy warriors march</span>
+            </label>
+            <div class="search-dropdown" id="campaignDropdown">
+                <input type="text" id="campaignInput" placeholder="Search or type a Crusade name..." autocomplete="off"
+                       onfocus="openDropdown('campaign')" oninput="filterDropdown('campaign')">
+                <span class="dd-arrow">&#9660;</span>
+                <div class="dd-list" id="campaignList">
+                    <div class="dd-loading">&#128293; Summoning campaign names...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>
+                &#9876; Day of Battle
+                <span class="label-desc">The day thy warriors shall be summoned to the phones</span>
+            </label>
+            <input type="date" id="callingDate">
+        </div>
+
+        <div class="checkbox-group">
+            <input type="checkbox" id="skipExisting" checked>
+            <label for="skipExisting">&#128737; Skip the already-anointed (contacts with existing COLD CALL PREP notes)</label>
+        </div>
+
+        <button class="oracle-btn" id="consultBtn" onclick="consultTheOracle()">
+            CONSULT THE ORACLE
+        </button>
+    </div>
+
+    <!-- ===== PROGRESS ===== -->
+    <div class="progress-section" id="progressSection">
+        <h2>&#128293; The Oracle Speaks &#128293;</h2>
+        <div class="oracle-eye" id="oracleEye">&#128064;</div>
+        <div class="rune-ring">&Delta; &Omega; &Sigma; &Pi; &Lambda; &Phi; &Psi; &Xi;</div>
+        <div class="current-action" id="currentAction">Awakening the Oracle...</div>
+        <div class="current-action-sub" id="currentActionSub"></div>
+        <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="progressBar"></div>
+            <div class="progress-text" id="progressText">0%</div>
+        </div>
+        <div class="live-stats" id="liveStats">
+            <div class="live-stat"><div class="ls-num" id="lsProcessed">0</div><div class="ls-label">Processed</div></div>
+            <div class="live-stat"><div class="ls-num" id="lsPrepared" style="color:#00FF00">0</div><div class="ls-label">Prepared</div></div>
+            <div class="live-stat"><div class="ls-num" id="lsSkipped" style="color:#808080">0</div><div class="ls-label">Skipped</div></div>
+        </div>
+        <div class="log-box" id="logBox"></div>
+    </div>
+
+    <!-- ===== REVIEW ===== -->
+    <div class="review-section" id="reviewSection">
+        <h2>&#9876; THE BATTLE PLAN &#9876;</h2>
+        <div class="review-subtitle">Review thy warriors and their prophesied scripts before inscribing the sacred scrolls</div>
+
+        <!-- Stats -->
+        <div class="stats-box" id="statsBox"></div>
+
+        <div class="fire-divider-css"></div>
+
+        <!-- Call Sheet -->
+        <div class="call-sheet" id="callSheet"></div>
+
+        <!-- Unknown TZ -->
+        <div id="unknownTzBlock"></div>
+
+        <div class="fire-divider-css"></div>
+
+        <!-- Contact Detail Cards -->
+        <h2 style="font-family:'Cinzel Decorative',serif;color:#FFD700;text-align:center;font-size:22px;margin:25px 0 10px;text-shadow:0 0 10px #FF4500;">&#128220; Sacred Scrolls - Preview</h2>
+        <p style="text-align:center;color:#CD853F;font-family:'MedievalSharp',cursive;font-size:13px;margin-bottom:15px;">Click a warrior's name to reveal their prophesied call script</p>
+        <div class="contact-cards" id="contactCards"></div>
+    </div>
+
+    <!-- ===== APPROVE ===== -->
+    <div class="approve-section" id="approveSection">
+        <h2>&#9889; The Moment of Truth &#9889;</h2>
+        <p>Do the prophecies please thee? Shall the sacred scrolls be inscribed into the annals of HubSpot?</p>
+        <div class="btn-row">
+            <button class="kraken-btn" id="krakenBtn" onclick="releaseTheKraken()">
+                &#128025; RELEASE THE KRAKEN &#128025;
+            </button>
+            <button class="tartarus-btn" onclick="banishToTartarus()">
+                &#128128; Banish to Tartarus
+            </button>
+        </div>
+        <div style="margin-top:20px;border-top:1px solid #444;padding-top:15px;">
+            <button class="tartarus-btn" id="cleanupBtn" onclick="startCleanup()" style="border-color:#9370DB;color:#9370DB;">
+                &#9876;&#65039; Purge Old Notes from HubSpot
+            </button>
+            <p style="color:#666;font-size:12px;font-style:italic;margin-top:8px;">
+                Scans for duplicate/old COLD CALL PREP notes and lets you remove them
+            </p>
+        </div>
+    </div>
+
+    <!-- ===== WRITE PROGRESS ===== -->
+    <div class="write-section" id="writeSection">
+        <h2>&#128220; Inscribing the Sacred Scrolls &#128220;</h2>
+        <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="writeProgressBar"></div>
+            <div class="progress-text" id="writeProgressText">Preparing quill...</div>
+        </div>
+        <div class="log-box" id="writeLogBox"></div>
+    </div>
+
+    <!-- ===== CLEANUP SECTION ===== -->
+    <div class="cleanup-section" id="cleanupSection">
+        <h2>&#9876;&#65039; Athena's Purge &#9876;&#65039;</h2>
+        <p style="text-align:center;color:#CD853F;font-family:'MedievalSharp',cursive;margin-bottom:15px;">
+            Scanning for false scrolls (old/duplicate COLD CALL PREP notes) to purge from HubSpot...
+        </p>
+        <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="cleanupProgressBar" style="background:linear-gradient(90deg,#4B0082,#9370DB);"></div>
+            <div class="progress-text" id="cleanupProgressText">Scanning...</div>
+        </div>
+        <div class="cleanup-manifest" id="cleanupManifest" style="display:none;"></div>
+        <div class="cleanup-summary" id="cleanupSummary" style="display:none;"></div>
+        <div class="btn-row" id="cleanupButtons" style="display:none;">
+            <button class="smite-btn" id="smiteBtn" onclick="executeCleanup()">
+                &#9876;&#65039; SMITE THE IMPOSTERS &#9876;&#65039;
+            </button>
+            <button class="cleanup-cancel-btn" onclick="cancelCleanup()">
+                &#128148; Spare Them
+            </button>
+        </div>
+        <div class="log-box" id="cleanupLogBox" style="display:none;"></div>
+    </div>
+
+</div>
+
+<!-- ===== FOOTER ===== -->
+<div class="footer">
+    <div class="fire-divider-css"></div>
+    <div class="under-construction">&#128679; This site is always under construction &#128679;</div>
+    <div class="counter">
+        Visitors: <span id="hitCounter">000<span id="hitNum"></span></span>
+    </div>
+    <div class="links">
+        <a href="#" onclick="alert('The guestbook is in another castle!');return false;">&#128214; Sign My Guestbook</a>
+        <a href="#" onclick="alert('You have been webmaster\'d!');return false;">&#128231; Email the Webmaster</a>
+        <a href="#" onclick="alert('Webrings are peak internet.');return false;">&#128279; Oracle WebRing</a>
+    </div>
+    <div class="best-viewed">
+        Best viewed in Netscape Navigator 4.0 at 800x600 resolution
+    </div>
+    <div style="margin-top:10px;font-family:'Comic Sans MS',cursive;font-size:10px;color:#555;">
+        &copy; MCMXCVIII The Oracle of Cold Calls. All Rights Reserved. Forged by Hephaestus.
+    </div>
+</div>
+
+<script>
+// ===================================================================
+// FLOATING MYTHOLOGY SPRITES (background ambiance)
+// ===================================================================
+(function() {
+    const sprites = ['\u2694\uFE0F','\uD83D\uDD31','\u26A1','\uD83C\uDFDB\uFE0F','\uD83E\uDE93','\uD83D\uDEE1\uFE0F','\uD83C\uDFF9','\u2604\uFE0F','\uD83D\uDD25','\uD83E\uDDA5','\u2648','\u2649','\u264A','\u264B','\u264C','\u264D'];
+    const layer = document.getElementById('spriteLayer');
+    function spawnSprite() {
+        const s = document.createElement('span');
+        s.className = 'floating-sprite';
+        s.textContent = sprites[Math.floor(Math.random() * sprites.length)];
+        s.style.left = Math.random() * 100 + '%';
+        s.style.animationDuration = (12 + Math.random() * 10) + 's';
+        s.style.animationDelay = '0s';
+        s.style.fontSize = (16 + Math.random() * 20) + 'px';
+        layer.appendChild(s);
+        setTimeout(() => s.remove(), 25000);
+    }
+    setInterval(spawnSprite, 2000);
+    for (let i = 0; i < 6; i++) setTimeout(spawnSprite, i * 400);
+})();
+
+// ===================================================================
+// ZEUS LIGHTNING FLASH (fire on events)
+// ===================================================================
+function zeusFlash() {
+    const bolt = document.getElementById('zeusBolt');
+    bolt.classList.remove('flash');
+    void bolt.offsetWidth; // reflow
+    bolt.classList.add('flash');
+}
+
+// ===================================================================
+// DATE + HIT COUNTER INIT
+// ===================================================================
+document.getElementById('callingDate').valueAsDate = new Date();
+document.getElementById('hitNum').textContent = Math.floor(Math.random() * 9000 + 1000);
+
+// ===================================================================
+// DROPDOWN DATA STORES
+// ===================================================================
+let allLists = [];
+let allCampaigns = [];
+let listsLoaded = false;
+let campaignsLoaded = false;
+let currentSessionId = null;
+
+// Live stats tracking
+let liveProcessed = 0, livePrepared = 0, liveSkipped = 0;
+
+// ===================================================================
+// FETCH LISTS ON PAGE LOAD
+// ===================================================================
+// Fetch segment lists (HubSpot lists created by Antonio)
+fetch('/api/lists')
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById('segmentList').innerHTML =
+                '<div class="dd-empty">\u26A1 ' + data.error + '</div>';
+            return;
+        }
+        allLists = data.lists || [];
+        listsLoaded = true;
+        renderDropdown('segment');
+    })
+    .catch(err => {
+        document.getElementById('segmentList').innerHTML =
+            '<div class="dd-empty">\u26A1 Failed to summon Legions: ' + err.message + '</div>';
+    });
+
+// Fetch campaigns (HubSpot current_campaign_enrollment property options)
+fetch('/api/campaigns')
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById('campaignList').innerHTML =
+                '<div class="dd-empty">\u26A1 ' + data.error + '</div>';
+            return;
+        }
+        allCampaigns = (data.campaigns || []).map(c => c.label);
+        campaignsLoaded = true;
+        renderDropdown('campaign');
+    })
+    .catch(err => {
+        document.getElementById('campaignList').innerHTML =
+            '<div class="dd-empty">\u26A1 Failed to summon Crusades: ' + err.message + '</div>';
+    });
+
+// ===================================================================
+// DROPDOWN LOGIC
+// ===================================================================
+function renderDropdown(which) {
+    const listEl = document.getElementById(which + 'List');
+    const inputEl = document.getElementById(which + 'Input');
+    const filter = inputEl.value.toLowerCase();
+
+    if (which === 'segment') {
+        if (!listsLoaded) return;
+        const filtered = allLists.filter(l => l.name.toLowerCase().includes(filter));
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<div class="dd-empty">No Legions match thy search</div>';
+            return;
+        }
+        listEl.innerHTML = filtered.map(l =>
+            `<div class="dd-item" onclick="selectDropdown('segment','${l.name.replace(/'/g,"\\'")}')">
+                <span>${l.name}</span>
+                <span class="dd-size">${l.size} warriors &bull; ${l.type}</span>
+            </div>`
+        ).join('');
+    } else if (which === 'campaign') {
+        if (!campaignsLoaded) return;
+        const filtered = allCampaigns.filter(c => c.toLowerCase().includes(filter));
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<div class="dd-empty">No Crusades match. Thou may type a new name.</div>';
+            return;
+        }
+        listEl.innerHTML = filtered.map(c =>
+            `<div class="dd-item" onclick="selectDropdown('campaign','${c.replace(/'/g,"\\'")}')">
+                <span>${c}</span>
+            </div>`
+        ).join('');
+    }
+}
+
+function openDropdown(which) {
+    const dd = document.getElementById(which + 'Dropdown');
+    dd.classList.add('open');
+    renderDropdown(which);
+}
+
+function closeDropdown(which) {
+    setTimeout(() => {
+        document.getElementById(which + 'Dropdown').classList.remove('open');
+    }, 200);
+}
+
+function filterDropdown(which) {
+    openDropdown(which);
+    renderDropdown(which);
+}
+
+function selectDropdown(which, value) {
+    document.getElementById(which + 'Input').value = value;
+    document.getElementById(which + 'Dropdown').classList.remove('open');
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    ['segment', 'campaign'].forEach(which => {
+        const dd = document.getElementById(which + 'Dropdown');
+        if (dd && !dd.contains(e.target)) {
+            dd.classList.remove('open');
+        }
+    });
+});
+
+// Close on blur (with delay for click to register)
+document.getElementById('segmentInput').addEventListener('blur', () => closeDropdown('segment'));
+document.getElementById('campaignInput').addEventListener('blur', () => closeDropdown('campaign'));
+
+// ===================================================================
+// ERROR OVERLAY
+// ===================================================================
+function showError(msg, detail) {
+    zeusFlash();
+    document.getElementById('errorMsg').textContent = msg || 'An unknown force has disrupted the Oracle\'s vision.';
+    document.getElementById('errorDetail').textContent = detail || '';
+    document.getElementById('errorDetail').style.display = detail ? 'block' : 'none';
+    document.getElementById('errorOverlay').classList.add('visible');
+    document.body.style.overflow = 'hidden';
+}
+
+function dismissError() {
+    document.getElementById('errorOverlay').classList.remove('visible');
+    document.body.style.overflow = '';
+    document.getElementById('consultBtn').disabled = false;
+}
+
+// ===================================================================
+// LOG HELPER
+// ===================================================================
+function log(box, cls, msg) {
+    const el = document.getElementById(box);
+    const entry = document.createElement('div');
+    entry.className = 'log-entry ' + cls;
+    const icons = {
+        status: '\u2604\uFE0F',
+        skip: '\u274C',
+        generating: '\uD83D\uDD2E',
+        done: '\u2694\uFE0F',
+        error: '\u26A1',
+        warn: '\u26A0\uFE0F',
+    };
+    entry.textContent = (icons[cls] || '\u25B6') + ' ' + msg;
+    el.appendChild(entry);
+    el.scrollTop = el.scrollHeight;
+}
+
+// ===================================================================
+// CONSULT THE ORACLE (generate)
+// ===================================================================
+function consultTheOracle() {
+    const segment = document.getElementById('segmentInput').value.trim();
+    const campaign = document.getElementById('campaignInput').value.trim();
+    const callingDate = document.getElementById('callingDate').value;
+    const skipExisting = document.getElementById('skipExisting').checked;
+
+    if (!segment || !campaign) {
+        showError('The Oracle demands both a Legion and a Crusade name!', 'Fill in all required fields before consulting the Oracle.');
+        return;
+    }
+
+    // Reset live stats
+    liveProcessed = 0; livePrepared = 0; liveSkipped = 0;
+    document.getElementById('lsProcessed').textContent = '0';
+    document.getElementById('lsPrepared').textContent = '0';
+    document.getElementById('lsSkipped').textContent = '0';
+
+    // Show progress, hide form
+    document.getElementById('consultBtn').disabled = true;
+    document.getElementById('progressSection').style.display = 'block';
+    document.getElementById('reviewSection').style.display = 'none';
+    document.getElementById('approveSection').style.display = 'none';
+    document.getElementById('logBox').innerHTML = '';
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('progressText').textContent = '0%';
+    document.getElementById('currentAction').textContent = 'Awakening the Oracle...';
+    document.getElementById('currentActionSub').textContent = '';
+
+    // Scroll to progress
+    document.getElementById('progressSection').scrollIntoView({behavior: 'smooth'});
+
+    // Zeus flash on start
+    zeusFlash();
+
+    fetch('/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            segment: segment,
+            campaign: campaign,
+            calling_date: callingDate,
+            skip_existing: skipExisting,
+        }),
+    }).then(response => {
+        if (!response.ok) {
+            return response.json().then(d => {
+                showError(d.error || 'The Oracle refuses to speak.', 'HTTP ' + response.status);
+                throw new Error('stop');
+            });
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function read() {
+            reader.read().then(({done, value}) => {
+                if (done) {
+                    // Process any remaining buffer
+                    if (buffer.startsWith('data: ')) {
+                        try {
+                            const msg = JSON.parse(buffer.substring(6));
+                            handleMessage(msg);
+                        } catch(e) {}
+                    }
+                    return;
+                }
+                buffer += decoder.decode(value, {stream: true});
+
+                // Split on double-newline (SSE event boundary)
+                const events = buffer.split('\n\n');
+                // Last element might be incomplete, keep it in buffer
+                buffer = events.pop() || '';
+
+                for (const event of events) {
+                    const trimmed = event.trim();
+                    if (trimmed.startsWith('data: ')) {
+                        try {
+                            const msg = JSON.parse(trimmed.substring(6));
+                            handleMessage(msg);
+                        } catch(e) {
+                            console.warn('SSE parse error:', e.message, 'length:', trimmed.length);
+                        }
+                    }
+                }
+                read();
+            });
+        }
+        read();
+    }).catch(err => {
+        if (err.message !== 'stop') {
+            showError('A catastrophic disturbance in the ether!', err.message);
+        }
+    });
+}
+
+// ===================================================================
+// HANDLE SSE MESSAGES (generate phase)
+// ===================================================================
+function handleMessage(msg) {
+    const t = msg.type;
+
+    if (t === 'status') {
+        log('logBox', 'status', msg.msg);
+        document.getElementById('currentAction').textContent = msg.msg;
+    } else if (t === 'progress') {
+        liveProcessed = msg.current;
+        document.getElementById('lsProcessed').textContent = msg.current;
+        const pct = Math.round((msg.current / msg.total) * 100);
+        document.getElementById('progressBar').style.width = pct + '%';
+        document.getElementById('progressText').textContent = pct + '%';
+        document.getElementById('currentAction').textContent = 'Evaluating ' + msg.name;
+        document.getElementById('currentActionSub').textContent = 'Warrior ' + msg.current + ' of ' + msg.total;
+    } else if (t === 'skip') {
+        liveSkipped++;
+        document.getElementById('lsSkipped').textContent = liveSkipped;
+        log('logBox', 'skip', msg.name + ' \u2014 ' + msg.reason);
+    } else if (t === 'generating') {
+        document.getElementById('currentAction').textContent = '\uD83D\uDD2E The Oracle speaks prophecy for ' + msg.name + '...';
+        document.getElementById('currentActionSub').textContent = msg.company;
+        document.getElementById('oracleEye').textContent = '\uD83D\uDD2E';
+        log('logBox', 'generating', 'The Oracle speaks prophecy for ' + msg.name + ' at ' + msg.company + '...');
+    } else if (t === 'done_contact') {
+        livePrepared++;
+        document.getElementById('lsPrepared').textContent = livePrepared;
+        document.getElementById('oracleEye').textContent = '\uD83D\uDC40';
+        if (msg.cached) {
+            log('logBox', 'done', msg.name + ' at ' + msg.company + ' [' + msg.tz + '] \u2014 RECALLED FROM MEMORY \uD83E\udDE0');
+        } else {
+            log('logBox', 'done', msg.name + ' at ' + msg.company + ' [' + msg.tz + '] \u2014 PROPHECY RECEIVED');
+            zeusFlash(); // Mini flash per completed contact (only for fresh ones)
+        }
+    } else if (t === 'error_contact') {
+        log('logBox', 'error', msg.name + ' \u2014 ' + msg.msg);
+    } else if (t === 'warn') {
+        log('logBox', 'warn', msg.name + ' \u2014 ' + msg.msg);
+    } else if (t === 'error') {
+        showError(msg.msg);
+    } else if (t === 'complete') {
+        log('logBox', 'status', msg.msg);
+        document.getElementById('progressBar').style.width = '100%';
+        document.getElementById('progressText').textContent = '100%';
+        document.getElementById('currentAction').textContent = '\uD83C\uDFC6 ' + msg.msg;
+        document.getElementById('currentActionSub').textContent = '';
+        document.getElementById('oracleEye').textContent = '\uD83C\uDFC6';
+        currentSessionId = msg.session_id;
+
+        if (msg.session_id && msg.stats.prepped > 0) {
+            zeusFlash();
+            // Fetch full session data from API (too large for SSE)
+            document.getElementById('currentAction').textContent = 'Loading battle plan...';
+            fetch('/api/session/' + msg.session_id)
+                .then(r => r.json())
+                .then(sessionData => {
+                    // Merge stats from SSE (most current) with full session data
+                    sessionData.stats = msg.stats;
+                    renderReview(sessionData);
+                })
+                .catch(err => {
+                    showError('Failed to load the battle plan!', err.message);
+                    document.getElementById('consultBtn').disabled = false;
+                });
+        } else {
+            showError('No warriors qualified for battle.',
+                'Check your Legion and filters. Make sure contacts have outbound emails.');
+            document.getElementById('consultBtn').disabled = false;
+        }
+    }
+}
+
+// ===================================================================
+// RENDER REVIEW
+// ===================================================================
+function renderReview(data) {
+    // Stats
+    const stats = data.stats;
+    const cachedCount = stats.skipped_cached || 0;
+    let statsHtml = `
+        <div class="stat-item"><div class="stat-num">${stats.total}</div><div class="stat-label">In the Legion</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#00FF00">${stats.prepped}</div><div class="stat-label">Prepared for Battle</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#808080">${stats.skipped_no_email}</div><div class="stat-label">No Herald Sent</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#FF6B6B">${stats.skipped_subscriber}</div><div class="stat-label">Already Conquered</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#666">${stats.skipped_existing}</div><div class="stat-label">Already Anointed</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#FF0000">${stats.errors}</div><div class="stat-label">Thunderbolts</div></div>`;
+    if (cachedCount > 0) {
+        statsHtml += `<div class="stat-item"><div class="stat-num" style="color:#00BFFF">${cachedCount}</div><div class="stat-label">\uD83E\udDE0 Recalled from Memory</div></div>`;
+    }
+    document.getElementById('statsBox').innerHTML = statsHtml;
+
+    // Call Sheet
+    let sheetHtml = '';
+    let contactNum = 1;
+    const sheet = data.call_sheet;
+
+    for (const block of sheet) {
+        const isDeadZone = block.color === 'red';
+        sheetHtml += '<div class="time-block ' + block.color + '">';
+        sheetHtml += '<div class="time-block-header">';
+        if (isDeadZone) {
+            sheetHtml += '\u26B0\uFE0F ' + block.label + ' | ' + block.description;
+        } else if (block.color === 'green') {
+            sheetHtml += '\u2694\uFE0F ' + block.label + ' | ' + block.description + ' (' + block.local_time + ')';
+        } else {
+            sheetHtml += '\uD83C\uDF19 ' + block.label + ' | ' + block.description + ' (' + block.local_time + ')';
+        }
+        sheetHtml += '</div>';
+
+        if (isDeadZone) {
+            sheetHtml += '<div class="dead-zone-msg">' +
+                'Descend not into Hades\' domain. Use this time for: voicemail follow-ups, email responses, admin tasks, sharpening thy sword for the afternoon assault.' +
+                '</div>';
+        } else if (block.contacts.length === 0) {
+            sheetHtml += '<div class="empty-block">No warriors stationed in this realm</div>';
+        } else {
+            sheetHtml += '<div class="time-block-body">';
+            for (const c of block.contacts) {
+                sheetHtml += '<div class="contact-row">' +
+                    '<span class="num">' + contactNum + '.</span>' +
+                    '<span class="name-title">' + c.name + '<br><span class="title">' + (c.title || 'Unknown rank') + '</span></span>' +
+                    '<span class="company">' + c.company + '</span>' +
+                    '<span class="tz-badge">' + c.tz + '</span>' +
+                    '<span class="phone-email">' + (c.phone || 'No phone') + '<br>' + (c.email || '') + '</span>' +
+                    '</div>';
+                contactNum++;
+            }
+            sheetHtml += '</div>';
+        }
+        sheetHtml += '</div>';
+    }
+    document.getElementById('callSheet').innerHTML = sheetHtml;
+
+    // Unknown TZ
+    if (data.unknown_tz && data.unknown_tz.length > 0) {
+        let unknownHtml = '<div class="unknown-tz-block">' +
+            '<div class="time-block-header">\u26A0\uFE0F LOST IN THE LABYRINTH - Unknown Time Zone (verify manually before calling)</div>' +
+            '<div class="time-block-body">';
+        for (const c of data.unknown_tz) {
+            unknownHtml += '<div class="contact-row">' +
+                '<span class="num">' + contactNum + '.</span>' +
+                '<span class="name-title">' + c.name + '<br><span class="title">' + (c.title || 'Unknown rank') + '</span></span>' +
+                '<span class="company">' + c.company + '</span>' +
+                '<span class="tz-badge" style="background:#8B4500;border-color:#FFA500;">???</span>' +
+                '<span class="phone-email">' + (c.phone || 'No phone') + '<br>' + (c.email || '') + '</span>' +
+                '</div>';
+            contactNum++;
+        }
+        unknownHtml += '</div></div>';
+        document.getElementById('unknownTzBlock').innerHTML = unknownHtml;
+    }
+
+    // Contact detail cards — render the formatted note_html (what gets written to HubSpot)
+    let cardsHtml = '';
+    for (const c of data.contacts) {
+        cardsHtml += '<div class="contact-card" onclick="this.classList.toggle(\'open\')">' +
+            '<div class="contact-card-header">' +
+            '<span><span class="card-name">' + c.name + '</span>' +
+            '<span class="card-meta"> | ' + c.company + ' | ' + c.tz + '</span></span>' +
+            '<span class="toggle-arrow">\u25BC</span>' +
+            '</div>' +
+            '<div class="contact-card-body" style="font-family:Georgia,serif;font-size:14px;line-height:1.6;padding:15px 20px;">' +
+            (c.note_html || c.script_content || 'No content') +
+            '</div>' +
+            '</div>';
+    }
+    document.getElementById('contactCards').innerHTML = cardsHtml;
+
+    // Show sections
+    document.getElementById('reviewSection').style.display = 'block';
+    document.getElementById('approveSection').style.display = 'block';
+
+    // Scroll to review
+    document.getElementById('reviewSection').scrollIntoView({behavior: 'smooth'});
+}
+
+// ===================================================================
+// RELEASE THE KRAKEN (approve)
+// ===================================================================
+function releaseTheKraken() {
+    if (!currentSessionId) {
+        showError('No session to approve!', 'Generate a battle plan first.');
+        return;
+    }
+
+    zeusFlash();
+    document.getElementById('krakenBtn').disabled = true;
+    document.getElementById('approveSection').style.display = 'none';
+    document.getElementById('writeSection').style.display = 'block';
+    document.getElementById('writeLogBox').innerHTML = '';
+    document.getElementById('writeProgressBar').style.width = '0%';
+    document.getElementById('writeProgressText').textContent = 'Preparing quill...';
+
+    document.getElementById('writeSection').scrollIntoView({behavior: 'smooth'});
+
+    fetch('/approve/' + currentSessionId, {method: 'POST'})
+        .then(response => {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            function read() {
+                reader.read().then(({done, value}) => {
+                    if (done) return;
+                    buffer += decoder.decode(value, {stream: true});
+                    const lines = buffer.split('\n');
+                    buffer = '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const msg = JSON.parse(line.substring(6));
+                                handleWriteMessage(msg);
+                            } catch(e) {}
+                        } else if (line !== '') {
+                            buffer += line + '\n';
+                        }
+                    }
+                    read();
+                });
+            }
+            read();
+        });
+}
+
+function handleWriteMessage(msg) {
+    if (msg.type === 'status') {
+        log('writeLogBox', 'status', msg.msg);
+    } else if (msg.type === 'inscribed') {
+        const pct = Math.round((msg.current / msg.total) * 100);
+        document.getElementById('writeProgressBar').style.width = pct + '%';
+        document.getElementById('writeProgressText').textContent =
+            'Inscribing scroll ' + msg.current + ' of ' + msg.total;
+        log('writeLogBox', 'done', 'Sacred scroll inscribed for ' + msg.name + '!');
+    } else if (msg.type === 'error_contact') {
+        log('writeLogBox', 'error', msg.name + ' \u2014 ' + msg.msg);
+    } else if (msg.type === 'approved_complete') {
+        zeusFlash();
+        document.getElementById('writeProgressBar').style.width = '100%';
+        document.getElementById('writeProgressText').textContent = 'ALL SCROLLS INSCRIBED!';
+        log('writeLogBox', 'status', msg.msg);
+        log('writeLogBox', 'status', '\uD83C\uDFC6 THE ORACLE HAS SPOKEN. GO FORTH AND CONQUER! \uD83C\uDFC6');
+
+        // Reset form
+        document.getElementById('consultBtn').disabled = false;
+        currentSessionId = null;
+    }
+}
+
+// ===================================================================
+// BANISH TO TARTARUS (discard)
+// ===================================================================
+function banishToTartarus() {
+    if (!currentSessionId) return;
+    if (!confirm('Art thou certain? The scrolls shall be destroyed and the prophecies lost forever!')) return;
+
+    fetch('/discard/' + currentSessionId, {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            showError('Banished to Tartarus!', data.msg || 'The scrolls have been destroyed.');
+            document.getElementById('reviewSection').style.display = 'none';
+            document.getElementById('approveSection').style.display = 'none';
+            document.getElementById('consultBtn').disabled = false;
+            currentSessionId = null;
+        });
+}
+
+// ===================================================================
+// CLEANUP — Purge old/duplicate COLD CALL PREP notes
+// ===================================================================
+let cleanupSessionId = null;
+
+function startCleanup() {
+    if (!currentSessionId) {
+        alert('No active session!');
+        return;
+    }
+    cleanupSessionId = currentSessionId;
+
+    // Show cleanup section
+    const sec = document.getElementById('cleanupSection');
+    sec.style.display = 'block';
+    document.getElementById('cleanupManifest').style.display = 'none';
+    document.getElementById('cleanupManifest').innerHTML = '';
+    document.getElementById('cleanupSummary').style.display = 'none';
+    document.getElementById('cleanupButtons').style.display = 'none';
+    document.getElementById('cleanupLogBox').style.display = 'none';
+    document.getElementById('cleanupLogBox').innerHTML = '';
+    document.getElementById('cleanupProgressBar').style.width = '0%';
+    document.getElementById('cleanupProgressText').textContent = 'Scanning...';
+    document.getElementById('cleanupBtn').disabled = true;
+
+    sec.scrollIntoView({behavior: 'smooth'});
+
+    // Start SSE scan
+    fetch('/cleanup/' + cleanupSessionId, {method: 'POST'})
+    .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function read() {
+            reader.read().then(({done, value}) => {
+                if (done) {
+                    if (buffer.trim().startsWith('data: ')) {
+                        try {
+                            handleCleanupMsg(JSON.parse(buffer.trim().substring(6)));
+                        } catch(e) {}
+                    }
+                    return;
+                }
+                buffer += decoder.decode(value, {stream: true});
+                const events = buffer.split('\n\n');
+                buffer = events.pop() || '';
+                for (const event of events) {
+                    const trimmed = event.trim();
+                    if (trimmed.startsWith('data: ')) {
+                        try {
+                            handleCleanupMsg(JSON.parse(trimmed.substring(6)));
+                        } catch(e) {}
+                    }
+                }
+                read();
+            });
+        }
+        read();
+    }).catch(err => {
+        log('cleanupLogBox', 'error', 'Cleanup scan failed: ' + err.message);
+        document.getElementById('cleanupBtn').disabled = false;
+    });
+}
+
+function handleCleanupMsg(msg) {
+    const t = msg.type;
+    if (t === 'status') {
+        document.getElementById('cleanupProgressText').textContent = msg.msg;
+    } else if (t === 'progress') {
+        const pct = Math.round((msg.current / msg.total) * 100);
+        document.getElementById('cleanupProgressBar').style.width = pct + '%';
+        document.getElementById('cleanupProgressText').textContent = 'Scanning ' + msg.name + '... (' + msg.current + '/' + msg.total + ')';
+    } else if (t === 'scan_result') {
+        // Individual contact scan result — show in manifest
+        const manifest = document.getElementById('cleanupManifest');
+        manifest.style.display = 'block';
+        if (msg.remove > 0) {
+            manifest.innerHTML += '<div class="cleanup-row">' +
+                '<span class="cname">' + msg.name + '</span>' +
+                '<span>' + msg.found + ' notes found — ' +
+                '<span class="ckeep">' + msg.keep + ' keep</span>, ' +
+                '<span class="cremove">' + msg.remove + ' remove</span></span></div>';
+        } else if (msg.found > 1) {
+            manifest.innerHTML += '<div class="cleanup-row">' +
+                '<span class="cname">' + msg.name + '</span>' +
+                '<span>' + msg.found + ' notes — <span class="ckeep">all match</span></span></div>';
+        }
+        // Skip contacts with 0-1 notes (nothing to clean)
+    } else if (t === 'error_contact') {
+        const lb = document.getElementById('cleanupLogBox');
+        lb.style.display = 'block';
+        log('cleanupLogBox', 'error', msg.name + ' — ' + msg.msg);
+    } else if (t === 'scan_complete') {
+        document.getElementById('cleanupProgressBar').style.width = '100%';
+        document.getElementById('cleanupProgressText').textContent = 'Scan complete!';
+
+        const summary = document.getElementById('cleanupSummary');
+        summary.style.display = 'block';
+
+        if (msg.removing === 0) {
+            summary.innerHTML = '&#9989; <strong>No false scrolls found!</strong> All notes are clean. Athena approves.';
+            document.getElementById('cleanupBtn').disabled = false;
+        } else {
+            summary.innerHTML = '&#9876;&#65039; Found <strong style="color:#FF6B6B">' + msg.removing + '</strong> false scrolls to purge. ' +
+                '<strong style="color:#00FF00">' + msg.keeping + '</strong> true scrolls will be preserved.';
+            document.getElementById('cleanupButtons').style.display = 'flex';
+        }
+    }
+}
+
+function executeCleanup() {
+    if (!cleanupSessionId) return;
+    if (!confirm('This will archive ' + document.querySelectorAll('.cleanup-row .cremove').length + '+ old COLD CALL PREP notes from HubSpot. They can be restored from the HubSpot recycle bin. Proceed?')) return;
+
+    document.getElementById('smiteBtn').disabled = true;
+    document.getElementById('cleanupButtons').style.display = 'none';
+    const lb = document.getElementById('cleanupLogBox');
+    lb.style.display = 'block';
+    lb.innerHTML = '';
+    document.getElementById('cleanupProgressBar').style.width = '0%';
+    document.getElementById('cleanupProgressText').textContent = 'Smiting...';
+
+    fetch('/execute-cleanup/' + cleanupSessionId, {method: 'POST'})
+    .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function read() {
+            reader.read().then(({done, value}) => {
+                if (done) {
+                    if (buffer.trim().startsWith('data: ')) {
+                        try {
+                            handleSmiteMsg(JSON.parse(buffer.trim().substring(6)));
+                        } catch(e) {}
+                    }
+                    return;
+                }
+                buffer += decoder.decode(value, {stream: true});
+                const events = buffer.split('\n\n');
+                buffer = events.pop() || '';
+                for (const event of events) {
+                    const trimmed = event.trim();
+                    if (trimmed.startsWith('data: ')) {
+                        try {
+                            handleSmiteMsg(JSON.parse(trimmed.substring(6)));
+                        } catch(e) {}
+                    }
+                }
+                read();
+            });
+        }
+        read();
+    }).catch(err => {
+        log('cleanupLogBox', 'error', 'Cleanup failed: ' + err.message);
+        document.getElementById('smiteBtn').disabled = false;
+        document.getElementById('cleanupButtons').style.display = 'flex';
+    });
+}
+
+function handleSmiteMsg(msg) {
+    const t = msg.type;
+    if (t === 'status') {
+        document.getElementById('cleanupProgressText').textContent = msg.msg;
+        log('cleanupLogBox', 'status', msg.msg);
+    } else if (t === 'archived') {
+        const pct = Math.round((msg.current / msg.total) * 100);
+        document.getElementById('cleanupProgressBar').style.width = pct + '%';
+        document.getElementById('cleanupProgressText').textContent = 'Smiting... (' + msg.current + '/' + msg.total + ')';
+        log('cleanupLogBox', 'done', msg.name + ' — note ' + msg.note_id + ' archived');
+    } else if (t === 'error_contact') {
+        log('cleanupLogBox', 'error', msg.name + ' — ' + msg.msg);
+    } else if (t === 'cleanup_complete') {
+        document.getElementById('cleanupProgressBar').style.width = '100%';
+        document.getElementById('cleanupProgressText').textContent = msg.msg;
+        log('cleanupLogBox', 'status', msg.msg);
+        document.getElementById('cleanupSummary').innerHTML = msg.msg;
+        document.getElementById('cleanupBtn').disabled = false;
+        cleanupSessionId = null;
+    }
+}
+
+function cancelCleanup() {
+    document.getElementById('cleanupSection').style.display = 'none';
+    document.getElementById('cleanupBtn').disabled = false;
+    cleanupSessionId = null;
+}
+</script>
+
+</body>
+</html>

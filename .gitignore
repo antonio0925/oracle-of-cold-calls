@@ -1,0 +1,28 @@
+# Credentials (NEVER commit these)
+.env
+*.env.local
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Session data (contains contact PII + generated content)
+sessions/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+server.log
+
+# IDE
+.vscode/
+.idea/
+
+# Claude project files
+.claude/
