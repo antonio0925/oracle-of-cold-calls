@@ -5,7 +5,10 @@ Every module imports from here instead of calling os.getenv() directly.
 load_dotenv() is called exactly once, at import time.
 """
 import os
+import logging
 from dotenv import load_dotenv
+
+_log = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -51,3 +54,22 @@ OCTAVE_CALL_PREP_AGENT = os.getenv("OCTAVE_CALL_PREP_AGENT", "ca_DLoI5XBlw9qGNED
 # --- Server ---
 FLASK_PORT = int(os.getenv("FLASK_PORT", "5001"))
 FLASK_DEBUG = os.getenv("FLASK_DEBUG", "true").lower() in ("true", "1", "yes")
+
+# --- Validation ---
+_VALID_TIMEZONES = {"US/Eastern", "US/Central", "US/Mountain", "US/Pacific", "US/Alaska", "US/Hawaii"}
+
+if not 1 <= QUAL_THRESHOLD <= 10:
+    _log.warning("QUAL_THRESHOLD=%d is outside 1-10 range, clamping", QUAL_THRESHOLD)
+    QUAL_THRESHOLD = max(1, min(10, QUAL_THRESHOLD))
+
+if not 1 <= FLASK_PORT <= 65535:
+    _log.warning("FLASK_PORT=%d is outside valid range, defaulting to 5001", FLASK_PORT)
+    FLASK_PORT = 5001
+
+if USER_TIMEZONE not in _VALID_TIMEZONES:
+    _log.warning("USER_TIMEZONE='%s' not recognized, defaulting to US/Pacific", USER_TIMEZONE)
+    USER_TIMEZONE = "US/Pacific"
+
+for _key_name in ("HUBSPOT_ACCESS_TOKEN", "OCTAVE_API_KEY"):
+    if not locals()[_key_name]:
+        _log.warning("Required key %s is empty — some features will be unavailable", _key_name)

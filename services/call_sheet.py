@@ -71,7 +71,7 @@ def et_to_user_hour(et_hour):
 
 def format_hour(h):
     """Format an hour integer as '5:00 AM' / '12:00 PM' etc."""
-    if h <= 0:
+    while h <= 0:
         h += 24
     period = "AM" if h < 12 else "PM"
     display = h if h <= 12 else h - 12

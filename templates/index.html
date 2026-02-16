@@ -2230,6 +2230,14 @@ body {
 
 <script>
 // ===================================================================
+// HTML ESCAPE UTILITY — prevents XSS from backend data
+// ===================================================================
+function escapeHtml(str) {
+    if (!str && str !== 0) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ===================================================================
 // FLOATING MYTHOLOGY SPRITES (background ambiance)
 // ===================================================================
 (function() {
@@ -2742,13 +2750,13 @@ function renderReview(data) {
         } else {
             sheetHtml += '<div class="time-block-body">';
             for (const c of block.contacts) {
-                const hsUrl = 'https://app.hubspot.com/contacts/' + HUBSPOT_PORTAL_ID + '/record/0-1/' + c.contact_id;
-                sheetHtml += '<div class="contact-row" data-contact-id="' + c.contact_id + '">' +
+                const hsUrl = 'https://app.hubspot.com/contacts/' + HUBSPOT_PORTAL_ID + '/record/0-1/' + encodeURIComponent(c.contact_id);
+                sheetHtml += '<div class="contact-row" data-contact-id="' + escapeHtml(c.contact_id) + '">' +
                     '<span class="num">' + contactNum + '.</span>' +
-                    '<span class="name-title"><a href="' + hsUrl + '" target="_blank" class="hs-link">' + c.name + '</a><br><span class="title">' + (c.title || 'Unknown rank') + '</span></span>' +
-                    '<span class="company">' + c.company + '</span>' +
-                    '<span class="tz-badge">' + c.tz + '</span>' +
-                    '<span class="phone-email">' + (c.phone || 'No phone') + '<br>' + (c.email || '') + '</span>' +
+                    '<span class="name-title"><a href="' + hsUrl + '" target="_blank" class="hs-link">' + escapeHtml(c.name) + '</a><br><span class="title">' + escapeHtml(c.title || 'Unknown rank') + '</span></span>' +
+                    '<span class="company">' + escapeHtml(c.company) + '</span>' +
+                    '<span class="tz-badge">' + escapeHtml(c.tz) + '</span>' +
+                    '<span class="phone-email">' + escapeHtml(c.phone || 'No phone') + '<br>' + escapeHtml(c.email || '') + '</span>' +
                     '</div>';
                 contactNum++;
             }
@@ -2764,13 +2772,13 @@ function renderReview(data) {
             '<div class="time-block-header">\u26A0\uFE0F LOST IN THE LABYRINTH - Unknown Time Zone (verify manually before calling)</div>' +
             '<div class="time-block-body">';
         for (const c of data.unknown_tz) {
-            const unkHsUrl = 'https://app.hubspot.com/contacts/' + HUBSPOT_PORTAL_ID + '/record/0-1/' + c.contact_id;
-            unknownHtml += '<div class="contact-row" data-contact-id="' + c.contact_id + '">' +
+            const unkHsUrl = 'https://app.hubspot.com/contacts/' + HUBSPOT_PORTAL_ID + '/record/0-1/' + encodeURIComponent(c.contact_id);
+            unknownHtml += '<div class="contact-row" data-contact-id="' + escapeHtml(c.contact_id) + '">' +
                 '<span class="num">' + contactNum + '.</span>' +
-                '<span class="name-title"><a href="' + unkHsUrl + '" target="_blank" class="hs-link">' + c.name + '</a><br><span class="title">' + (c.title || 'Unknown rank') + '</span></span>' +
-                '<span class="company">' + c.company + '</span>' +
+                '<span class="name-title"><a href="' + unkHsUrl + '" target="_blank" class="hs-link">' + escapeHtml(c.name) + '</a><br><span class="title">' + escapeHtml(c.title || 'Unknown rank') + '</span></span>' +
+                '<span class="company">' + escapeHtml(c.company) + '</span>' +
                 '<span class="tz-badge" style="background:#8B4500;border-color:#FFA500;">???</span>' +
-                '<span class="phone-email">' + (c.phone || 'No phone') + '<br>' + (c.email || '') + '</span>' +
+                '<span class="phone-email">' + escapeHtml(c.phone || 'No phone') + '<br>' + escapeHtml(c.email || '') + '</span>' +
                 '</div>';
             contactNum++;
         }
@@ -3310,7 +3318,7 @@ function selectForgeCampaign(id, title) {
             renderBriefPreview(data.brief);
         })
         .catch(err => {
-            document.getElementById('briefContent').innerHTML = '<span style="color:#FF4444;">Failed: ' + err.message + '</span>';
+            document.getElementById('briefContent').innerHTML = '<span style="color:#FF4444;">Failed: ' + escapeHtml(err.message) + '</span>';
         });
 }
 
@@ -3318,30 +3326,30 @@ function renderBriefPreview(brief) {
     let html = '';
 
     if (brief.icp) {
-        html += '<h3>&#127919; ICP (Ideal Customer Profile)</h3><p>' + brief.icp.replace(/\n/g, '<br>') + '</p>';
+        html += '<h3>&#127919; ICP (Ideal Customer Profile)</h3><p>' + escapeHtml(brief.icp).replace(/\n/g, '<br>') + '</p>';
     }
 
     if (brief.personas && brief.personas.length > 0) {
         html += '<h3>&#128101; Target Personas</h3>';
-        brief.personas.forEach(p => { html += '<p>\u2022 ' + p + '</p>'; });
+        brief.personas.forEach(p => { html += '<p>\u2022 ' + escapeHtml(p) + '</p>'; });
     }
 
     if (brief.target_titles && brief.target_titles.length > 0) {
         html += '<h3>&#127919; Extracted Target Titles</h3>';
-        brief.target_titles.forEach(t => { html += '<span class="brief-tag">' + t + '</span>'; });
+        brief.target_titles.forEach(t => { html += '<span class="brief-tag">' + escapeHtml(t) + '</span>'; });
     }
 
     if (brief.company_characteristics) {
-        html += '<h3>&#127970; Company Characteristics</h3><p>' + brief.company_characteristics.replace(/\n/g, '<br>') + '</p>';
+        html += '<h3>&#127970; Company Characteristics</h3><p>' + escapeHtml(brief.company_characteristics).replace(/\n/g, '<br>') + '</p>';
     }
 
     if (brief.keywords && brief.keywords.length > 0) {
         html += '<h3>&#128273; Search Keywords</h3>';
-        brief.keywords.forEach(k => { html += '<span class="brief-tag">' + k + '</span>'; });
+        brief.keywords.forEach(k => { html += '<span class="brief-tag">' + escapeHtml(k) + '</span>'; });
     }
 
     if (brief.value_proposition) {
-        html += '<h3>&#128161; Value Proposition</h3><p>' + brief.value_proposition.replace(/\n/g, '<br>') + '</p>';
+        html += '<h3>&#128161; Value Proposition</h3><p>' + escapeHtml(brief.value_proposition).replace(/\n/g, '<br>') + '</p>';
     }
 
     // Show all sections
@@ -3352,7 +3360,7 @@ function renderBriefPreview(brief) {
         const upper = name.toUpperCase();
         if (shown.has(name)) return;
         if (upper.includes('ICP') || upper.includes('PERSONA') || upper.includes('COMPANY CHAR') || upper.includes('VALUE PROP') || upper.includes('MESSAGING')) return;
-        html += '<h3>' + name + '</h3><p>' + brief.sections[name].replace(/\n/g, '<br>') + '</p>';
+        html += '<h3>' + escapeHtml(name) + '</h3><p>' + escapeHtml(brief.sections[name]).replace(/\n/g, '<br>') + '</p>';
     });
 
     if (!html) html = '<p style="color:#666;">No structured brief data found. The campaign page may use a different format.</p>';
@@ -3405,7 +3413,7 @@ function readSSE(response, handler) {
         reader.read().then(({done, value}) => {
             if (done) {
                 if (buffer.trim().startsWith('data: ')) {
-                    try { handler(JSON.parse(buffer.trim().substring(6))); } catch(e) {}
+                    try { handler(JSON.parse(buffer.trim().substring(6))); } catch(e) { console.warn('SSE parse error (final):', e, buffer.trim()); }
                 }
                 return;
             }
@@ -3415,7 +3423,7 @@ function readSSE(response, handler) {
             for (const event of events) {
                 const trimmed = event.trim();
                 if (trimmed.startsWith('data: ')) {
-                    try { handler(JSON.parse(trimmed.substring(6))); } catch(e) {}
+                    try { handler(JSON.parse(trimmed.substring(6))); } catch(e) { console.warn('SSE parse error:', e, trimmed); }
                 }
             }
             read();
@@ -3582,14 +3590,14 @@ function handleProspectMsg(msg) {
         companies.forEach(c => {
             const checked = c.qualified ? 'checked' : '';
             tbody.innerHTML += '<tr>' +
-                '<td><input type="checkbox" ' + checked + ' value="' + (c.domain || '') + '"></td>' +
-                '<td>' + c.name + '</td>' +
-                '<td>' + (c.domain || '') + '</td>' +
-                '<td>' + (c.industry || '-') + '</td>' +
-                '<td>' + (c.employees || '-') + '</td>' +
-                '<td>' + (c.location || '') + ' <span class="us-badge">US</span></td>' +
+                '<td><input type="checkbox" ' + checked + ' value="' + escapeHtml(c.domain || '') + '"></td>' +
+                '<td>' + escapeHtml(c.name) + '</td>' +
+                '<td>' + escapeHtml(c.domain || '') + '</td>' +
+                '<td>' + escapeHtml(c.industry || '-') + '</td>' +
+                '<td>' + escapeHtml(c.employees || '-') + '</td>' +
+                '<td>' + escapeHtml(c.location || '') + ' <span class="us-badge">US</span></td>' +
                 '<td>' + scoreBadge(c.score || 0) + '</td>' +
-                '<td>' + (c.source || 'qualify') + '</td>' +
+                '<td>' + escapeHtml(c.source || 'qualify') + '</td>' +
                 '</tr>';
         });
 
@@ -3673,12 +3681,12 @@ function handleEnrichCompanyMsg(msg) {
         companies.forEach(c => {
             const summary = (c.enrichment_summary || c.summary || c.description || '').substring(0, 200);
             tbody.innerHTML += '<tr>' +
-                '<td><input type="checkbox" checked value="' + (c.domain || '') + '"></td>' +
-                '<td>' + (c.name || '') + '</td>' +
-                '<td>' + (c.domain || '') + '</td>' +
-                '<td>' + (c.industry || '-') + '</td>' +
+                '<td><input type="checkbox" checked value="' + escapeHtml(c.domain || '') + '"></td>' +
+                '<td>' + escapeHtml(c.name || '') + '</td>' +
+                '<td>' + escapeHtml(c.domain || '') + '</td>' +
+                '<td>' + escapeHtml(c.industry || '-') + '</td>' +
                 '<td>' + scoreBadge(c.score || 0) + '</td>' +
-                '<td><span class="reasoning-text">' + summary + '</span></td>' +
+                '<td><span class="reasoning-text">' + escapeHtml(summary) + '</span></td>' +
                 '</tr>';
         });
 
@@ -3767,13 +3775,14 @@ function handleDiscoverPeopleMsg(msg) {
         people.forEach(p => {
             const summary = (p.summary || p.enrichment_summary || '').substring(0, 200);
             const identifier = p.email || p.linkedin || p.name;
+            const personData = encodeURIComponent(JSON.stringify({name: p.name, email: p.email, company: p.company, title: p.title, linkedin: p.linkedin}));
             tbody.innerHTML += '<tr>' +
-                '<td><input type="checkbox" checked value="' + identifier + '" data-person=\'' + JSON.stringify({name: p.name, email: p.email, company: p.company, title: p.title, linkedin: p.linkedin}).replace(/'/g, '&#39;') + '\'></td>' +
-                '<td>' + (p.name || '') + '</td>' +
-                '<td>' + (p.title || '-') + '</td>' +
-                '<td>' + (p.company || '-') + '</td>' +
-                '<td>' + (p.email || '-') + '</td>' +
-                '<td><span class="reasoning-text">' + summary + '</span></td>' +
+                '<td><input type="checkbox" checked value="' + escapeHtml(identifier) + '" data-person="' + personData + '"></td>' +
+                '<td>' + escapeHtml(p.name || '') + '</td>' +
+                '<td>' + escapeHtml(p.title || '-') + '</td>' +
+                '<td>' + escapeHtml(p.company || '-') + '</td>' +
+                '<td>' + escapeHtml(p.email || '-') + '</td>' +
+                '<td><span class="reasoning-text">' + escapeHtml(summary) + '</span></td>' +
                 '</tr>';
         });
 
@@ -3838,7 +3847,7 @@ function loadBattlePlan() {
         .then(r => r.json())
         .then(data => {
             if (data.error) {
-                content.innerHTML = '<div class="battle-empty">\u26A1 ' + data.error + '</div>';
+                content.innerHTML = '<div class="battle-empty">\u26A1 ' + escapeHtml(data.error) + '</div>';
                 return;
             }
             battleData = data;
@@ -3846,7 +3855,7 @@ function loadBattlePlan() {
             renderBattlePlan();
         })
         .catch(err => {
-            content.innerHTML = '<div class="battle-empty">\u26A1 Failed to summon the list: ' + err.message + '</div>';
+            content.innerHTML = '<div class="battle-empty">\u26A1 Failed to summon the list: ' + escapeHtml(err.message) + '</div>';
         });
 
     // Load dispositions for the modal
@@ -3902,24 +3911,28 @@ function renderBattlePlan() {
 function renderBattleCard(contact, tier) {
     const tierClass = tier === 'hot' ? '' : tier;
     const badgeClass = tier === 'hot' ? '' : ' ' + tier;
-    const signal = (contact.action_type || '').replace('signal_', '');
-    const hubspotUrl = 'https://app.hubspot.com/contacts/{{ hubspot_portal_id }}/contact/' + contact.contact_id;
-    const phone = contact.phone || '';
+    const signal = escapeHtml((contact.action_type || '').replace('signal_', ''));
+    const cid = escapeHtml(contact.contact_id);
+    const hubspotUrl = 'https://app.hubspot.com/contacts/{{ hubspot_portal_id }}/contact/' + encodeURIComponent(contact.contact_id);
+    const phone = escapeHtml(contact.phone || '');
     const phoneLink = phone ? '<a href="tel:' + phone + '">' + phone + '</a>' : 'No phone';
+    const name = escapeHtml(contact.name || 'Unknown');
+    const email = escapeHtml(contact.email || '');
+    const safeName = (contact.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
 
-    return '<div class="battle-card ' + tierClass + '" id="battle-card-' + contact.contact_id + '">' +
+    return '<div class="battle-card ' + tierClass + '" data-tier="' + escapeHtml(tier) + '" id="battle-card-' + cid + '">' +
         '<div class="battle-card-info">' +
-            '<div class="contact-name">' + (contact.name || 'Unknown') + '</div>' +
-            '<div class="contact-detail">' + (contact.title || '') + (contact.title && contact.company ? ' @ ' : '') + (contact.company || '') + '</div>' +
-            '<div class="contact-detail">&#9742; ' + phoneLink + ' &bull; <a href="mailto:' + (contact.email || '') + '">' + (contact.email || '') + '</a></div>' +
+            '<div class="contact-name">' + name + '</div>' +
+            '<div class="contact-detail">' + escapeHtml(contact.title || '') + (contact.title && contact.company ? ' @ ' : '') + escapeHtml(contact.company || '') + '</div>' +
+            '<div class="contact-detail">&#9742; ' + phoneLink + ' &bull; <a href="mailto:' + email + '">' + email + '</a></div>' +
             '<div class="contact-detail"><a href="' + hubspotUrl + '" target="_blank">View in HubSpot &#8599;</a>' +
-            (contact.step_number ? ' &bull; Step ' + contact.step_number : '') + '</div>' +
+            (contact.step_number ? ' &bull; Step ' + escapeHtml(contact.step_number) : '') + '</div>' +
             (signal ? '<span class="signal-badge' + badgeClass + '">' + signal + '</span>' : '') +
-            '<div class="call-prep-panel" id="prep-' + contact.contact_id + '"></div>' +
+            '<div class="call-prep-panel" id="prep-' + cid + '"></div>' +
         '</div>' +
         '<div class="battle-card-actions">' +
-            '<button class="battle-btn prep" onclick="runCallPrep(\'' + contact.contact_id + '\')">&#128220; Call Prep</button>' +
-            '<button class="battle-btn complete" onclick="openDisposition(\'' + contact.contact_id + '\', \'' + (contact.name || '').replace(/'/g, "\\'") + '\')">&#9989; Complete</button>' +
+            '<button class="battle-btn prep" onclick="runCallPrep(\'' + cid + '\')">&#128220; Call Prep</button>' +
+            '<button class="battle-btn complete" onclick="openDisposition(\'' + cid + '\', \'' + safeName + '\')">&#9989; Complete</button>' +
         '</div>' +
     '</div>';
 }
@@ -3928,13 +3941,6 @@ function runCallPrep(contactId) {
     const panel = document.getElementById('prep-' + contactId);
     if (!panel) return;
     panel.classList.add('show');
-    panel.innerHTML = '<em style="color:#CD853F;">&#128293; Consulting the Oracle...</em>';
-
-    const evtSrc = new EventSource('/api/battle-plan/call-prep?' +
-        new URLSearchParams({contact_id: contactId}));
-
-    // SSE via POST requires fetch, but we can use GET with query param trick
-    // Actually, call-prep is POST. Use fetch + ReadableStream instead.
     panel.innerHTML = '<em style="color:#CD853F;">&#128293; Consulting the Oracle...</em>';
 
     fetch('/api/battle-plan/call-prep', {
@@ -3958,11 +3964,11 @@ function runCallPrep(contactId) {
                         const evt = JSON.parse(line.slice(6));
                         if (evt.type === 'call_prep_ready') {
                             panel.innerHTML = '<strong style="color:#FFD700;">&#128220; Call Prep for ' +
-                                evt.name + '</strong><br><br>' + formatScript(evt.script);
+                                escapeHtml(evt.name) + '</strong><br><br>' + formatScript(evt.script);
                         } else if (evt.type === 'error') {
-                            panel.innerHTML = '<em style="color:#FF4500;">\u26A1 ' + evt.msg + '</em>';
+                            panel.innerHTML = '<em style="color:#FF4500;">\u26A1 ' + escapeHtml(evt.msg) + '</em>';
                         } else if (evt.type === 'status') {
-                            panel.innerHTML = '<em style="color:#CD853F;">' + evt.msg + '</em>';
+                            panel.innerHTML = '<em style="color:#CD853F;">' + escapeHtml(evt.msg) + '</em>';
                         }
                     } catch(e) {}
                 }
@@ -3971,7 +3977,7 @@ function runCallPrep(contactId) {
         }
         read();
     }).catch(err => {
-        panel.innerHTML = '<em style="color:#FF4500;">\u26A1 Call prep failed: ' + err.message + '</em>';
+        panel.innerHTML = '<em style="color:#FF4500;">\u26A1 Call prep failed: ' + escapeHtml(err.message) + '</em>';
     });
 }
 
@@ -3993,8 +3999,9 @@ function openDisposition(contactId, contactName) {
     // Render disposition buttons
     const grid = document.getElementById('dispoGrid');
     grid.innerHTML = dispositions.map(d => {
-        const label = d.disposition.replace(/_/g, ' ');
-        return '<button class="dispo-btn" data-dispo="' + d.disposition + '" onclick="selectDispo(this, \'' + d.disposition + '\')">' +
+        const label = escapeHtml(d.disposition.replace(/_/g, ' '));
+        const safeDispo = escapeHtml(d.disposition);
+        return '<button class="dispo-btn" data-dispo="' + safeDispo + '" onclick="selectDispo(this, \'' + safeDispo + '\')">' +
             label + '</button>';
     }).join('');
 
@@ -4048,11 +4055,13 @@ function submitDisposition() {
             const actionsDiv = card.querySelector('.battle-card-actions');
             if (actionsDiv) {
                 actionsDiv.innerHTML = '<span style="color:#2ecc71; font-family:\'MedievalSharp\',cursive;">\u2705 ' +
-                    selectedDispo.replace(/_/g, ' ') + '</span>';
+                    escapeHtml(selectedDispo.replace(/_/g, ' ')) + '</span>';
             }
         }
-        // Update count
-        const countEl = document.getElementById('battleHotCount');
+        // Update count — decrement the correct tier counter
+        const tier = card ? card.getAttribute('data-tier') : 'hot';
+        const counterIds = {hot: 'battleHotCount', warm: 'battleWarmCount', parked: 'battleParkedCount'};
+        const countEl = document.getElementById(counterIds[tier] || 'battleHotCount');
         const current = parseInt(countEl.textContent) || 0;
         if (current > 0) countEl.textContent = current - 1;
     })

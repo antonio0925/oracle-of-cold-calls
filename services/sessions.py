@@ -6,6 +6,7 @@ Covers both Oracle (prep_*) and Forge (forge_*) sessions.
 """
 import os
 import json
+import copy
 import threading
 from datetime import datetime, timezone
 
@@ -18,9 +19,14 @@ _sessions_lock = threading.Lock()
 
 
 def get_session(key):
-    """Get a session by key (thread-safe)."""
+    """Get a session by key (thread-safe).
+
+    Returns a deep copy so callers can mutate without affecting the store.
+    Use set_session() to write changes back.
+    """
     with _sessions_lock:
-        return _sessions.get(key)
+        data = _sessions.get(key)
+        return copy.deepcopy(data) if data is not None else None
 
 
 def set_session(key, data):

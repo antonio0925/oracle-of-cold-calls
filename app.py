@@ -7,6 +7,7 @@ import json
 import time
 import re
 import uuid
+import hmac
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, render_template, request, Response, jsonify
@@ -21,7 +22,7 @@ from services.sessions import (
     utc_now_iso,
 )
 from services.timezone import resolve_timezone, tz_label
-from services.filters import US_COUNTRY_ALIASES
+from services.filters import is_us_company, is_us_person
 from services.formatting import format_note_html, normalize_html_for_compare
 from services.call_sheet import title_seniority, TIME_BLOCKS, TZ_TO_BLOCKS, build_call_sheet
 from services.hubspot import HubSpotClient
@@ -36,17 +37,16 @@ from services.routing_config import get_route, list_dispositions
 app = Flask(__name__)
 log = logging.getLogger(__name__)
 
+# Shared thread pool for all SSE generators — bounds total concurrency and
+# prevents zombie pools when clients disconnect mid-stream.
+_pool = ThreadPoolExecutor(max_workers=8)
 
-def _shutdown_pool(pool, futures):
-    """Cancel pending futures and shut down a ThreadPoolExecutor immediately.
 
-    Called in `finally` blocks of SSE generators so that disconnected clients
-    don't leave worker threads running indefinitely.
-    """
-    for f in futures:
-        f.cancel()
-    pool.shutdown(wait=False)
-    log.info("ThreadPoolExecutor shut down (%d futures cancelled)", len(futures))
+def _cancel_futures(futures):
+    """Cancel pending futures when an SSE generator is interrupted."""
+    cancelled = sum(1 for f in futures if f.cancel())
+    if cancelled:
+        log.info("Cancelled %d pending futures", cancelled)
 
 
 # ---------------------------------------------------------------------------
@@ -1046,8 +1046,7 @@ def forge_prospect():
                 return (domain, None, str(e))
 
         completed = 0
-        pool = ThreadPoolExecutor(max_workers=5)
-        future_map = {pool.submit(_qualify_one, d): d for d in unique_domains}
+        future_map = {_pool.submit(_qualify_one, d): d for d in unique_domains}
         try:
             for future in as_completed(future_map):
                 completed += 1
@@ -1080,7 +1079,7 @@ def forge_prospect():
                     "source": "claude_discovery",
                 })
         finally:
-            _shutdown_pool(pool, list(future_map.keys()))
+            _cancel_futures(list(future_map.keys()))
 
         # Merge into existing session — preserve discovered_domains, status, etc.
         if existing_session:
@@ -1147,7 +1146,7 @@ def _parse_qualify_company_result(result, domain):
         "score": score,
         "reasoning": comp_data.get("rationale") or "",
         "qualified": score >= config.QUAL_THRESHOLD,
-        "us_based": country_code in US_COUNTRY_ALIASES,
+        "us_based": is_us_company({"country": country_code, "location": location.get("locality", "")}),
         "product": comp_data.get("product"),
         "segment": comp_data.get("segment"),
         "playbook": comp_data.get("playbook"),
@@ -1214,8 +1213,7 @@ def forge_enrich_companies():
                 return (company, None, str(e))
 
         completed = 0
-        pool = ThreadPoolExecutor(max_workers=3)
-        future_map = {pool.submit(_enrich_one, c): c for c in approved_companies}
+        future_map = {_pool.submit(_enrich_one, c): c for c in approved_companies}
         try:
             for future in as_completed(future_map):
                 completed += 1
@@ -1247,7 +1245,7 @@ def forge_enrich_companies():
                     "talking_points": enriched_entry["talking_points"][:3],
                 })
         finally:
-            _shutdown_pool(pool, list(future_map.keys()))
+            _cancel_futures(list(future_map.keys()))
 
         # Update session
         forge_data["enriched_companies"] = enriched_companies
@@ -1332,8 +1330,7 @@ def forge_discover_enrich_people():
         pending_enrichment = []
 
         completed_prospect = 0
-        pool = ThreadPoolExecutor(max_workers=5)
-        future_map = {pool.submit(_prospect_one, c): c for c in target_companies}
+        future_map = {_pool.submit(_prospect_one, c): c for c in target_companies}
         try:
             for future in as_completed(future_map):
                 completed_prospect += 1
@@ -1363,22 +1360,19 @@ def forge_discover_enrich_people():
                     if not person_name:
                         person_name = person.get("name", "Unknown")
 
-                    # US-only filter
-                    location = person.get("location") or {}
-                    country_code = ""
-                    if isinstance(location, dict):
-                        country_code = location.get("countryCode", "")
-                    person_country = person.get("countryCode", country_code)
-
-                    # Require positive US match — unknown country is NOT assumed US
-                    person_country_upper = (person_country or "").upper()
-                    if not person_country_upper:
+                    # US-only filter — delegate to services/filters.py
+                    location_raw = person.get("location") or {}
+                    loc_country = ""
+                    if isinstance(location_raw, dict):
+                        loc_country = location_raw.get("countryCode", "")
+                    person_filter_data = {
+                        "countryCode": person.get("countryCode", loc_country),
+                        "location": person.get("location", "") if isinstance(person.get("location"), str) else "",
+                    }
+                    if not is_us_person(person_filter_data):
                         filtered_non_us += 1
-                        yield emit("skip", {"name": person_name, "reason": "No country data (not confirmed US)"})
-                        continue
-                    if person_country_upper not in US_COUNTRY_ALIASES:
-                        filtered_non_us += 1
-                        yield emit("skip", {"name": person_name, "reason": f"Non-US ({person_country})"})
+                        reason = "Non-US" if person_filter_data["countryCode"] else "No country data (not confirmed US)"
+                        yield emit("skip", {"name": person_name, "reason": reason})
                         continue
 
                     person_entry = {
@@ -1395,7 +1389,7 @@ def forge_discover_enrich_people():
                     all_people.append(person_entry)
                     pending_enrichment.append(person_entry)
         finally:
-            _shutdown_pool(pool, list(future_map.keys()))
+            _cancel_futures(list(future_map.keys()))
 
         yield emit("status", {
             "msg": f"Scouting complete! {len(pending_enrichment)} US-based prospects found. "
@@ -1437,8 +1431,7 @@ def forge_discover_enrich_people():
                 return (person_entry, failed_entry, str(e))
 
         completed_enrich = 0
-        pool = ThreadPoolExecutor(max_workers=3)
-        future_map = {pool.submit(_enrich_one_person, p): p for p in pending_enrichment}
+        future_map = {_pool.submit(_enrich_one_person, p): p for p in pending_enrichment}
         try:
             for future in as_completed(future_map):
                 completed_enrich += 1
@@ -1460,7 +1453,7 @@ def forge_discover_enrich_people():
                         "progress": f"{completed_enrich}/{len(pending_enrichment)}",
                     })
         finally:
-            _shutdown_pool(pool, list(future_map.keys()))
+            _cancel_futures(list(future_map.keys()))
 
         # Update session
         forge_data["people"] = all_people
@@ -1525,16 +1518,16 @@ def forge_approve_stage():
 # ---------------------------------------------------------------------------
 
 def _verify_webhook_secret(req):
-    """Verify the webhook secret from the Authorization header."""
+    """Verify the webhook secret from the Authorization header (timing-safe)."""
     auth = req.headers.get("Authorization", "")
     expected = f"Bearer {config.ORACLE_WEBHOOK_SECRET}"
-    return auth == expected
+    return hmac.compare_digest(auth, expected)
 
 
 def _verify_signal_api_key(req):
-    """Verify the signal webhook API key from X-API-Key header."""
+    """Verify the signal webhook API key from X-API-Key header (timing-safe)."""
     key = req.headers.get("X-API-Key", "")
-    return key == config.SIGNAL_WEBHOOK_API_KEY
+    return hmac.compare_digest(key, config.SIGNAL_WEBHOOK_API_KEY)
 
 
 @app.route("/api/webhook/supersend-task", methods=["POST"])
