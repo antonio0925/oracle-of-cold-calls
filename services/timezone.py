@@ -125,12 +125,58 @@ TZ_LABELS = {
     "US/Alaska": "AKT",
 }
 
+# HubSpot stores IANA timezone strings (e.g. "America/New_York") but our
+# call sheet uses US/* keys.  Map the common IANA values so that contacts
+# with hs_timezone set correctly don't land in "unknowns".
+IANA_TO_US = {
+    # Eastern
+    "America/New_York": "US/Eastern",
+    "America/Detroit": "US/Eastern",
+    "America/Indiana/Indianapolis": "US/Eastern",
+    "America/Indiana/Knox": "US/Eastern",
+    "America/Indiana/Marengo": "US/Eastern",
+    "America/Indiana/Petersburg": "US/Eastern",
+    "America/Indiana/Tell_City": "US/Eastern",
+    "America/Indiana/Vevay": "US/Eastern",
+    "America/Indiana/Vincennes": "US/Eastern",
+    "America/Indiana/Winamac": "US/Eastern",
+    "America/Kentucky/Louisville": "US/Eastern",
+    "America/Kentucky/Monticello": "US/Eastern",
+    "America/Toronto": "US/Eastern",
+    # Central
+    "America/Chicago": "US/Central",
+    "America/Menominee": "US/Central",
+    "America/North_Dakota/Beulah": "US/Central",
+    "America/North_Dakota/Center": "US/Central",
+    "America/North_Dakota/New_Salem": "US/Central",
+    "America/Winnipeg": "US/Central",
+    # Mountain
+    "America/Denver": "US/Mountain",
+    "America/Boise": "US/Mountain",
+    "America/Phoenix": "US/Mountain",
+    "America/Edmonton": "US/Mountain",
+    # Pacific
+    "America/Los_Angeles": "US/Pacific",
+    "America/Vancouver": "US/Pacific",
+    # Hawaii
+    "Pacific/Honolulu": "US/Hawaii",
+    "America/Adak": "US/Hawaii",
+    # Alaska
+    "America/Anchorage": "US/Alaska",
+    "America/Juneau": "US/Alaska",
+    "America/Sitka": "US/Alaska",
+    "America/Yakutat": "US/Alaska",
+    "America/Nome": "US/Alaska",
+    "America/Metlakatla": "US/Alaska",
+}
+
 
 def resolve_timezone(contact_props):
     """Resolve timezone using priority: hs_timezone > state > area code."""
     hs_tz = (contact_props.get("hs_timezone") or "").strip()
     if hs_tz:
-        return hs_tz
+        # Normalize IANA to US/* so it matches TZ_TO_BLOCKS / TZ_LABELS
+        return IANA_TO_US.get(hs_tz, hs_tz)
 
     state = (contact_props.get("state") or "").strip().upper()
     if state and state in STATE_TO_TZ:

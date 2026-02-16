@@ -17,9 +17,16 @@ class HubSpotClient:
         }
 
     # -- Low-level HTTP helpers (with retry) --
+    # Default timeout: (connect=10s, read=120s) — prevents hung connections
+    # from blocking threads indefinitely.
+    DEFAULT_TIMEOUT = (10, 120)
+
     def _get(self, path, params=None):
         r = retry_request(
-            lambda: http_requests.get(f"{self.BASE}{path}", headers=self.headers, params=params),
+            lambda: http_requests.get(
+                f"{self.BASE}{path}", headers=self.headers, params=params,
+                timeout=self.DEFAULT_TIMEOUT,
+            ),
             label=f"HubSpot GET {path}",
         )
         r.raise_for_status()
@@ -27,7 +34,10 @@ class HubSpotClient:
 
     def _post(self, path, payload):
         r = retry_request(
-            lambda: http_requests.post(f"{self.BASE}{path}", headers=self.headers, json=payload),
+            lambda: http_requests.post(
+                f"{self.BASE}{path}", headers=self.headers, json=payload,
+                timeout=self.DEFAULT_TIMEOUT,
+            ),
             label=f"HubSpot POST {path}",
         )
         r.raise_for_status()
@@ -35,7 +45,10 @@ class HubSpotClient:
 
     def _put(self, path, payload=None):
         r = retry_request(
-            lambda: http_requests.put(f"{self.BASE}{path}", headers=self.headers, json=payload or {}),
+            lambda: http_requests.put(
+                f"{self.BASE}{path}", headers=self.headers, json=payload or {},
+                timeout=self.DEFAULT_TIMEOUT,
+            ),
             label=f"HubSpot PUT {path}",
         )
         r.raise_for_status()
@@ -43,7 +56,10 @@ class HubSpotClient:
 
     def _delete(self, path):
         r = retry_request(
-            lambda: http_requests.delete(f"{self.BASE}{path}", headers=self.headers),
+            lambda: http_requests.delete(
+                f"{self.BASE}{path}", headers=self.headers,
+                timeout=self.DEFAULT_TIMEOUT,
+            ),
             label=f"HubSpot DELETE {path}",
         )
         r.raise_for_status()
@@ -51,7 +67,11 @@ class HubSpotClient:
 
     # -- Lists --
     def search_lists(self, name):
-        """Search for a list by name. Returns list ID or None."""
+        """Search for a list by exact name. Returns list ID or None.
+
+        Does NOT fall back to the first result on partial match —
+        returning the wrong list silently corrupts downstream data.
+        """
         try:
             data = self._post("/crm/v3/lists/search", {
                 "query": name,
@@ -59,8 +79,6 @@ class HubSpotClient:
             for lst in data.get("lists", []):
                 if lst.get("name", "").lower().strip() == name.lower().strip():
                     return lst["listId"]
-            if data.get("lists"):
-                return data["lists"][0]["listId"]
         except Exception:
             pass
         return None

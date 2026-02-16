@@ -2248,19 +2248,32 @@ function releaseTheKraken() {
 
             function read() {
                 reader.read().then(({done, value}) => {
-                    if (done) return;
-                    buffer += decoder.decode(value, {stream: true});
-                    const lines = buffer.split('\n');
-                    buffer = '';
-
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
+                    if (done) {
+                        // Process any remaining buffer
+                        if (buffer.startsWith('data: ')) {
                             try {
-                                const msg = JSON.parse(line.substring(6));
+                                const msg = JSON.parse(buffer.substring(6));
                                 handleWriteMessage(msg);
                             } catch(e) {}
-                        } else if (line !== '') {
-                            buffer += line + '\n';
+                        }
+                        return;
+                    }
+                    buffer += decoder.decode(value, {stream: true});
+
+                    // Split on double-newline (SSE event boundary)
+                    const events = buffer.split('\n\n');
+                    // Last element might be incomplete, keep it in buffer
+                    buffer = events.pop() || '';
+
+                    for (const event of events) {
+                        const trimmed = event.trim();
+                        if (trimmed.startsWith('data: ')) {
+                            try {
+                                const msg = JSON.parse(trimmed.substring(6));
+                                handleWriteMessage(msg);
+                            } catch(e) {
+                                console.warn('SSE parse error:', e.message);
+                            }
                         }
                     }
                     read();

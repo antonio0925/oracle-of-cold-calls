@@ -35,11 +35,12 @@ def build_slack_messages(session_data):
         f":scroll: _= prophecy inscribed_\n"
         f"_Strategy: Every prospect called at their 10-11 AM local. "
         f"Times in PST._\n\n"
-        f"_Full battle plan in thread_ :thread:"
+        f"_Full battle plan below_ :point_down:"
     )
 
-    # Build contact lookup for prep status
-    prepped_ids = {c["contact_id"] for c in contacts}
+    # Build contact lookup for prep status — normalize to str because
+    # contact_id can be int or str depending on JSON round-trip.
+    prepped_ids = {str(c["contact_id"]) for c in contacts}
 
     # Thread replies — one per time block
     thread_messages = []
@@ -59,7 +60,7 @@ def build_slack_messages(session_data):
             name = c.get("name", "Unknown")
             company = c.get("company", "")
             hs_url = f"https://app.hubspot.com/contacts/{config.HUBSPOT_PORTAL_ID}/record/0-1/{cid}"
-            icon = ":scroll:" if cid in prepped_ids else ":crossed_swords:"
+            icon = ":scroll:" if str(cid) in prepped_ids else ":crossed_swords:"
             lines.append(f"{icon} <{hs_url}|{name}> — {company}")
 
         msg = block_header + "\n".join(lines)
@@ -74,7 +75,7 @@ def build_slack_messages(session_data):
             name = c.get("name", "Unknown")
             company = c.get("company", "")
             hs_url = f"https://app.hubspot.com/contacts/{config.HUBSPOT_PORTAL_ID}/record/0-1/{cid}"
-            icon = ":scroll:" if cid in prepped_ids else ":question:"
+            icon = ":scroll:" if str(cid) in prepped_ids else ":question:"
             unk_lines.append(f"{icon} <{hs_url}|{name}> — {company}")
         thread_messages.append(unk_header + "\n".join(unk_lines))
 
@@ -105,7 +106,7 @@ def post_to_slack(session_data):
     try:
         # Post header (with retry)
         resp = retry_request(
-            lambda: http_requests.post(webhook_url, json={"text": header}),
+            lambda: http_requests.post(webhook_url, json={"text": header}, timeout=(10, 30)),
             label="Slack webhook (header)",
         )
         if resp.status_code != 200:
@@ -125,7 +126,7 @@ def post_to_slack(session_data):
 
         for i, chunk in enumerate(chunks):
             resp = retry_request(
-                lambda c=chunk: http_requests.post(webhook_url, json={"text": c}),
+                lambda c=chunk: http_requests.post(webhook_url, json={"text": c}, timeout=(10, 30)),
                 label=f"Slack webhook (chunk {i + 1}/{len(chunks)})",
             )
             if resp.status_code != 200:

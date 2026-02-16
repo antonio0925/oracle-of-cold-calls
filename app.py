@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, render_template, request, Response, jsonify
 import requests as http_requests
 
+import logging
 import config
 from services.sessions import (
     get_session, set_session, delete_session,
@@ -29,6 +30,19 @@ from services.notion import NotionClient
 from services.slack import post_to_slack
 
 app = Flask(__name__)
+log = logging.getLogger(__name__)
+
+
+def _shutdown_pool(pool, futures):
+    """Cancel pending futures and shut down a ThreadPoolExecutor immediately.
+
+    Called in `finally` blocks of SSE generators so that disconnected clients
+    don't leave worker threads running indefinitely.
+    """
+    for f in futures:
+        f.cancel()
+    pool.shutdown(wait=False)
+    log.info("ThreadPoolExecutor shut down (%d futures cancelled)", len(futures))
 
 
 # ---------------------------------------------------------------------------
@@ -442,13 +456,23 @@ def approve(session_id):
             return f"data: {json.dumps({'type': msg_type, **data})}\n\n"
 
         contacts = session_data.get("contacts", [])
-        total = len(contacts)
+        # On retry, only process contacts that failed previously
+        prev_failed = set(str(cid) for cid in session_data.get("failed_contact_ids", []))
+        if prev_failed:
+            pending = [c for c in contacts if str(c["contact_id"]) in prev_failed]
+            yield emit("status", {
+                "msg": f"Retrying {len(pending)} failed scrolls from previous attempt..."
+            })
+        else:
+            pending = contacts
+        total = len(pending)
         success = 0
         errors = 0
+        failed_contact_ids = []
 
         yield emit("status", {"msg": f"THE KRAKEN IS RELEASED! Inscribing {total} sacred scrolls..."})
 
-        for i, c in enumerate(contacts):
+        for i, c in enumerate(pending):
             name = c.get("name", "Unknown")
             try:
                 note_id = hs.create_note_for_contact(c["contact_id"], c["note_html"])
@@ -461,6 +485,7 @@ def approve(session_id):
                 })
             except Exception as e:
                 errors += 1
+                failed_contact_ids.append(c["contact_id"])
                 yield emit("error_contact", {
                     "name": name,
                     "msg": f"The scroll crumbles! {str(e)}",
@@ -475,14 +500,22 @@ def approve(session_id):
         else:
             yield emit("status", {"msg": f"⚠️ {slack_msg}"})
 
-        # Clean up session
-        delete_session(session_id)
+        # Only delete session if ALL writes succeeded.
+        # On partial failure, keep the session so user can retry.
+        if errors == 0:
+            delete_session(session_id)
+        else:
+            session_data["failed_contact_ids"] = failed_contact_ids
+            session_data["approval_errors"] = errors
+            set_session(session_id, session_data)
+            save_session_to_disk(session_id, session_data)
 
         yield emit("approved_complete", {
             "success": success,
             "errors": errors,
             "slack_posted": slack_ok,
-            "msg": f"THE ORACLE HAS SPOKEN. {success} sacred scrolls inscribed in the annals of HubSpot!",
+            "msg": f"THE ORACLE HAS SPOKEN. {success} sacred scrolls inscribed in the annals of HubSpot!"
+                   + (f" ({errors} failed — session preserved for retry.)" if errors else ""),
         })
 
     return Response(stream(), mimetype="text/event-stream")
@@ -810,8 +843,9 @@ def forge_prospect():
                 return (domain, None, str(e))
 
         completed = 0
-        with ThreadPoolExecutor(max_workers=5) as pool:
-            future_map = {pool.submit(_qualify_one, d): d for d in unique_domains}
+        pool = ThreadPoolExecutor(max_workers=5)
+        future_map = {pool.submit(_qualify_one, d): d for d in unique_domains}
+        try:
             for future in as_completed(future_map):
                 completed += 1
                 domain, entry, error_msg = future.result()
@@ -842,21 +876,26 @@ def forge_prospect():
                     "qualified": entry["qualified"],
                     "source": "claude_discovery",
                 })
+        finally:
+            _shutdown_pool(pool, list(future_map.keys()))
 
-        # Save session
-        forge_data = {
-            "session_id": session_id,
-            "campaign_id": campaign_id,
-            "campaign_name": campaign_name,
-            "playbook_id": playbook_id,
-            "stage": 2,
-            "brief": brief,
-            "companies": companies,
-            "enriched_companies": [],
-            "people": [],
-            "enriched_people": [],
-            "created_at": utc_now_iso(),
-        }
+        # Merge into existing session — preserve discovered_domains, status, etc.
+        if existing_session:
+            forge_data = existing_session
+        else:
+            forge_data = {
+                "session_id": session_id,
+                "campaign_id": campaign_id,
+                "campaign_name": campaign_name,
+                "playbook_id": playbook_id,
+                "created_at": utc_now_iso(),
+            }
+        forge_data["stage"] = 2
+        forge_data["brief"] = brief
+        forge_data["companies"] = companies
+        forge_data.setdefault("enriched_companies", [])
+        forge_data.setdefault("people", [])
+        forge_data.setdefault("enriched_people", [])
         set_session(f"forge_{session_id}", forge_data)
         save_forge_session(session_id, forge_data)
 
@@ -972,8 +1011,9 @@ def forge_enrich_companies():
                 return (company, None, str(e))
 
         completed = 0
-        with ThreadPoolExecutor(max_workers=3) as pool:
-            future_map = {pool.submit(_enrich_one, c): c for c in approved_companies}
+        pool = ThreadPoolExecutor(max_workers=3)
+        future_map = {pool.submit(_enrich_one, c): c for c in approved_companies}
+        try:
             for future in as_completed(future_map):
                 completed += 1
                 company, enriched_entry, error_msg = future.result()
@@ -1003,6 +1043,8 @@ def forge_enrich_companies():
                     "summary": enriched_entry["enrichment_summary"],
                     "talking_points": enriched_entry["talking_points"][:3],
                 })
+        finally:
+            _shutdown_pool(pool, list(future_map.keys()))
 
         # Update session
         forge_data["enriched_companies"] = enriched_companies
@@ -1087,8 +1129,9 @@ def forge_discover_enrich_people():
         pending_enrichment = []
 
         completed_prospect = 0
-        with ThreadPoolExecutor(max_workers=5) as pool:
-            future_map = {pool.submit(_prospect_one, c): c for c in target_companies}
+        pool = ThreadPoolExecutor(max_workers=5)
+        future_map = {pool.submit(_prospect_one, c): c for c in target_companies}
+        try:
             for future in as_completed(future_map):
                 completed_prospect += 1
                 company, people_list, error_msg = future.result()
@@ -1124,7 +1167,13 @@ def forge_discover_enrich_people():
                         country_code = location.get("countryCode", "")
                     person_country = person.get("countryCode", country_code)
 
-                    if person_country and person_country.upper() not in US_COUNTRY_ALIASES:
+                    # Require positive US match — unknown country is NOT assumed US
+                    person_country_upper = (person_country or "").upper()
+                    if not person_country_upper:
+                        filtered_non_us += 1
+                        yield emit("skip", {"name": person_name, "reason": "No country data (not confirmed US)"})
+                        continue
+                    if person_country_upper not in US_COUNTRY_ALIASES:
                         filtered_non_us += 1
                         yield emit("skip", {"name": person_name, "reason": f"Non-US ({person_country})"})
                         continue
@@ -1142,6 +1191,8 @@ def forge_discover_enrich_people():
                     }
                     all_people.append(person_entry)
                     pending_enrichment.append(person_entry)
+        finally:
+            _shutdown_pool(pool, list(future_map.keys()))
 
         yield emit("status", {
             "msg": f"Scouting complete! {len(pending_enrichment)} US-based prospects found. "
@@ -1183,8 +1234,9 @@ def forge_discover_enrich_people():
                 return (person_entry, failed_entry, str(e))
 
         completed_enrich = 0
-        with ThreadPoolExecutor(max_workers=3) as pool:
-            future_map = {pool.submit(_enrich_one_person, p): p for p in pending_enrichment}
+        pool = ThreadPoolExecutor(max_workers=3)
+        future_map = {pool.submit(_enrich_one_person, p): p for p in pending_enrichment}
+        try:
             for future in as_completed(future_map):
                 completed_enrich += 1
                 person_entry, enriched_entry, error_msg = future.result()
@@ -1204,6 +1256,8 @@ def forge_discover_enrich_people():
                         "summary": enriched_entry["enrichment_summary"],
                         "progress": f"{completed_enrich}/{len(pending_enrichment)}",
                     })
+        finally:
+            _shutdown_pool(pool, list(future_map.keys()))
 
         # Update session
         forge_data["people"] = all_people

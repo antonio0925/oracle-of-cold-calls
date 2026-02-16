@@ -17,11 +17,13 @@ class OctaveClient:
         }
 
     def _post(self, path, payload, timeout=120):
-        """Low-level POST with retry."""
+        """Low-level POST with retry.
+        timeout is read-timeout only; connect timeout is always 10s.
+        """
         r = retry_request(
             lambda: http_requests.post(
                 f"{self.BASE}{path}",
-                headers=self.headers, json=payload, timeout=timeout,
+                headers=self.headers, json=payload, timeout=(10, timeout),
             ),
             label=f"Octave POST {path}",
         )

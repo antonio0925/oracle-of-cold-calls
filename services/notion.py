@@ -17,9 +17,15 @@ class NotionClient:
             "Notion-Version": "2022-06-28",
         }
 
+    # Default timeout: (connect=10s, read=120s)
+    DEFAULT_TIMEOUT = (10, 120)
+
     def _get(self, path, params=None):
         r = retry_request(
-            lambda: http_requests.get(f"{self.BASE}{path}", headers=self.headers, params=params),
+            lambda: http_requests.get(
+                f"{self.BASE}{path}", headers=self.headers, params=params,
+                timeout=self.DEFAULT_TIMEOUT,
+            ),
             label=f"Notion GET {path}",
         )
         r.raise_for_status()
@@ -27,7 +33,10 @@ class NotionClient:
 
     def _post(self, path, payload):
         r = retry_request(
-            lambda: http_requests.post(f"{self.BASE}{path}", headers=self.headers, json=payload),
+            lambda: http_requests.post(
+                f"{self.BASE}{path}", headers=self.headers, json=payload,
+                timeout=self.DEFAULT_TIMEOUT,
+            ),
             label=f"Notion POST {path}",
         )
         r.raise_for_status()
