@@ -1323,21 +1323,64 @@ body {
     color: #FFD700;
 }
 
-/* Domain Arsenal */
-.domain-arsenal {
+/* Awaiting Claude Panel */
+.forge-awaiting {
     margin-top: 20px;
-    padding: 20px;
-    border: 2px solid #8B0000;
+    padding: 30px 20px;
+    border: 2px solid #8B4513;
     border-radius: 8px;
-    background: rgba(139, 0, 0, 0.1);
-}
-.domain-arsenal h3 {
-    color: #FFD700;
-    font-family: 'Cinzel', serif;
-    font-size: 16px;
-    margin: 0 0 12px;
+    background: rgba(20, 10, 0, 0.9);
     text-align: center;
 }
+.awaiting-icon { font-size: 48px; margin-bottom: 10px; }
+.awaiting-msg {
+    color: #CD853F;
+    font-family: 'MedievalSharp', cursive;
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0 0 8px;
+}
+.awaiting-campaign {
+    color: #FFD700;
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    margin: 0 0 15px;
+}
+.awaiting-spinner {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+.awaiting-dot {
+    width: 8px; height: 8px;
+    background: #FF4500;
+    border-radius: 50%;
+    animation: awaiting-pulse 1.4s ease-in-out infinite;
+}
+.awaiting-dot:nth-child(2) { animation-delay: 0.2s; }
+.awaiting-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes awaiting-pulse {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1.2); }
+}
+.manual-fallback-toggle {
+    display: inline-block;
+    color: #666;
+    font-family: 'MedievalSharp', cursive;
+    font-size: 11px;
+    text-decoration: none;
+    cursor: pointer;
+    margin-top: 5px;
+}
+.manual-fallback-toggle:hover { color: #8B4513; }
+.manual-domains {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #333;
+}
+
+/* Domain Tags (shared by manual fallback) */
 .domain-arsenal-tags {
     display: flex;
     flex-wrap: wrap;
@@ -2014,20 +2057,31 @@ body {
                 <div id="briefContent">Loading brief...</div>
             </div>
 
-            <!-- Domain Arsenal -->
-            <div class="domain-arsenal" id="domainArsenal" style="display:none;">
-                <h3>&#9876; Domain Arsenal &#9876;</h3>
-                <div class="domain-arsenal-tags" id="domainTags">
-                    <span class="domain-arsenal-empty">No domains yet — add manually or select a campaign above.</span>
+            <!-- Awaiting Claude / Session Detector -->
+            <div class="forge-awaiting" id="forgeAwaiting" style="display:none;">
+                <div class="awaiting-icon">&#128220;</div>
+                <p class="awaiting-msg">Brief loaded. Tell Claude to forge this campaign<br>
+                   and the Oracle will discover worthy companies.</p>
+                <p class="awaiting-campaign" id="awaitingCampaignName"></p>
+                <div class="awaiting-spinner">
+                    <span class="awaiting-dot"></span>
+                    <span class="awaiting-dot"></span>
+                    <span class="awaiting-dot"></span>
                 </div>
-                <div class="domain-arsenal-add">
-                    <input type="text" id="domainInput" placeholder="Add domain (e.g. acme.com)"
-                           onkeydown="if(event.key==='Enter')addForgeDomain()">
-                    <button onclick="addForgeDomain()">+ Add</button>
+                <a href="#" class="manual-fallback-toggle" onclick="toggleManualDomains(event)">
+                    Or add domains manually &#9660;
+                </a>
+                <div class="manual-domains" id="manualDomainsSection" style="display:none;">
+                    <div class="domain-arsenal-add">
+                        <input type="text" id="domainInput" placeholder="Add domain (e.g. acme.com)"
+                               onkeydown="if(event.key==='Enter')addManualDomain()">
+                        <button onclick="addManualDomain()">+ Add</button>
+                    </div>
+                    <div class="domain-arsenal-tags" id="manualDomainTags"></div>
+                    <button class="forge-launch-btn" id="manualLaunchBtn" onclick="launchManualForge()" disabled>
+                        &#9889; LAUNCH MANUALLY &#9889;
+                    </button>
                 </div>
-                <button class="forge-launch-btn" id="forgeLaunchBtn" onclick="launchForge()" disabled>
-                    &#9889; LAUNCH THE FORGE &#9889;
-                </button>
             </div>
         </div>
 
@@ -3206,6 +3260,8 @@ let forgeCampaignsLoaded = false;
 let selectedForgeCampaign = null;
 let forgeBriefData = null;
 let forgeCurrentStage = 1;
+let forgePollingInterval = null;
+let manualDomains = [];
 let battlePlanLoaded = false;
 let battleData = null;
 
@@ -3218,13 +3274,14 @@ function switchView(view) {
     const forgeBtn = document.getElementById('forgeToggle');
     const battleBtn = document.getElementById('battleToggle');
 
-    // Hide all
+    // Hide all + stop forge polling
     oracleView.style.display = 'none';
     forgeView.style.display = 'none';
     battleView.style.display = 'none';
     oracleBtn.classList.remove('active');
     forgeBtn.classList.remove('active');
     battleBtn.classList.remove('active');
+    stopForgePolling();
 
     if (view === 'oracle') {
         oracleView.style.display = 'block';
@@ -3302,6 +3359,13 @@ function selectForgeCampaign(id, title) {
     document.getElementById('forgeCampaignDropdown').classList.remove('open');
     selectedForgeCampaign = {id: id, title: title};
 
+    // Reset polling and manual domains on campaign change
+    stopForgePolling();
+    manualDomains = [];
+    document.getElementById('forgeAwaiting').style.display = 'none';
+    const manualSec = document.getElementById('manualDomainsSection');
+    if (manualSec) manualSec.style.display = 'none';
+
     // Fetch the brief
     const preview = document.getElementById('briefPreview');
     preview.style.display = 'block';
@@ -3368,7 +3432,7 @@ function renderBriefPreview(brief) {
     document.getElementById('briefContent').innerHTML = html;
 
     // Populate Domain Arsenal with extracted domains
-    populateDomainArsenal(brief.target_domains || []);
+    showAwaitingClaude();
 }
 
 // Close forge dropdown on click outside
@@ -3448,59 +3512,109 @@ function scoreBadge(score) {
     return '<span class="score-badge ' + cls + '">' + score + '/10</span>';
 }
 
-// ===== DOMAIN ARSENAL =====
-let forgeDomains = [];
-
-function populateDomainArsenal(domains) {
-    forgeDomains = (domains || []).slice();
-    const arsenal = document.getElementById('domainArsenal');
-    arsenal.style.display = 'block';
-    renderDomainTags();
-    arsenal.scrollIntoView({behavior: 'smooth'});
+// ===== AWAITING CLAUDE + SESSION POLLING =====
+function showAwaitingClaude() {
+    const panel = document.getElementById('forgeAwaiting');
+    panel.style.display = 'block';
+    document.getElementById('awaitingCampaignName').textContent =
+        selectedForgeCampaign ? '\u2694 ' + selectedForgeCampaign.title : '';
+    panel.scrollIntoView({behavior: 'smooth'});
+    startForgePolling();
 }
 
-function renderDomainTags() {
-    const container = document.getElementById('domainTags');
-    if (forgeDomains.length === 0) {
-        container.innerHTML = '<span class="domain-arsenal-empty">No domains yet \u2014 add manually below.</span>';
-    } else {
-        container.innerHTML = forgeDomains.map((d, i) =>
-            '<span class="domain-tag">' + d +
-            ' <span class="domain-remove" onclick="removeForgeDomain(' + i + ')">&times;</span></span>'
-        ).join('');
+function startForgePolling() {
+    stopForgePolling();
+    if (!selectedForgeCampaign) return;
+    checkForForgeSession();   // immediate first check
+    forgePollingInterval = setInterval(checkForForgeSession, 3000);
+}
+
+function stopForgePolling() {
+    if (forgePollingInterval) {
+        clearInterval(forgePollingInterval);
+        forgePollingInterval = null;
     }
-    document.getElementById('forgeLaunchBtn').disabled = forgeDomains.length === 0;
 }
 
-function addForgeDomain() {
+function checkForForgeSession() {
+    if (!selectedForgeCampaign) return;
+    fetch('/api/forge/sessions')
+        .then(r => r.json())
+        .then(data => {
+            const sessions = data.sessions || [];
+            const now = new Date();
+            const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000);
+
+            const match = sessions.find(s =>
+                s.campaign_id === selectedForgeCampaign.id &&
+                s.status === 'domains_ready' &&
+                new Date(s.modified.replace(' ', 'T')) > tenMinAgo
+            );
+            if (match) {
+                stopForgePolling();
+                onSessionDetected(match);
+            }
+        })
+        .catch(err => console.warn('Forge poll error:', err));
+}
+
+function onSessionDetected(session) {
+    forgeSessionId = session.session_id;
+    zeusFlash();
+    const panel = document.getElementById('forgeAwaiting');
+    panel.innerHTML =
+        '<h3 style="color:#00FF00;font-family:\'Cinzel\',serif;">&#9989; ' +
+        session.discovered_domains_count +
+        ' domains discovered by the Oracle. Forging now...</h3>';
+    startProspecting(session.session_id, session.discovered_domains_count);
+}
+
+// ===== MANUAL DOMAIN FALLBACK =====
+function toggleManualDomains(e) {
+    e.preventDefault();
+    const sec = document.getElementById('manualDomainsSection');
+    sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+}
+
+function addManualDomain() {
     const input = document.getElementById('domainInput');
     const val = input.value.trim().toLowerCase()
         .replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
-    if (!val) return;
-    if (forgeDomains.includes(val)) {
-        input.value = '';
-        return;
-    }
-    forgeDomains.push(val);
+    if (!val || manualDomains.includes(val)) { input.value = ''; return; }
+    manualDomains.push(val);
     input.value = '';
-    renderDomainTags();
+    renderManualDomainTags();
 }
 
-function removeForgeDomain(index) {
-    forgeDomains.splice(index, 1);
-    renderDomainTags();
+function removeManualDomain(index) {
+    manualDomains.splice(index, 1);
+    renderManualDomainTags();
 }
 
-function launchForge() {
-    if (forgeDomains.length === 0) return;
-    const btn = document.getElementById('forgeLaunchBtn');
+function renderManualDomainTags() {
+    const container = document.getElementById('manualDomainTags');
+    if (manualDomains.length === 0) {
+        container.innerHTML = '<span class="domain-arsenal-empty">No domains yet.</span>';
+    } else {
+        container.innerHTML = manualDomains.map((d, i) =>
+            '<span class="domain-tag">' + escapeHtml(d) +
+            ' <span class="domain-remove" onclick="removeManualDomain(' + i + ')">&times;</span></span>'
+        ).join('');
+    }
+    document.getElementById('manualLaunchBtn').disabled = manualDomains.length === 0;
+}
+
+function launchManualForge() {
+    if (manualDomains.length === 0) return;
+    const btn = document.getElementById('manualLaunchBtn');
     btn.disabled = true;
     btn.textContent = '\u26A1 Forging...';
+    stopForgePolling();
 
     const payload = {
         campaign_id: selectedForgeCampaign ? selectedForgeCampaign.id : 'manual',
         campaign_name: selectedForgeCampaign ? selectedForgeCampaign.title : 'Manual Forge',
-        domains: forgeDomains,
+        domains: manualDomains,
         brief_summary: forgeBriefData ? (forgeBriefData.icp || '') : '',
     };
 
@@ -3514,16 +3628,16 @@ function launchForge() {
         if (data.error) {
             showError(data.error);
             btn.disabled = false;
-            btn.innerHTML = '&#9889; LAUNCH THE FORGE &#9889;';
+            btn.innerHTML = '&#9889; LAUNCH MANUALLY &#9889;';
             return;
         }
         forgeSessionId = data.session_id;
-        startProspecting(data.session_id, forgeDomains.length);
+        startProspecting(data.session_id, manualDomains.length);
     })
     .catch(err => {
         showError('Launch failed: ' + err.message);
         btn.disabled = false;
-        btn.innerHTML = '&#9889; LAUNCH THE FORGE &#9889;';
+        btn.innerHTML = '&#9889; LAUNCH MANUALLY &#9889;';
     });
 }
 
@@ -3532,9 +3646,11 @@ function startProspecting(sessionId, domainCount) {
     zeusFlash();
     setForgeStage(2);
 
-    // Update Domain Arsenal to show transition
-    const arsenal = document.getElementById('domainArsenal');
-    arsenal.innerHTML = '<h3 style="color:#00FF00;">&#9989; ' + domainCount + ' domains locked in. Qualifying now...</h3>';
+    // Update awaiting panel to show transition
+    const awaitPanel = document.getElementById('forgeAwaiting');
+    if (awaitPanel) {
+        awaitPanel.innerHTML = '<h3 style="color:#00FF00;font-family:\'Cinzel\',serif;">&#9989; ' + domainCount + ' domains locked in. Qualifying now...</h3>';
+    }
 
     // Show Stage 2 section
     const sec = document.getElementById('forgeStage2Section');
