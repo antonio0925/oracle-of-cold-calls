@@ -1136,8 +1136,9 @@ body {
     transition: all 0.3s;
     letter-spacing: 2px;
 }
-.view-toggle-btn:first-child { border-radius: 8px 0 0 8px; }
-.view-toggle-btn:last-child { border-radius: 0 8px 8px 0; }
+.view-toggle-btn:first-child { border-radius: 8px 0 0 8px; border-right: none; }
+.view-toggle-btn:last-child { border-radius: 0 8px 8px 0; border-left: none; }
+.view-toggle-btn:not(:first-child):not(:last-child) { border-left: none; border-right: none; }
 .view-toggle-btn.active {
     background: linear-gradient(180deg, #8B0000, #4B0000);
     color: #FFD700;
@@ -1322,6 +1323,106 @@ body {
     color: #FFD700;
 }
 
+/* Domain Arsenal */
+.domain-arsenal {
+    margin-top: 20px;
+    padding: 20px;
+    border: 2px solid #8B0000;
+    border-radius: 8px;
+    background: rgba(139, 0, 0, 0.1);
+}
+.domain-arsenal h3 {
+    color: #FFD700;
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    margin: 0 0 12px;
+    text-align: center;
+}
+.domain-arsenal-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+    min-height: 32px;
+}
+.domain-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #1a0a00;
+    border: 1px solid #8B4513;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #FFD700;
+    font-family: 'MedievalSharp', cursive;
+}
+.domain-tag .domain-remove {
+    cursor: pointer;
+    color: #888;
+    font-size: 14px;
+    line-height: 1;
+}
+.domain-tag .domain-remove:hover { color: #FF4444; }
+.domain-arsenal-add {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+.domain-arsenal-add input {
+    flex: 1;
+    background: #0a0a0a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 6px 10px;
+    color: #FFD700;
+    font-family: 'MedievalSharp', cursive;
+    font-size: 13px;
+}
+.domain-arsenal-add input::placeholder { color: #666; }
+.domain-arsenal-add button {
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    padding: 6px 16px;
+    background: transparent;
+    border: 1px solid #8B4513;
+    color: #CD853F;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.domain-arsenal-add button:hover { border-color: #FFD700; color: #FFD700; }
+.domain-arsenal-empty {
+    color: #666;
+    font-style: italic;
+    font-size: 12px;
+    text-align: center;
+    padding: 8px;
+}
+.forge-launch-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 16px;
+    letter-spacing: 3px;
+    color: #FFD700;
+    background: linear-gradient(180deg, #8B0000, #4B0000);
+    border: 2px solid #FF4500;
+    border-radius: 6px;
+    cursor: pointer;
+    text-shadow: 0 0 10px #FF4500;
+    transition: all 0.3s;
+}
+.forge-launch-btn:hover {
+    background: linear-gradient(180deg, #AA0000, #6B0000);
+    box-shadow: 0 0 20px rgba(255, 69, 0, 0.4);
+}
+.forge-launch-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
 /* Select All / Deselect All */
 .qa-controls {
     display: flex;
@@ -1378,6 +1479,264 @@ body {
 @media (min-width: 1200px) {
     .container { max-width: 1200px; }
 }
+
+/* ===== BATTLE PLAN VIEW (Oracle v2) ===== */
+.battle-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+.battle-header h2 {
+    font-family: 'Cinzel Decorative', serif;
+    color: #FFD700;
+    font-size: 28px;
+    text-shadow: 0 0 10px #FF4500;
+    margin: 0 0 5px;
+}
+.battle-header .battle-subtitle {
+    color: #CD853F;
+    font-style: italic;
+    font-family: 'MedievalSharp', cursive;
+}
+.battle-stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+}
+.battle-stat-box {
+    background: rgba(20,0,0,0.9);
+    border: 2px ridge #FFD700;
+    padding: 12px 24px;
+    text-align: center;
+    min-width: 120px;
+}
+.battle-stat-box .stat-number {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 32px;
+    color: #FFD700;
+    text-shadow: 0 0 10px #FF4500;
+}
+.battle-stat-box .stat-label {
+    font-family: 'MedievalSharp', cursive;
+    font-size: 14px;
+    color: #CD853F;
+    margin-top: 4px;
+}
+.battle-stat-box.hot { border-color: #FF4500; }
+.battle-stat-box.hot .stat-number { color: #FF4500; }
+.battle-stat-box.warm { border-color: #FFD700; }
+.battle-stat-box.parked { border-color: #4682B4; }
+.battle-stat-box.parked .stat-number { color: #4682B4; }
+
+.battle-section {
+    background: linear-gradient(135deg, rgba(20,0,0,0.95), rgba(40,10,0,0.95));
+    border: 3px ridge #FFD700;
+    padding: 20px;
+    margin: 15px 0;
+    box-shadow: 0 0 20px rgba(255,69,0,0.2), inset 0 0 20px rgba(0,0,0,0.5);
+}
+.battle-section h3 {
+    font-family: 'Cinzel Decorative', serif;
+    color: #FFD700;
+    font-size: 20px;
+    margin: 0 0 15px;
+    text-shadow: 0 0 8px #FF4500;
+    border-bottom: 2px solid rgba(255,215,0,0.3);
+    padding-bottom: 8px;
+}
+.battle-section h3.hot { color: #FF4500; border-color: rgba(255,69,0,0.3); }
+.battle-section h3.warm { color: #FFD700; }
+.battle-section h3.parked { color: #4682B4; border-color: rgba(70,130,180,0.3); }
+
+.battle-card {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-left: 4px solid #FF4500;
+    padding: 15px;
+    margin: 10px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 15px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+.battle-card:hover {
+    border-color: rgba(255,215,0,0.5);
+    box-shadow: 0 0 15px rgba(255,69,0,0.2);
+}
+.battle-card.warm { border-left-color: #FFD700; }
+.battle-card.parked { border-left-color: #4682B4; }
+.battle-card.completed { border-left-color: #2ecc71; opacity: 0.6; }
+
+.battle-card-info {
+    flex: 1;
+}
+.battle-card-info .contact-name {
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    color: #FFD700;
+    font-weight: bold;
+}
+.battle-card-info .contact-detail {
+    color: #CD853F;
+    font-size: 13px;
+    margin: 3px 0;
+}
+.battle-card-info .contact-detail a {
+    color: #FF7F50;
+    text-decoration: none;
+}
+.battle-card-info .contact-detail a:hover { text-decoration: underline; }
+.battle-card-info .signal-badge {
+    display: inline-block;
+    background: rgba(255,69,0,0.3);
+    border: 1px solid #FF4500;
+    color: #FF4500;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    margin-top: 5px;
+}
+.battle-card-info .signal-badge.warm { background: rgba(255,215,0,0.2); border-color: #FFD700; color: #FFD700; }
+.battle-card-info .signal-badge.parked { background: rgba(70,130,180,0.2); border-color: #4682B4; color: #4682B4; }
+
+.battle-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 160px;
+}
+.battle-btn {
+    font-family: 'MedievalSharp', cursive;
+    font-size: 13px;
+    padding: 6px 14px;
+    border: 2px solid;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+}
+.battle-btn.prep {
+    border-color: #FFD700;
+    color: #FFD700;
+}
+.battle-btn.prep:hover {
+    background: rgba(255,215,0,0.2);
+    text-shadow: 0 0 5px #FFD700;
+}
+.battle-btn.complete {
+    border-color: #2ecc71;
+    color: #2ecc71;
+}
+.battle-btn.complete:hover {
+    background: rgba(46,204,113,0.2);
+    text-shadow: 0 0 5px #2ecc71;
+}
+
+/* Disposition modal */
+.disposition-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+.disposition-overlay.show { display: flex; }
+.disposition-modal {
+    background: linear-gradient(135deg, rgba(20,0,0,0.98), rgba(60,10,0,0.98));
+    border: 3px ridge #FFD700;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 0 40px rgba(255,69,0,0.4);
+}
+.disposition-modal h3 {
+    font-family: 'Cinzel Decorative', serif;
+    color: #FFD700;
+    text-align: center;
+    margin: 0 0 20px;
+    text-shadow: 0 0 10px #FF4500;
+}
+.disposition-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.dispo-btn {
+    font-family: 'MedievalSharp', cursive;
+    font-size: 13px;
+    padding: 10px;
+    border: 2px solid rgba(255,215,0,0.4);
+    background: rgba(0,0,0,0.5);
+    color: #CD853F;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+}
+.dispo-btn:hover {
+    border-color: #FFD700;
+    color: #FFD700;
+    background: rgba(139,0,0,0.3);
+}
+.dispo-btn.selected {
+    border-color: #FF4500;
+    color: #FFD700;
+    background: rgba(139,0,0,0.5);
+    text-shadow: 0 0 5px #FF4500;
+}
+.dispo-notes {
+    width: 100%;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,215,0,0.3);
+    color: #FFD700;
+    padding: 10px;
+    font-family: 'MedievalSharp', cursive;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 60px;
+    margin: 10px 0;
+}
+.dispo-notes::placeholder { color: rgba(205,133,63,0.5); }
+.dispo-submit-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+/* Call prep panel */
+.call-prep-panel {
+    display: none;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,215,0,0.3);
+    padding: 15px;
+    margin-top: 10px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #E8D5B0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.call-prep-panel.show { display: block; }
+.battle-loading {
+    text-align: center;
+    color: #CD853F;
+    font-family: 'MedievalSharp', cursive;
+    padding: 40px;
+    font-size: 18px;
+}
+.battle-empty {
+    text-align: center;
+    color: #CD853F;
+    font-family: 'MedievalSharp', cursive;
+    padding: 30px;
+    font-style: italic;
+}
 </style>
 </head>
 <body>
@@ -1423,6 +1782,7 @@ body {
     <div class="view-toggle">
         <button class="view-toggle-btn" id="forgeToggle" onclick="switchView('forge')">&#128296; The Forge</button>
         <button class="view-toggle-btn active" id="oracleToggle" onclick="switchView('oracle')">&#128064; The Oracle</button>
+        <button class="view-toggle-btn" id="battleToggle" onclick="switchView('battle')">&#9876; Battle Plan</button>
     </div>
 </div>
 
@@ -1654,27 +2014,20 @@ body {
                 <div id="briefContent">Loading brief...</div>
             </div>
 
-            <!-- Claude Orchestration Status -->
-            <div id="forgeClaudeStatus" style="display:none;text-align:center;margin-top:20px;
-                padding:20px;border:2px dashed #8B0000;border-radius:8px;background:rgba(139,0,0,0.1);">
-                <p style="color:#FFD700;font-family:'Cinzel',serif;font-size:16px;margin-bottom:10px;">
-                    &#9889; Ready to Forge
-                </p>
-                <p style="color:#CD853F;font-family:'MedievalSharp',cursive;font-size:14px;margin-bottom:15px;">
-                    Tell Claude to discover companies for this campaign:
-                </p>
-                <div id="forgePromptSnippet" style="background:#0a0a0a;border:1px solid #444;border-radius:4px;
-                    padding:12px 16px;display:inline-block;cursor:pointer;position:relative;"
-                    onclick="copyForgePrompt()" title="Click to copy">
-                    <code style="color:#00FF00;font-size:14px;" id="forgePromptText">forge the campaign</code>
-                    <span style="color:#888;font-size:11px;margin-left:10px;">&#128203; click to copy</span>
+            <!-- Domain Arsenal -->
+            <div class="domain-arsenal" id="domainArsenal" style="display:none;">
+                <h3>&#9876; Domain Arsenal &#9876;</h3>
+                <div class="domain-arsenal-tags" id="domainTags">
+                    <span class="domain-arsenal-empty">No domains yet — add manually or select a campaign above.</span>
                 </div>
-                <div id="forgePollStatus" style="margin-top:15px;display:none;">
-                    <p style="color:#888;font-size:12px;font-style:italic;">
-                        &#8987; Waiting for Claude to discover companies...
-                        <span id="forgePollDots"></span>
-                    </p>
+                <div class="domain-arsenal-add">
+                    <input type="text" id="domainInput" placeholder="Add domain (e.g. acme.com)"
+                           onkeydown="if(event.key==='Enter')addForgeDomain()">
+                    <button onclick="addForgeDomain()">+ Add</button>
                 </div>
+                <button class="forge-launch-btn" id="forgeLaunchBtn" onclick="launchForge()" disabled>
+                    &#9889; LAUNCH THE FORGE &#9889;
+                </button>
             </div>
         </div>
 
@@ -1778,6 +2131,80 @@ body {
         </div>
 
     </div><!-- end forgeView -->
+
+    <!-- ===== BATTLE PLAN VIEW (Oracle v2) ===== -->
+    <div id="battleView" style="display:none;">
+
+        <div class="battle-header">
+            <h2>&#9876; The Battle Plan &#9876;</h2>
+            <p class="battle-subtitle">Warriors awaiting the Oracle's command &mdash; webhook-driven, Slack-free</p>
+        </div>
+
+        <div class="battle-stats-row">
+            <div class="battle-stat-box hot">
+                <div class="stat-number" id="battleHotCount">-</div>
+                <div class="stat-label">&#128293; Hot</div>
+            </div>
+            <div class="battle-stat-box warm">
+                <div class="stat-number" id="battleWarmCount">-</div>
+                <div class="stat-label">&#9888; Enriching</div>
+            </div>
+            <div class="battle-stat-box parked">
+                <div class="stat-number" id="battleParkedCount">-</div>
+                <div class="stat-label">&#9875; Parked</div>
+            </div>
+        </div>
+
+        <div style="text-align:center; margin: 10px 0;">
+            <button class="oracle-btn" onclick="loadBattlePlan()" style="font-size:14px; padding:8px 24px;">
+                &#128260; Refresh the List
+            </button>
+        </div>
+
+        <div id="battlePlanContent">
+            <div class="battle-loading">&#9876; The Battle Plan loads when thou switchest to this view...</div>
+        </div>
+
+        <!-- HOT section -->
+        <div class="battle-section" id="battleHotSection" style="display:none;">
+            <h3 class="hot">&#128293; HOT &mdash; Immediate Action Required</h3>
+            <div id="battleHotList"></div>
+        </div>
+
+        <!-- ENRICHING section -->
+        <div class="battle-section" id="battleWarmSection" style="display:none;">
+            <h3 class="warm">&#9888; ENRICHING &mdash; Awaiting Intelligence</h3>
+            <div id="battleWarmList"></div>
+        </div>
+
+        <!-- PARKED section -->
+        <div class="battle-section" id="battleParkedSection" style="display:none;">
+            <h3 class="parked">&#9875; PARKED &mdash; Batch Review Queue</h3>
+            <div id="battleParkedList"></div>
+        </div>
+
+    </div><!-- end battleView -->
+
+    <!-- Disposition Modal -->
+    <div class="disposition-overlay" id="dispoOverlay">
+        <div class="disposition-modal">
+            <h3>&#9876; Log Thy Disposition</h3>
+            <p style="color:#CD853F; text-align:center; font-family:'MedievalSharp',cursive; margin-bottom:15px;">
+                Contact: <strong id="dispoContactName" style="color:#FFD700;"></strong>
+            </p>
+            <input type="hidden" id="dispoContactId">
+            <div class="disposition-grid" id="dispoGrid"></div>
+            <textarea class="dispo-notes" id="dispoNotes" placeholder="Notes (optional)..."></textarea>
+            <div class="dispo-submit-row">
+                <button class="battle-btn complete" onclick="submitDisposition()" id="dispoSubmitBtn">
+                    &#9989; Inscribe
+                </button>
+                <button class="battle-btn prep" onclick="closeDisposition()" style="border-color:#CD853F; color:#CD853F;">
+                    &#10060; Cancel
+                </button>
+            </div>
+        </div>
+    </div>
 
 </div>
 
@@ -2272,13 +2699,17 @@ function renderReview(data) {
     // Stats
     const stats = data.stats;
     const cachedCount = stats.skipped_cached || 0;
+    const noEmail = stats.skipped_no_email || 0;
+    const subscribers = stats.skipped_subscriber || 0;
+    const existing = stats.skipped_existing || 0;
+    const errors = stats.errors || 0;
     let statsHtml = `
-        <div class="stat-item"><div class="stat-num">${stats.total}</div><div class="stat-label">In the Legion</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#00FF00">${stats.prepped}</div><div class="stat-label">Prepared for Battle</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#808080">${stats.skipped_no_email}</div><div class="stat-label">No Herald Sent</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#FF6B6B">${stats.skipped_subscriber}</div><div class="stat-label">Already Conquered</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#666">${stats.skipped_existing}</div><div class="stat-label">Already Anointed</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#FF0000">${stats.errors}</div><div class="stat-label">Thunderbolts</div></div>`;
+        <div class="stat-item"><div class="stat-num">${stats.total || 0}</div><div class="stat-label">In the Legion</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#00FF00">${stats.prepped || 0}</div><div class="stat-label">Prepared for Battle</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#808080">${noEmail}</div><div class="stat-label">No Herald Sent</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#FF6B6B">${subscribers}</div><div class="stat-label">Already Conquered</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#666">${existing}</div><div class="stat-label">Already Anointed</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#FF0000">${errors}</div><div class="stat-label">Thunderbolts</div></div>`;
     if (cachedCount > 0) {
         statsHtml += `<div class="stat-item"><div class="stat-num" style="color:#00BFFF">${cachedCount}</div><div class="stat-label">\uD83E\udDE0 Recalled from Memory</div></div>`;
     }
@@ -2767,26 +3198,37 @@ let forgeCampaignsLoaded = false;
 let selectedForgeCampaign = null;
 let forgeBriefData = null;
 let forgeCurrentStage = 1;
+let battlePlanLoaded = false;
+let battleData = null;
 
 // ===== VIEW TOGGLE =====
 function switchView(view) {
     const oracleView = document.getElementById('oracleView');
     const forgeView = document.getElementById('forgeView');
+    const battleView = document.getElementById('battleView');
     const oracleBtn = document.getElementById('oracleToggle');
     const forgeBtn = document.getElementById('forgeToggle');
+    const battleBtn = document.getElementById('battleToggle');
+
+    // Hide all
+    oracleView.style.display = 'none';
+    forgeView.style.display = 'none';
+    battleView.style.display = 'none';
+    oracleBtn.classList.remove('active');
+    forgeBtn.classList.remove('active');
+    battleBtn.classList.remove('active');
 
     if (view === 'oracle') {
         oracleView.style.display = 'block';
-        forgeView.style.display = 'none';
         oracleBtn.classList.add('active');
-        forgeBtn.classList.remove('active');
-    } else {
-        oracleView.style.display = 'none';
+    } else if (view === 'forge') {
         forgeView.style.display = 'block';
-        oracleBtn.classList.remove('active');
         forgeBtn.classList.add('active');
-        // Load Forge campaigns on first switch
         if (!forgeCampaignsLoaded) loadForgeCampaigns();
+    } else if (view === 'battle') {
+        battleView.style.display = 'block';
+        battleBtn.classList.add('active');
+        if (!battlePlanLoaded) loadBattlePlan();
     }
     localStorage.setItem('activeView', view);
 }
@@ -2795,6 +3237,7 @@ function switchView(view) {
 (function() {
     const saved = localStorage.getItem('activeView');
     if (saved === 'forge') switchView('forge');
+    else if (saved === 'battle') switchView('battle');
 })();
 
 // ===== FORGE CAMPAIGN DROPDOWN =====
@@ -2916,14 +3359,8 @@ function renderBriefPreview(brief) {
 
     document.getElementById('briefContent').innerHTML = html;
 
-    // Show Claude orchestration status and start polling
-    const claudeStatus = document.getElementById('forgeClaudeStatus');
-    claudeStatus.style.display = 'block';
-    const promptText = document.getElementById('forgePromptText');
-    promptText.textContent = 'forge the ' + selectedForgeCampaign.title + ' campaign';
-
-    // Start polling for Claude-injected sessions
-    startForgePolling();
+    // Populate Domain Arsenal with extracted domains
+    populateDomainArsenal(brief.target_domains || []);
 }
 
 // Close forge dropdown on click outside
@@ -3003,71 +3440,93 @@ function scoreBadge(score) {
     return '<span class="score-badge ' + cls + '">' + score + '/10</span>';
 }
 
-// ===== COPY FORGE PROMPT =====
-function copyForgePrompt() {
-    const text = document.getElementById('forgePromptText').textContent;
-    navigator.clipboard.writeText(text).then(() => {
-        const snippet = document.getElementById('forgePromptSnippet');
-        snippet.style.borderColor = '#00FF00';
-        setTimeout(() => { snippet.style.borderColor = '#444'; }, 1500);
+// ===== DOMAIN ARSENAL =====
+let forgeDomains = [];
+
+function populateDomainArsenal(domains) {
+    forgeDomains = (domains || []).slice();
+    const arsenal = document.getElementById('domainArsenal');
+    arsenal.style.display = 'block';
+    renderDomainTags();
+    arsenal.scrollIntoView({behavior: 'smooth'});
+}
+
+function renderDomainTags() {
+    const container = document.getElementById('domainTags');
+    if (forgeDomains.length === 0) {
+        container.innerHTML = '<span class="domain-arsenal-empty">No domains yet \u2014 add manually below.</span>';
+    } else {
+        container.innerHTML = forgeDomains.map((d, i) =>
+            '<span class="domain-tag">' + d +
+            ' <span class="domain-remove" onclick="removeForgeDomain(' + i + ')">&times;</span></span>'
+        ).join('');
+    }
+    document.getElementById('forgeLaunchBtn').disabled = forgeDomains.length === 0;
+}
+
+function addForgeDomain() {
+    const input = document.getElementById('domainInput');
+    const val = input.value.trim().toLowerCase()
+        .replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+    if (!val) return;
+    if (forgeDomains.includes(val)) {
+        input.value = '';
+        return;
+    }
+    forgeDomains.push(val);
+    input.value = '';
+    renderDomainTags();
+}
+
+function removeForgeDomain(index) {
+    forgeDomains.splice(index, 1);
+    renderDomainTags();
+}
+
+function launchForge() {
+    if (forgeDomains.length === 0) return;
+    const btn = document.getElementById('forgeLaunchBtn');
+    btn.disabled = true;
+    btn.textContent = '\u26A1 Forging...';
+
+    const payload = {
+        campaign_id: selectedForgeCampaign ? selectedForgeCampaign.id : 'manual',
+        campaign_name: selectedForgeCampaign ? selectedForgeCampaign.title : 'Manual Forge',
+        domains: forgeDomains,
+        brief_summary: forgeBriefData ? (forgeBriefData.icp || '') : '',
+    };
+
+    fetch('/api/forge/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            showError(data.error);
+            btn.disabled = false;
+            btn.innerHTML = '&#9889; LAUNCH THE FORGE &#9889;';
+            return;
+        }
+        forgeSessionId = data.session_id;
+        startProspecting(data.session_id, forgeDomains.length);
+    })
+    .catch(err => {
+        showError('Launch failed: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = '&#9889; LAUNCH THE FORGE &#9889;';
     });
 }
 
-// ===== FORGE POLLING: Wait for Claude to inject domains =====
-let forgePollInterval = null;
-
-function startForgePolling() {
-    // Show polling indicator
-    document.getElementById('forgePollStatus').style.display = 'block';
-
-    // Animate dots
-    let dotCount = 0;
-    const dotEl = document.getElementById('forgePollDots');
-    const dotInterval = setInterval(() => {
-        dotCount = (dotCount + 1) % 4;
-        dotEl.textContent = '.'.repeat(dotCount);
-    }, 500);
-
-    // Poll every 3 seconds for new sessions matching this campaign
-    if (forgePollInterval) clearInterval(forgePollInterval);
-    forgePollInterval = setInterval(() => {
-        fetch('/api/forge/sessions')
-            .then(r => r.json())
-            .then(data => {
-                const sessions = data.sessions || [];
-                // Find a session for this campaign with domains_ready status
-                const match = sessions.find(s =>
-                    s.campaign_id === selectedForgeCampaign.id &&
-                    s.status === 'domains_ready' &&
-                    s.discovered_domains_count > 0
-                );
-                if (match) {
-                    clearInterval(forgePollInterval);
-                    clearInterval(dotInterval);
-                    forgePollInterval = null;
-                    startProspecting(match.session_id, match.discovered_domains_count);
-                }
-            })
-            .catch(() => {}); // Silently ignore poll errors
-    }, 3000);
-}
-
-function stopForgePolling() {
-    if (forgePollInterval) {
-        clearInterval(forgePollInterval);
-        forgePollInterval = null;
-    }
-}
-
-// ===== STAGE 1 → 2: START PROSPECTING (triggered by poll) =====
+// ===== STAGE 1 → 2: START PROSPECTING =====
 function startProspecting(sessionId, domainCount) {
     zeusFlash();
     setForgeStage(2);
 
-    // Update Claude status to show transition
-    const claudeStatus = document.getElementById('forgeClaudeStatus');
-    claudeStatus.innerHTML = '<p style="color:#00FF00;font-family:\'Cinzel\',serif;font-size:16px;">' +
-        '&#9989; Claude discovered ' + domainCount + ' companies. Qualifying now...</p>';
+    // Update Domain Arsenal to show transition
+    const arsenal = document.getElementById('domainArsenal');
+    arsenal.innerHTML = '<h3 style="color:#00FF00;">&#9989; ' + domainCount + ' domains locked in. Qualifying now...</h3>';
 
     // Show Stage 2 section
     const sec = document.getElementById('forgeStage2Section');
@@ -3360,6 +3819,248 @@ function exportProspects() {
             'HubSpot push and Oracle handoff coming in Sprint 2</p>';
         sec.scrollIntoView({behavior: 'smooth'});
     }).catch(err => showError('Export error', err.message));
+}
+
+// ===== BATTLE PLAN (Oracle v2) =====
+let dispositions = [];
+let selectedDispo = null;
+
+function loadBattlePlan() {
+    const content = document.getElementById('battlePlanContent');
+    content.innerHTML = '<div class="battle-loading">&#9876; The Oracle surveys the battlefield...</div>';
+
+    // Hide sections while loading
+    document.getElementById('battleHotSection').style.display = 'none';
+    document.getElementById('battleWarmSection').style.display = 'none';
+    document.getElementById('battleParkedSection').style.display = 'none';
+
+    fetch('/api/battle-plan?all=true')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                content.innerHTML = '<div class="battle-empty">\u26A1 ' + data.error + '</div>';
+                return;
+            }
+            battleData = data;
+            battlePlanLoaded = true;
+            renderBattlePlan();
+        })
+        .catch(err => {
+            content.innerHTML = '<div class="battle-empty">\u26A1 Failed to summon the list: ' + err.message + '</div>';
+        });
+
+    // Load dispositions for the modal
+    if (!dispositions.length) {
+        fetch('/api/dispositions')
+            .then(r => r.json())
+            .then(data => { dispositions = data.dispositions || []; })
+            .catch(() => {});
+    }
+}
+
+function renderBattlePlan() {
+    if (!battleData) return;
+    const content = document.getElementById('battlePlanContent');
+
+    // Update stats
+    document.getElementById('battleHotCount').textContent = battleData.total_pending || 0;
+    document.getElementById('battleWarmCount').textContent = battleData.total_enriching || 0;
+    document.getElementById('battleParkedCount').textContent = battleData.total_parked || 0;
+
+    const total = (battleData.total_pending || 0) + (battleData.total_enriching || 0) + (battleData.total_parked || 0);
+    if (total === 0) {
+        content.innerHTML = '<div class="battle-empty">&#127942; All quiet on the battlefield. No warriors await thy command.</div>';
+        return;
+    }
+    content.innerHTML = '';
+
+    // Render HOT
+    const hotSection = document.getElementById('battleHotSection');
+    const hotList = document.getElementById('battleHotList');
+    if (battleData.pending && battleData.pending.length > 0) {
+        hotSection.style.display = 'block';
+        hotList.innerHTML = battleData.pending.map(c => renderBattleCard(c, 'hot')).join('');
+    }
+
+    // Render WARM
+    const warmSection = document.getElementById('battleWarmSection');
+    const warmList = document.getElementById('battleWarmList');
+    if (battleData.enriching && battleData.enriching.length > 0) {
+        warmSection.style.display = 'block';
+        warmList.innerHTML = battleData.enriching.map(c => renderBattleCard(c, 'warm')).join('');
+    }
+
+    // Render PARKED
+    const parkedSection = document.getElementById('battleParkedSection');
+    const parkedList = document.getElementById('battleParkedList');
+    if (battleData.parked && battleData.parked.length > 0) {
+        parkedSection.style.display = 'block';
+        parkedList.innerHTML = battleData.parked.map(c => renderBattleCard(c, 'parked')).join('');
+    }
+}
+
+function renderBattleCard(contact, tier) {
+    const tierClass = tier === 'hot' ? '' : tier;
+    const badgeClass = tier === 'hot' ? '' : ' ' + tier;
+    const signal = (contact.action_type || '').replace('signal_', '');
+    const hubspotUrl = 'https://app.hubspot.com/contacts/{{ hubspot_portal_id }}/contact/' + contact.contact_id;
+    const phone = contact.phone || '';
+    const phoneLink = phone ? '<a href="tel:' + phone + '">' + phone + '</a>' : 'No phone';
+
+    return '<div class="battle-card ' + tierClass + '" id="battle-card-' + contact.contact_id + '">' +
+        '<div class="battle-card-info">' +
+            '<div class="contact-name">' + (contact.name || 'Unknown') + '</div>' +
+            '<div class="contact-detail">' + (contact.title || '') + (contact.title && contact.company ? ' @ ' : '') + (contact.company || '') + '</div>' +
+            '<div class="contact-detail">&#9742; ' + phoneLink + ' &bull; <a href="mailto:' + (contact.email || '') + '">' + (contact.email || '') + '</a></div>' +
+            '<div class="contact-detail"><a href="' + hubspotUrl + '" target="_blank">View in HubSpot &#8599;</a>' +
+            (contact.step_number ? ' &bull; Step ' + contact.step_number : '') + '</div>' +
+            (signal ? '<span class="signal-badge' + badgeClass + '">' + signal + '</span>' : '') +
+            '<div class="call-prep-panel" id="prep-' + contact.contact_id + '"></div>' +
+        '</div>' +
+        '<div class="battle-card-actions">' +
+            '<button class="battle-btn prep" onclick="runCallPrep(\'' + contact.contact_id + '\')">&#128220; Call Prep</button>' +
+            '<button class="battle-btn complete" onclick="openDisposition(\'' + contact.contact_id + '\', \'' + (contact.name || '').replace(/'/g, "\\'") + '\')">&#9989; Complete</button>' +
+        '</div>' +
+    '</div>';
+}
+
+function runCallPrep(contactId) {
+    const panel = document.getElementById('prep-' + contactId);
+    if (!panel) return;
+    panel.classList.add('show');
+    panel.innerHTML = '<em style="color:#CD853F;">&#128293; Consulting the Oracle...</em>';
+
+    const evtSrc = new EventSource('/api/battle-plan/call-prep?' +
+        new URLSearchParams({contact_id: contactId}));
+
+    // SSE via POST requires fetch, but we can use GET with query param trick
+    // Actually, call-prep is POST. Use fetch + ReadableStream instead.
+    panel.innerHTML = '<em style="color:#CD853F;">&#128293; Consulting the Oracle...</em>';
+
+    fetch('/api/battle-plan/call-prep', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({contact_id: contactId}),
+    }).then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function read() {
+            reader.read().then(({done, value}) => {
+                if (done) return;
+                buffer += decoder.decode(value, {stream: true});
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const evt = JSON.parse(line.slice(6));
+                        if (evt.type === 'call_prep_ready') {
+                            panel.innerHTML = '<strong style="color:#FFD700;">&#128220; Call Prep for ' +
+                                evt.name + '</strong><br><br>' + formatScript(evt.script);
+                        } else if (evt.type === 'error') {
+                            panel.innerHTML = '<em style="color:#FF4500;">\u26A1 ' + evt.msg + '</em>';
+                        } else if (evt.type === 'status') {
+                            panel.innerHTML = '<em style="color:#CD853F;">' + evt.msg + '</em>';
+                        }
+                    } catch(e) {}
+                }
+                read();
+            });
+        }
+        read();
+    }).catch(err => {
+        panel.innerHTML = '<em style="color:#FF4500;">\u26A1 Call prep failed: ' + err.message + '</em>';
+    });
+}
+
+function formatScript(text) {
+    if (!text) return '<em>No script generated</em>';
+    // Basic markdown-ish formatting
+    return text
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#FFD700;">$1</strong>')
+        .replace(/\n/g, '<br>');
+}
+
+function openDisposition(contactId, contactName) {
+    selectedDispo = null;
+    document.getElementById('dispoContactId').value = contactId;
+    document.getElementById('dispoContactName').textContent = contactName;
+    document.getElementById('dispoNotes').value = '';
+
+    // Render disposition buttons
+    const grid = document.getElementById('dispoGrid');
+    grid.innerHTML = dispositions.map(d => {
+        const label = d.disposition.replace(/_/g, ' ');
+        return '<button class="dispo-btn" data-dispo="' + d.disposition + '" onclick="selectDispo(this, \'' + d.disposition + '\')">' +
+            label + '</button>';
+    }).join('');
+
+    document.getElementById('dispoOverlay').classList.add('show');
+}
+
+function selectDispo(btn, dispo) {
+    selectedDispo = dispo;
+    document.querySelectorAll('.dispo-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+}
+
+function closeDisposition() {
+    document.getElementById('dispoOverlay').classList.remove('show');
+    selectedDispo = null;
+}
+
+function submitDisposition() {
+    if (!selectedDispo) {
+        alert('Select a disposition first!');
+        return;
+    }
+    const contactId = document.getElementById('dispoContactId').value;
+    const notes = document.getElementById('dispoNotes').value;
+    const btn = document.getElementById('dispoSubmitBtn');
+    btn.textContent = '⏳ Inscribing...';
+    btn.disabled = true;
+
+    fetch('/api/action/complete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            contact_id: contactId,
+            disposition: selectedDispo,
+            notes: notes,
+        }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.textContent = '\u2705 Inscribe';
+        btn.disabled = false;
+        if (data.error) {
+            alert('Error: ' + data.error);
+            return;
+        }
+        closeDisposition();
+        // Mark card as completed visually
+        const card = document.getElementById('battle-card-' + contactId);
+        if (card) {
+            card.classList.add('completed');
+            const actionsDiv = card.querySelector('.battle-card-actions');
+            if (actionsDiv) {
+                actionsDiv.innerHTML = '<span style="color:#2ecc71; font-family:\'MedievalSharp\',cursive;">\u2705 ' +
+                    selectedDispo.replace(/_/g, ' ') + '</span>';
+            }
+        }
+        // Update count
+        const countEl = document.getElementById('battleHotCount');
+        const current = parseInt(countEl.textContent) || 0;
+        if (current > 0) countEl.textContent = current - 1;
+    })
+    .catch(err => {
+        btn.textContent = '\u2705 Inscribe';
+        btn.disabled = false;
+        alert('Failed: ' + err.message);
+    });
 }
 </script>
 

@@ -7,7 +7,7 @@ import json
 import time
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, render_template, request, Response, jsonify
 import requests as http_requests
@@ -28,6 +28,10 @@ from services.hubspot import HubSpotClient
 from services.octave import OctaveClient
 from services.notion import NotionClient
 from services.slack import post_to_slack
+from services.supersend import SupersendClient
+from services.signal_classifier import classify_signal, TIER_CONFIG
+from services.dedup import is_duplicate, mark_seen
+from services.routing_config import get_route, list_dispositions
 
 app = Flask(__name__)
 log = logging.getLogger(__name__)
@@ -1514,6 +1518,430 @@ def forge_approve_stage():
         "session_id": session_id,
         "next_stage": stage + 1,
     })
+
+
+# ---------------------------------------------------------------------------
+# ORACLE v2 — Webhook-Driven Sales Pipeline
+# ---------------------------------------------------------------------------
+
+def _verify_webhook_secret(req):
+    """Verify the webhook secret from the Authorization header."""
+    auth = req.headers.get("Authorization", "")
+    expected = f"Bearer {config.ORACLE_WEBHOOK_SECRET}"
+    return auth == expected
+
+
+def _verify_signal_api_key(req):
+    """Verify the signal webhook API key from X-API-Key header."""
+    key = req.headers.get("X-API-Key", "")
+    return key == config.SIGNAL_WEBHOOK_API_KEY
+
+
+@app.route("/api/webhook/supersend-task", methods=["POST"])
+def webhook_supersend_task():
+    """Receive a task-completed webhook from Supersend.
+
+    When Supersend finishes a sequence step (email sent, call task created),
+    this webhook fires. We upsert the contact in HubSpot with oracle_ properties
+    so they appear on the Battle Plan.
+    """
+    if not _verify_webhook_secret(request):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json or {}
+    email = data.get("email", "").strip().lower()
+    if not email:
+        return jsonify({"error": "Missing email"}), 400
+
+    contact_name = data.get("name", data.get("firstName", ""))
+    campaign_id = data.get("campaign_id", data.get("sequence_id", ""))
+    node_id = data.get("node_id", data.get("step_id", ""))
+    step_number = data.get("step_number", data.get("step", 1))
+    action_type = data.get("action_type", data.get("task_type", "call"))
+    supersend_contact_id = data.get("contact_id", "")
+
+    if not config.HUBSPOT_ACCESS_TOKEN:
+        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
+
+    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
+
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        oracle_props = {
+            "oracle_pending_action": "pending",
+            "oracle_action_type": str(action_type),
+            "oracle_campaign_id": str(campaign_id),
+            "oracle_node_id": str(node_id),
+            "oracle_step_number": str(step_number),
+            "oracle_last_action_date": now_iso,
+            "oracle_supersend_contact_id": str(supersend_contact_id),
+        }
+        contact_id = hs.upsert_contact_oracle(email, oracle_props)
+
+        # Append to journey log
+        hs.append_journey_log(
+            contact_id,
+            f"Webhook received: {action_type} task for step {step_number} "
+            f"(campaign {campaign_id})"
+        )
+
+        return jsonify({
+            "ok": True,
+            "contact_id": contact_id,
+            "msg": f"Contact {email} queued with pending action",
+        })
+    except Exception as e:
+        log.error("Webhook processing failed for %s: %s", email, e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/webhook/signal", methods=["POST"])
+def webhook_signal():
+    """Ingest a product/intent signal and classify it.
+
+    Replaces Slack channel monitoring. Signals come from product analytics,
+    marketing automation, or manual triggers.
+    """
+    if not _verify_signal_api_key(request):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json or {}
+    email = data.get("email", "").strip().lower()
+    signal_type = data.get("signal_type", "").strip()
+
+    if not email or not signal_type:
+        return jsonify({"error": "Missing email or signal_type"}), 400
+
+    # Dedup check
+    if is_duplicate(email, signal_type):
+        return jsonify({
+            "ok": True,
+            "action": "deduplicated",
+            "msg": f"Signal {signal_type} for {email} already processed within cooldown",
+        })
+
+    # Classify
+    tier, tier_config = classify_signal(signal_type)
+    if tier is None:
+        return jsonify({"error": f"Unknown signal type: {signal_type}"}), 400
+
+    if not config.HUBSPOT_ACCESS_TOKEN:
+        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
+
+    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
+
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        if tier == 1:
+            # HOT — immediately add to battle plan
+            oracle_props = {
+                "oracle_pending_action": "pending",
+                "oracle_action_type": f"signal_{signal_type}",
+                "oracle_last_action_date": now_iso,
+            }
+            contact_id = hs.upsert_contact_oracle(email, oracle_props)
+            hs.append_journey_log(contact_id, f"HOT SIGNAL: {signal_type} — queued for immediate action")
+
+        elif tier == 2:
+            # WARM — enrich then decide (mark as enriching)
+            oracle_props = {
+                "oracle_pending_action": "enriching",
+                "oracle_action_type": f"signal_{signal_type}",
+                "oracle_last_action_date": now_iso,
+            }
+            contact_id = hs.upsert_contact_oracle(email, oracle_props)
+            hs.append_journey_log(contact_id, f"WARM SIGNAL: {signal_type} — enriching before routing")
+
+        else:
+            # AMBIENT — park for batch review
+            oracle_props = {
+                "oracle_pending_action": "parked",
+                "oracle_action_type": f"signal_{signal_type}",
+                "oracle_last_action_date": now_iso,
+            }
+            contact_id = hs.upsert_contact_oracle(email, oracle_props)
+            hs.append_journey_log(contact_id, f"AMBIENT SIGNAL: {signal_type} — parked for review")
+
+        mark_seen(email, signal_type)
+
+        return jsonify({
+            "ok": True,
+            "tier": tier,
+            "tier_label": tier_config["label"],
+            "action": tier_config["action"],
+            "contact_id": contact_id,
+            "msg": f"Signal classified as {tier_config['label']} — {tier_config['description']}",
+        })
+    except Exception as e:
+        log.error("Signal processing failed for %s/%s: %s", email, signal_type, e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/battle-plan")
+def api_battle_plan():
+    """Return contacts with pending oracle actions for the Battle Plan UI.
+
+    Includes contacts in 'pending' state (ready to call) and optionally
+    'enriching' and 'parked' states.
+    """
+    if not config.HUBSPOT_ACCESS_TOKEN:
+        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
+
+    include_all = request.args.get("all", "false").lower() == "true"
+
+    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
+
+    try:
+        # Get pending contacts
+        pending = hs.get_pending_actions()
+
+        # Optionally also get enriching and parked
+        enriching = []
+        parked = []
+        if include_all:
+            try:
+                enriching_search = hs._post("/crm/v3/objects/contacts/search", {
+                    "filterGroups": [{
+                        "filters": [{
+                            "propertyName": "oracle_pending_action",
+                            "operator": "EQ",
+                            "value": "enriching",
+                        }]
+                    }],
+                    "properties": [
+                        "firstname", "lastname", "email", "company", "jobtitle",
+                        "phone", "mobilephone",
+                    ] + hs.ORACLE_PROPERTIES,
+                    "limit": 100,
+                })
+                enriching = enriching_search.get("results", [])
+            except Exception:
+                pass
+            try:
+                parked_search = hs._post("/crm/v3/objects/contacts/search", {
+                    "filterGroups": [{
+                        "filters": [{
+                            "propertyName": "oracle_pending_action",
+                            "operator": "EQ",
+                            "value": "parked",
+                        }]
+                    }],
+                    "properties": [
+                        "firstname", "lastname", "email", "company", "jobtitle",
+                        "phone", "mobilephone",
+                    ] + hs.ORACLE_PROPERTIES,
+                    "limit": 100,
+                })
+                parked = parked_search.get("results", [])
+            except Exception:
+                pass
+
+        def _format_contact(c, status="pending"):
+            props = c.get("properties", {})
+            fn = props.get("firstname") or ""
+            ln = props.get("lastname") or ""
+            return {
+                "contact_id": c["id"],
+                "name": f"{fn} {ln}".strip() or props.get("email", "Unknown"),
+                "email": props.get("email", ""),
+                "company": props.get("company", ""),
+                "title": props.get("jobtitle", ""),
+                "phone": props.get("phone", "") or props.get("mobilephone", ""),
+                "action_type": props.get("oracle_action_type", ""),
+                "campaign_id": props.get("oracle_campaign_id", ""),
+                "step_number": props.get("oracle_step_number", ""),
+                "last_action_date": props.get("oracle_last_action_date", ""),
+                "status": status,
+                "supersend_contact_id": props.get("oracle_supersend_contact_id", ""),
+            }
+
+        result = {
+            "pending": [_format_contact(c, "pending") for c in pending],
+            "enriching": [_format_contact(c, "enriching") for c in enriching],
+            "parked": [_format_contact(c, "parked") for c in parked],
+            "total_pending": len(pending),
+            "total_enriching": len(enriching),
+            "total_parked": len(parked),
+        }
+
+        return jsonify(result)
+    except Exception as e:
+        log.error("Battle plan fetch failed: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/battle-plan/call-prep", methods=["POST"])
+def api_battle_plan_call_prep():
+    """SSE: Generate Octave call prep for a single contact from the battle plan."""
+    data = request.json or {}
+    contact_id = data.get("contact_id")
+
+    if not contact_id:
+        return jsonify({"error": "Missing contact_id"}), 400
+
+    if not config.HUBSPOT_ACCESS_TOKEN or not config.OCTAVE_API_KEY:
+        return jsonify({"error": "Missing API credentials"}), 500
+
+    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
+    octave = OctaveClient(config.OCTAVE_API_KEY)
+
+    def stream():
+        def emit(msg_type, payload):
+            return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
+
+        yield emit("status", {"msg": "The Oracle awakens for this warrior..."})
+
+        # Fetch contact details
+        try:
+            contacts = hs.batch_get_contacts([contact_id], [
+                "firstname", "lastname", "email", "company", "jobtitle",
+                "phone", "mobilephone", "city", "state", "country", "hs_timezone",
+            ])
+            if not contacts:
+                yield emit("error", {"msg": "Contact not found in HubSpot"})
+                return
+            contact = contacts[0]
+            props = contact.get("properties", {})
+            name = f"{props.get('firstname', '')} {props.get('lastname', '')}".strip()
+        except Exception as e:
+            yield emit("error", {"msg": f"Failed to fetch contact: {e}"})
+            return
+
+        yield emit("status", {"msg": f"Consulting the Oracle for {name}..."})
+
+        # Get most recent outbound email
+        try:
+            email_data = hs.search_emails_for_contact(contact_id)
+        except Exception:
+            email_data = None
+
+        if not email_data:
+            yield emit("status", {"msg": "No outbound email found — generating script from profile only..."})
+            email_data = {"subject": "", "body_html": "", "body_text": ""}
+
+        # Generate call prep via Octave
+        try:
+            script_data = octave.generate_call_script(
+                props,
+                email_data.get("subject", ""),
+                email_data.get("body_html") or email_data.get("body_text", ""),
+            )
+            script_content = ""
+            if isinstance(script_data, dict):
+                script_content = script_data.get("content", "") or script_data.get("text", "") or json.dumps(script_data)
+            elif isinstance(script_data, str):
+                script_content = script_data
+
+            yield emit("call_prep_ready", {
+                "contact_id": contact_id,
+                "name": name,
+                "company": props.get("company", ""),
+                "title": props.get("jobtitle", ""),
+                "phone": props.get("phone", "") or props.get("mobilephone", ""),
+                "email": props.get("email", ""),
+                "script": script_content,
+                "msg": f"The Oracle has spoken for {name}!",
+            })
+        except Exception as e:
+            yield emit("error", {"msg": f"Oracle consultation failed: {e}"})
+
+    return Response(stream(), mimetype="text/event-stream")
+
+
+@app.route("/api/action/complete", methods=["POST"])
+def api_action_complete():
+    """Mark a battle plan item as completed with a disposition.
+
+    Updates HubSpot oracle_ properties and optionally advances the
+    Supersend sequence based on the disposition routing config.
+    """
+    data = request.json or {}
+    contact_id = data.get("contact_id")
+    disposition = data.get("disposition", "").strip()
+    notes = data.get("notes", "").strip()
+
+    if not contact_id or not disposition:
+        return jsonify({"error": "Missing contact_id or disposition"}), 400
+
+    if not config.HUBSPOT_ACCESS_TOKEN:
+        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
+
+    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
+    route = get_route(disposition)
+
+    if not route:
+        return jsonify({"error": f"Unknown disposition: {disposition}"}), 400
+
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Clear the pending action
+        update_props = {
+            "oracle_pending_action": "completed",
+            "oracle_call_disposition": disposition,
+            "oracle_last_action_date": now_iso,
+        }
+        hs.update_contact_properties(contact_id, update_props)
+
+        # Append to journey log
+        log_entry = route["log_entry"]
+        if notes:
+            log_entry += f" | Notes: {notes}"
+        hs.append_journey_log(contact_id, log_entry)
+
+        # Execute Supersend action if configured
+        supersend_result = None
+        if config.SUPERSEND_API_KEY and route["action"] in ("advance", "transfer", "finish"):
+            try:
+                ss = SupersendClient(config.SUPERSEND_API_KEY)
+                # Get the Supersend contact ID from HubSpot
+                contact_data = hs.batch_get_contacts([contact_id], [
+                    "oracle_supersend_contact_id", "oracle_campaign_id", "oracle_step_number",
+                ])
+                if contact_data:
+                    c_props = contact_data[0].get("properties", {})
+                    ss_contact_id = c_props.get("oracle_supersend_contact_id", "")
+                    campaign_id = c_props.get("oracle_campaign_id", "")
+                    step = int(c_props.get("oracle_step_number", "1") or "1")
+
+                    if ss_contact_id and campaign_id:
+                        if route["action"] == "advance":
+                            next_step = route.get("next_step") or step + 1
+                            supersend_result = ss.assign_step(ss_contact_id, campaign_id, next_step)
+                        elif route["action"] == "transfer" and route.get("transfer_to"):
+                            supersend_result = ss.transfer_contact(
+                                ss_contact_id, campaign_id, route["transfer_to"]
+                            )
+                        elif route["action"] == "finish":
+                            supersend_result = ss.finish_contact(ss_contact_id, campaign_id)
+            except Exception as e:
+                log.warning("Supersend action failed for contact %s: %s", contact_id, e)
+                supersend_result = {"error": str(e)}
+
+        return jsonify({
+            "ok": True,
+            "contact_id": contact_id,
+            "disposition": disposition,
+            "route_action": route["action"],
+            "supersend_result": supersend_result,
+            "msg": f"Action completed: {route['log_entry']}",
+        })
+    except Exception as e:
+        log.error("Action completion failed for %s: %s", contact_id, e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/dispositions")
+def api_dispositions():
+    """Return all known dispositions for the UI dropdown."""
+    return jsonify({"dispositions": list_dispositions()})
+
+
+@app.route("/api/signal-tiers")
+def api_signal_tiers():
+    """Return signal tier configuration for the UI."""
+    return jsonify({"tiers": TIER_CONFIG})
 
 
 if __name__ == "__main__":
