@@ -43,25 +43,77 @@ class NotionClient:
         return r.json()
 
     def list_campaigns(self):
-        """List campaign pages under Active & Planned Campaigns."""
+        """List campaign pages under Active & Planned Campaigns.
+
+        Handles child_page, child_database, and link_to_page block types.
+        Paginates through all children (Notion caps at 100 per request).
+        Always runs fallback search to catch pages missed by the block scan.
+        """
+        seen_ids = set()
         results = []
-        data = self._get(f"/blocks/{config.NOTION_CAMPAIGNS_PAGE_ID}/children")
-        for block in data.get("results", []):
-            if block.get("type") == "child_page":
-                title = block.get("child_page", {}).get("title", "Untitled")
-                results.append({"id": block["id"], "title": title})
-        # Fallback: search for pages with parent = campaigns page
-        if not results:
-            data = self._post("/search", {
-                "filter": {"property": "object", "value": "page"},
-                "query": "",
-            })
-            for page in data.get("results", []):
-                parent = page.get("parent", {})
-                if parent.get("page_id", "").replace("-", "") == config.NOTION_CAMPAIGNS_PAGE_ID.replace("-", ""):
-                    title_parts = page.get("properties", {}).get("title", {}).get("title", [])
-                    title = "".join(t.get("plain_text", "") for t in title_parts) or "Untitled"
-                    results.append({"id": page["id"], "title": title})
+
+        # --- Primary: walk child blocks with pagination ---
+        start_cursor = None
+        while True:
+            params = {}
+            if start_cursor:
+                params["start_cursor"] = start_cursor
+            data = self._get(
+                f"/blocks/{config.NOTION_CAMPAIGNS_PAGE_ID}/children", params
+            )
+            for block in data.get("results", []):
+                btype = block.get("type", "")
+                bid = block.get("id", "")
+
+                if btype == "child_page":
+                    title = block.get("child_page", {}).get("title", "Untitled")
+                elif btype == "child_database":
+                    title = block.get("child_database", {}).get("title", "Untitled")
+                elif btype == "link_to_page":
+                    # link_to_page points at another page/database by ID
+                    linked = block.get("link_to_page", {})
+                    bid = linked.get("page_id") or linked.get("database_id") or bid
+                    title = f"Linked: {bid[:8]}"  # will be enriched by fallback
+                else:
+                    continue
+
+                norm_id = bid.replace("-", "")
+                if norm_id not in seen_ids:
+                    seen_ids.add(norm_id)
+                    results.append({"id": bid, "title": title})
+
+            if not data.get("has_more"):
+                break
+            start_cursor = data.get("next_cursor")
+
+        # --- Fallback: search API catches nested or oddly-typed children ---
+        parent_id_norm = config.NOTION_CAMPAIGNS_PAGE_ID.replace("-", "")
+        data = self._post("/search", {
+            "filter": {"property": "object", "value": "page"},
+            "query": "",
+        })
+        for page in data.get("results", []):
+            parent = page.get("parent", {})
+            page_parent_id = (
+                parent.get("page_id", "") or parent.get("database_id", "")
+            ).replace("-", "")
+            if page_parent_id == parent_id_norm:
+                pid = page.get("id", "")
+                norm_pid = pid.replace("-", "")
+                if norm_pid in seen_ids:
+                    continue
+                seen_ids.add(norm_pid)
+                title_parts = (
+                    page.get("properties", {})
+                    .get("title", {})
+                    .get("title", [])
+                )
+                title = (
+                    "".join(t.get("plain_text", "") for t in title_parts)
+                    or "Untitled"
+                )
+                results.append({"id": pid, "title": title})
+
         return results
 
     def get_page_blocks(self, page_id):

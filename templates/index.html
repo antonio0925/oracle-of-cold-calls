@@ -165,7 +165,7 @@ body {
 
 /* MAIN CONTAINER */
 .container {
-    max-width: 900px;
+    max-width: 1100px;
     margin: 0 auto;
     padding: 20px;
     position: relative;
@@ -395,6 +395,17 @@ body {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
 }
+.battle-btn {
+    background: linear-gradient(180deg, #2E7D32, #1B5E20) !important;
+    border-color: #66BB6A !important;
+    text-shadow: 0 0 10px #00E676 !important;
+    font-size: 18px !important;
+}
+.battle-btn:hover {
+    background: linear-gradient(180deg, #388E3C, #2E7D32) !important;
+    box-shadow: 0 0 30px rgba(0,230,118,0.5) !important;
+}
+.battle-btn::before, .battle-btn::after { content: none !important; }
 
 /* PROGRESS SECTION */
 .progress-section {
@@ -505,7 +516,7 @@ body {
 .log-box {
     background: #0a0500;
     border: 2px inset #333;
-    max-height: 300px;
+    max-height: 600px;
     overflow-y: auto;
     padding: 10px;
     font-family: 'Courier New', monospace;
@@ -655,6 +666,34 @@ body {
     font-size: 11px;
     color: #FFD700;
     text-align: center;
+}
+.contact-row a.hs-link {
+    color: #FFD700;
+    text-decoration: underline;
+    text-decoration-color: #8B4513;
+    transition: color 0.2s, text-shadow 0.2s;
+}
+.contact-row a.hs-link:hover, .contact-card-header a.hs-link:hover {
+    color: #FFF;
+    text-shadow: 0 0 8px #FF4500;
+}
+.contact-row.dialed {
+    opacity: 0.5;
+    position: relative;
+}
+.contact-row.dialed::after {
+    content: '\2705 DIALED';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: #00FF00;
+    font-family: 'Courier New', monospace;
+    background: rgba(0,100,0,0.3);
+    padding: 2px 8px;
+    border: 1px solid #00FF00;
+    border-radius: 3px;
 }
 .contact-row .phone-email {
     font-family: 'Courier New', monospace;
@@ -826,7 +865,7 @@ body {
     text-shadow: 0 0 15px #4B0082;
 }
 .cleanup-manifest {
-    max-height: 400px;
+    max-height: 700px;
     overflow-y: auto;
     margin: 15px 0;
     padding: 10px;
@@ -1258,7 +1297,7 @@ body {
     border-radius: 8px;
     padding: 15px;
     margin: 15px 0;
-    max-height: 400px;
+    max-height: 600px;
     overflow-y: auto;
     font-size: 13px;
     line-height: 1.6;
@@ -1335,6 +1374,9 @@ body {
     .forge-stages-bar { flex-direction: column; gap: 5px; }
     .view-toggle-btn { font-size: 12px; padding: 6px 16px; }
     .qa-table { font-size: 11px; }
+}
+@media (min-width: 1200px) {
+    .container { max-width: 1200px; }
 }
 </style>
 </head>
@@ -1439,9 +1481,14 @@ body {
             <label for="skipExisting">&#128737; Skip the already-anointed (contacts with existing COLD CALL PREP notes)</label>
         </div>
 
-        <button class="oracle-btn" id="consultBtn" onclick="consultTheOracle()">
-            CONSULT THE ORACLE
-        </button>
+        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+            <button class="oracle-btn" id="consultBtn" onclick="consultTheOracle()">
+                CONSULT THE ORACLE
+            </button>
+            <button class="oracle-btn battle-btn" id="battleBtn" onclick="prepareForBattle()">
+                ⚔️ PREPARE FOR BATTLE
+            </button>
+        </div>
     </div>
 
     <!-- ===== PROGRESS ===== -->
@@ -1478,6 +1525,14 @@ body {
 
         <!-- Unknown TZ -->
         <div id="unknownTzBlock"></div>
+
+        <!-- Refresh Battle Status -->
+        <div style="text-align:center;margin:15px 0;">
+            <button class="oracle-btn battle-btn" id="refreshBtn" onclick="refreshBattleStatus()" style="width:auto;display:inline-block;padding:10px 25px;font-size:14px;margin:0;">
+                🔄 REFRESH BATTLE STATUS
+            </button>
+            <span id="refreshStatus" style="display:inline-block;margin-left:10px;color:#66BB6A;font-family:'MedievalSharp',cursive;font-size:13px;"></span>
+        </div>
 
         <div class="fire-divider-css"></div>
 
@@ -1792,6 +1847,7 @@ let allCampaigns = [];
 let listsLoaded = false;
 let campaignsLoaded = false;
 let currentSessionId = null;
+const HUBSPOT_PORTAL_ID = '{{ hubspot_portal_id }}';
 
 // Live stats tracking
 let liveProcessed = 0, livePrepared = 0, liveSkipped = 0;
@@ -1916,13 +1972,12 @@ function showError(msg, detail) {
     document.getElementById('errorDetail').textContent = detail || '';
     document.getElementById('errorDetail').style.display = detail ? 'block' : 'none';
     document.getElementById('errorOverlay').classList.add('visible');
-    document.body.style.overflow = 'hidden';
 }
 
 function dismissError() {
     document.getElementById('errorOverlay').classList.remove('visible');
-    document.body.style.overflow = '';
     document.getElementById('consultBtn').disabled = false;
+    document.getElementById('battleBtn').disabled = false;
 }
 
 // ===================================================================
@@ -1967,6 +2022,7 @@ function consultTheOracle() {
 
     // Show progress, hide form
     document.getElementById('consultBtn').disabled = true;
+    document.getElementById('battleBtn').disabled = true;
     document.getElementById('progressSection').style.display = 'block';
     document.getElementById('reviewSection').style.display = 'none';
     document.getElementById('approveSection').style.display = 'none';
@@ -2044,6 +2100,95 @@ function consultTheOracle() {
 }
 
 // ===================================================================
+// PREPARE FOR BATTLE (quick generate — existing notes only)
+// ===================================================================
+function prepareForBattle() {
+    const segment = document.getElementById('segmentInput').value.trim();
+    const campaign = document.getElementById('campaignInput').value.trim();
+    const callingDate = document.getElementById('callingDate').value;
+
+    if (!segment || !campaign) {
+        showError('The battle requires both a Legion and a Crusade name!', 'Fill in all required fields.');
+        return;
+    }
+
+    // Reset live stats
+    liveProcessed = 0; livePrepared = 0; liveSkipped = 0;
+    document.getElementById('lsProcessed').textContent = '0';
+    document.getElementById('lsPrepared').textContent = '0';
+    document.getElementById('lsSkipped').textContent = '0';
+
+    // Show progress, hide form
+    document.getElementById('consultBtn').disabled = true;
+    document.getElementById('battleBtn').disabled = true;
+    document.getElementById('progressSection').style.display = 'block';
+    document.getElementById('reviewSection').style.display = 'none';
+    document.getElementById('approveSection').style.display = 'none';
+    document.getElementById('logBox').innerHTML = '';
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('progressText').textContent = '0%';
+    document.getElementById('currentAction').textContent = '\u2694\uFE0F Preparing for battle...';
+    document.getElementById('currentActionSub').textContent = '';
+
+    document.getElementById('progressSection').scrollIntoView({behavior: 'smooth'});
+    zeusFlash();
+
+    fetch('/quick-generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            segment: segment,
+            campaign: campaign,
+            calling_date: callingDate,
+        }),
+    }).then(response => {
+        if (!response.ok) {
+            return response.json().then(d => {
+                showError(d.error || 'The battle cannot begin.', 'HTTP ' + response.status);
+                throw new Error('stop');
+            });
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function read() {
+            reader.read().then(({done, value}) => {
+                if (done) {
+                    if (buffer.startsWith('data: ')) {
+                        try {
+                            const msg = JSON.parse(buffer.substring(6));
+                            handleMessage(msg);
+                        } catch(e) {}
+                    }
+                    return;
+                }
+                buffer += decoder.decode(value, {stream: true});
+                const events = buffer.split('\n\n');
+                buffer = events.pop() || '';
+                for (const event of events) {
+                    const trimmed = event.trim();
+                    if (trimmed.startsWith('data: ')) {
+                        try {
+                            const msg = JSON.parse(trimmed.substring(6));
+                            handleMessage(msg);
+                        } catch(e) {
+                            console.warn('SSE parse error:', e.message);
+                        }
+                    }
+                }
+                read();
+            });
+        }
+        read();
+    }).catch(err => {
+        if (err.message !== 'stop') {
+            showError('A catastrophic disturbance in the ether!', err.message);
+        }
+    });
+}
+
+// ===================================================================
 // HANDLE SSE MESSAGES (generate phase)
 // ===================================================================
 function handleMessage(msg) {
@@ -2103,16 +2248,19 @@ function handleMessage(msg) {
                 .then(sessionData => {
                     // Merge stats from SSE (most current) with full session data
                     sessionData.stats = msg.stats;
+                    if (msg.quick_mode) sessionData.quick_mode = true;
                     renderReview(sessionData);
                 })
                 .catch(err => {
                     showError('Failed to load the battle plan!', err.message);
                     document.getElementById('consultBtn').disabled = false;
+                    document.getElementById('battleBtn').disabled = false;
                 });
         } else {
             showError('No warriors qualified for battle.',
                 'Check your Legion and filters. Make sure contacts have outbound emails.');
             document.getElementById('consultBtn').disabled = false;
+            document.getElementById('battleBtn').disabled = false;
         }
     }
 }
@@ -2163,9 +2311,10 @@ function renderReview(data) {
         } else {
             sheetHtml += '<div class="time-block-body">';
             for (const c of block.contacts) {
-                sheetHtml += '<div class="contact-row">' +
+                const hsUrl = 'https://app.hubspot.com/contacts/' + HUBSPOT_PORTAL_ID + '/record/0-1/' + c.contact_id;
+                sheetHtml += '<div class="contact-row" data-contact-id="' + c.contact_id + '">' +
                     '<span class="num">' + contactNum + '.</span>' +
-                    '<span class="name-title">' + c.name + '<br><span class="title">' + (c.title || 'Unknown rank') + '</span></span>' +
+                    '<span class="name-title"><a href="' + hsUrl + '" target="_blank" class="hs-link">' + c.name + '</a><br><span class="title">' + (c.title || 'Unknown rank') + '</span></span>' +
                     '<span class="company">' + c.company + '</span>' +
                     '<span class="tz-badge">' + c.tz + '</span>' +
                     '<span class="phone-email">' + (c.phone || 'No phone') + '<br>' + (c.email || '') + '</span>' +
@@ -2184,9 +2333,10 @@ function renderReview(data) {
             '<div class="time-block-header">\u26A0\uFE0F LOST IN THE LABYRINTH - Unknown Time Zone (verify manually before calling)</div>' +
             '<div class="time-block-body">';
         for (const c of data.unknown_tz) {
-            unknownHtml += '<div class="contact-row">' +
+            const unkHsUrl = 'https://app.hubspot.com/contacts/' + HUBSPOT_PORTAL_ID + '/record/0-1/' + c.contact_id;
+            unknownHtml += '<div class="contact-row" data-contact-id="' + c.contact_id + '">' +
                 '<span class="num">' + contactNum + '.</span>' +
-                '<span class="name-title">' + c.name + '<br><span class="title">' + (c.title || 'Unknown rank') + '</span></span>' +
+                '<span class="name-title"><a href="' + unkHsUrl + '" target="_blank" class="hs-link">' + c.name + '</a><br><span class="title">' + (c.title || 'Unknown rank') + '</span></span>' +
                 '<span class="company">' + c.company + '</span>' +
                 '<span class="tz-badge" style="background:#8B4500;border-color:#FFA500;">???</span>' +
                 '<span class="phone-email">' + (c.phone || 'No phone') + '<br>' + (c.email || '') + '</span>' +
@@ -2200,9 +2350,10 @@ function renderReview(data) {
     // Contact detail cards — render the formatted note_html (what gets written to HubSpot)
     let cardsHtml = '';
     for (const c of data.contacts) {
+        const cardHsUrl = 'https://app.hubspot.com/contacts/' + HUBSPOT_PORTAL_ID + '/record/0-1/' + c.contact_id;
         cardsHtml += '<div class="contact-card" onclick="this.classList.toggle(\'open\')">' +
             '<div class="contact-card-header">' +
-            '<span><span class="card-name">' + c.name + '</span>' +
+            '<span><a href="' + cardHsUrl + '" target="_blank" class="hs-link card-name" onclick="event.stopPropagation()">' + c.name + '</a>' +
             '<span class="card-meta"> | ' + c.company + ' | ' + c.tz + '</span></span>' +
             '<span class="toggle-arrow">\u25BC</span>' +
             '</div>' +
@@ -2215,10 +2366,20 @@ function renderReview(data) {
 
     // Show sections
     document.getElementById('reviewSection').style.display = 'block';
-    document.getElementById('approveSection').style.display = 'block';
+    // Quick mode: no approve/Kraken step (call sheet only, no HubSpot writes)
+    if (data.quick_mode) {
+        document.getElementById('approveSection').style.display = 'none';
+        document.getElementById('consultBtn').disabled = false;
+        document.getElementById('battleBtn').disabled = false;
+    } else {
+        document.getElementById('approveSection').style.display = 'block';
+    }
 
     // Scroll to review
     document.getElementById('reviewSection').scrollIntoView({behavior: 'smooth'});
+
+    // Start auto-refreshing dial status every 3 minutes
+    startAutoRefresh();
 }
 
 // ===================================================================
@@ -2303,6 +2464,7 @@ function handleWriteMessage(msg) {
 
         // Reset form
         document.getElementById('consultBtn').disabled = false;
+        document.getElementById('battleBtn').disabled = false;
         currentSessionId = null;
     }
 }
@@ -2321,8 +2483,90 @@ function banishToTartarus() {
             document.getElementById('reviewSection').style.display = 'none';
             document.getElementById('approveSection').style.display = 'none';
             document.getElementById('consultBtn').disabled = false;
+            document.getElementById('battleBtn').disabled = false;
             currentSessionId = null;
         });
+}
+
+// ===================================================================
+// REFRESH BATTLE STATUS — Check for dialed contacts
+// ===================================================================
+let refreshInterval = null;
+
+function refreshBattleStatus() {
+    if (!currentSessionId) return;
+
+    const refreshBtn = document.getElementById('refreshBtn');
+    const refreshStatus = document.getElementById('refreshStatus');
+    refreshBtn.disabled = true;
+    refreshStatus.textContent = 'Checking battle activity...';
+
+    // Collect all contact IDs from the call sheet
+    const contactRows = document.querySelectorAll('.contact-row[data-contact-id]');
+    const contactIds = [];
+    contactRows.forEach(row => {
+        const cid = row.getAttribute('data-contact-id');
+        if (cid) contactIds.push(cid);
+    });
+
+    if (contactIds.length === 0) {
+        refreshStatus.textContent = 'No warriors to check.';
+        refreshBtn.disabled = false;
+        return;
+    }
+
+    // Get today's date at midnight UTC
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sinceDate = today.toISOString();
+
+    fetch('/api/contact-activity', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({contact_ids: contactIds, since_date: sinceDate}),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            refreshStatus.textContent = 'Error: ' + data.error;
+            refreshBtn.disabled = false;
+            return;
+        }
+
+        const activity = data.activity || {};
+        let dialedCount = 0;
+
+        contactRows.forEach(row => {
+            const cid = row.getAttribute('data-contact-id');
+            if (cid && activity[cid] && activity[cid].dialed) {
+                row.classList.add('dialed');
+                dialedCount++;
+            } else {
+                row.classList.remove('dialed');
+            }
+        });
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+        refreshStatus.textContent = dialedCount + ' of ' + contactIds.length + ' dialed \u2022 Updated ' + timeStr;
+        refreshBtn.disabled = false;
+    })
+    .catch(err => {
+        refreshStatus.textContent = 'Refresh failed: ' + err.message;
+        refreshBtn.disabled = false;
+    });
+}
+
+function startAutoRefresh() {
+    if (refreshInterval) clearInterval(refreshInterval);
+    refreshInterval = setInterval(refreshBattleStatus, 180000); // 3 minutes
+}
+
+function stopAutoRefresh() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+    }
 }
 
 // ===================================================================

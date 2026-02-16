@@ -6,6 +6,7 @@ import requests as http_requests
 from dateutil import parser as dateparser
 import config
 from services.retry import retry_request
+from services.call_sheet import user_tz_abbrev, et_to_user_hour, format_hour
 
 
 def build_slack_messages(session_data):
@@ -34,7 +35,7 @@ def build_slack_messages(session_data):
         f"_{total_prepped} warriors armed for battle_ | "
         f":scroll: _= prophecy inscribed_\n"
         f"_Strategy: Every prospect called at their 10-11 AM local. "
-        f"Times in PST._\n\n"
+        f"Times in {user_tz_abbrev()}._\n\n"
         f"_Full battle plan below_ :point_down:"
     )
 
@@ -79,14 +80,22 @@ def build_slack_messages(session_data):
             unk_lines.append(f"{icon} <{hs_url}|{name}> — {company}")
         thread_messages.append(unk_header + "\n".join(unk_lines))
 
-    # Afternoon redials block
+    # Afternoon redials block — times converted to user's timezone
+    tz_abbr = user_tz_abbrev()
+    # Redial schedule: re-call each US timezone's no-answers at their 4-5 PM
+    # ET 4-5 PM = redial ET contacts, CT 4-5 PM = ET 5-6 PM, etc.
+    redial_lines = []
+    for label, et_start in [("ET", 16), ("CT", 17), ("MT", 18), ("PT", 19)]:
+        user_start = et_to_user_hour(et_start)
+        user_end = user_start + 1
+        start_str = format_hour(user_start).replace(" AM", "a").replace(" PM", "p")
+        end_str = format_hour(user_end).replace(" AM", "a").replace(" PM", "p")
+        redial_lines.append(f"_{start_str}–{end_str}_ — Re-dial {label} no-answers (their 4-5 PM)")
+
     redial_msg = (
         "-------------------------\n\n"
         ":arrows_counterclockwise: _AFTERNOON RE-DIALS (Return from the Underworld)_\n\n"
-        "_1:00–2:00p_ — Re-dial ET no-answers (their 4-5 PM)\n"
-        "_2:00–3:00p_ — Re-dial CT no-answers (their 4-5 PM)\n"
-        "_3:00–4:00p_ — Re-dial MT no-answers (their 4-5 PM)\n"
-        "_4:00–5:00p_ — Re-dial PT no-answers (their 4-5 PM)\n\n"
+        + "\n".join(redial_lines) + "\n\n"
         "_Sources: Orum (1B+ dials), Revenue.io, Cognism, HubSpot — "
         "10-11 AM local = highest connect rates_"
     )

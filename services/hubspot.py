@@ -241,3 +241,43 @@ class HubSpotClient:
     def archive_note(self, note_id):
         """Archive (soft-delete) a note by ID."""
         return self._delete(f"/crm/v3/objects/notes/{note_id}")
+
+    def batch_check_call_activity(self, contact_ids, since_date):
+        """Check which contacts have logged calls on or after since_date.
+
+        Returns {contact_id: {"dialed": bool, "last_call_date": str}}.
+        Uses the CRM associations API: contact -> calls.
+        """
+        results = {}
+        for cid in contact_ids:
+            cid_str = str(cid)
+            results[cid_str] = {"dialed": False, "last_call_date": ""}
+            try:
+                assoc_data = self._get(
+                    f"/crm/v3/objects/contacts/{cid}/associations/calls"
+                )
+                call_ids = [str(r["id"]) for r in assoc_data.get("results", [])]
+                if not call_ids:
+                    continue
+                # Batch-read the call objects to check timestamps
+                # HubSpot batch read allows up to 100 at a time
+                for i in range(0, len(call_ids), 100):
+                    batch = call_ids[i:i + 100]
+                    call_data = self._post("/crm/v3/objects/calls/batch/read", {
+                        "inputs": [{"id": c} for c in batch],
+                        "properties": ["hs_timestamp", "hs_call_status"],
+                    })
+                    for call_obj in call_data.get("results", []):
+                        call_ts = call_obj.get("properties", {}).get("hs_timestamp", "")
+                        if call_ts and call_ts >= since_date:
+                            results[cid_str] = {
+                                "dialed": True,
+                                "last_call_date": call_ts,
+                            }
+                            break
+                    # Stop checking further batches if already found a match
+                    if results[cid_str]["dialed"]:
+                        break
+            except Exception:
+                pass
+        return results
