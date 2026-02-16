@@ -42,6 +42,12 @@ USER_START_HOUR = float(os.getenv("USER_START_HOUR", "6.5"))  # 6:30 AM
 # --- Thresholds ---
 QUAL_THRESHOLD = int(os.getenv("QUAL_THRESHOLD", "8"))
 
+# --- Oracle v2: Supersend + Signal Pipeline ---
+SUPERSEND_API_KEY = os.getenv("SUPERSEND_API_KEY", "")
+ORACLE_WEBHOOK_SECRET = os.getenv("ORACLE_WEBHOOK_SECRET", "")
+SIGNAL_WEBHOOK_API_KEY = os.getenv("SIGNAL_WEBHOOK_API_KEY", "")
+OCTAVE_CALL_PREP_AGENT = os.getenv("OCTAVE_CALL_PREP_AGENT", "ca_DLoI5XBlw9qGNEDBiV1a2")
+
 # --- Server ---
 FLASK_PORT = int(os.getenv("FLASK_PORT", "5001"))
 FLASK_DEBUG = os.getenv("FLASK_DEBUG", "true").lower() in ("true", "1", "yes")

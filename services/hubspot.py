@@ -242,6 +242,112 @@ class HubSpotClient:
         """Archive (soft-delete) a note by ID."""
         return self._delete(f"/crm/v3/objects/notes/{note_id}")
 
+    # ------------------------------------------------------------------
+    # Oracle v2: Contact properties for webhook-driven pipeline
+    # ------------------------------------------------------------------
+    ORACLE_PROPERTIES = [
+        "oracle_pending_action", "oracle_action_type", "oracle_campaign_id",
+        "oracle_node_id", "oracle_step_number", "oracle_journey_log",
+        "oracle_last_action_date", "oracle_call_disposition",
+        "oracle_supersend_contact_id",
+    ]
+
+    def upsert_contact_oracle(self, email, properties):
+        """Create or update a contact with oracle_ properties.
+
+        Uses the v3 search + update (or create) pattern.
+        Returns the contact ID.
+        """
+        # Search by email first
+        search = self._post("/crm/v3/objects/contacts/search", {
+            "filterGroups": [{
+                "filters": [{
+                    "propertyName": "email",
+                    "operator": "EQ",
+                    "value": email,
+                }]
+            }],
+            "properties": ["email"] + self.ORACLE_PROPERTIES,
+            "limit": 1,
+        })
+        results = search.get("results", [])
+        if results:
+            cid = results[0]["id"]
+            self._patch(f"/crm/v3/objects/contacts/{cid}", {"properties": properties})
+            return cid
+        else:
+            # Create with just email first (oracle_ properties may fail during creation)
+            data = self._post("/crm/v3/objects/contacts", {
+                "properties": {"email": email},
+            })
+            cid = data["id"]
+            # Then patch the oracle_ properties onto the new contact
+            if properties:
+                self._patch(f"/crm/v3/objects/contacts/{cid}", {"properties": properties})
+            return cid
+
+    def _patch(self, path, payload):
+        r = retry_request(
+            lambda: http_requests.patch(
+                f"{self.BASE}{path}", headers=self.headers, json=payload,
+                timeout=self.DEFAULT_TIMEOUT,
+            ),
+            label=f"HubSpot PATCH {path}",
+        )
+        r.raise_for_status()
+        return r.json()
+
+    def update_contact_properties(self, contact_id, properties):
+        """Update specific properties on an existing contact."""
+        return self._patch(
+            f"/crm/v3/objects/contacts/{contact_id}",
+            {"properties": properties},
+        )
+
+    def get_pending_actions(self):
+        """Find all contacts with oracle_pending_action = 'pending'.
+
+        Returns list of contact dicts with full oracle_ properties.
+        """
+        search = self._post("/crm/v3/objects/contacts/search", {
+            "filterGroups": [{
+                "filters": [{
+                    "propertyName": "oracle_pending_action",
+                    "operator": "EQ",
+                    "value": "pending",
+                }]
+            }],
+            "properties": [
+                "firstname", "lastname", "email", "company", "jobtitle",
+                "phone", "mobilephone", "city", "state", "country",
+                "hs_timezone",
+            ] + self.ORACLE_PROPERTIES,
+            "sorts": [{"propertyName": "oracle_last_action_date", "direction": "DESCENDING"}],
+            "limit": 100,
+        })
+        return search.get("results", [])
+
+    def append_journey_log(self, contact_id, entry):
+        """Append an entry to the oracle_journey_log field.
+
+        The journey log is an append-only text field. Each entry is a line.
+        """
+        # Read current value
+        contact = self._get(
+            f"/crm/v3/objects/contacts/{contact_id}",
+            {"properties": "oracle_journey_log"},
+        )
+        current_log = contact.get("properties", {}).get("oracle_journey_log", "") or ""
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        new_log = f"{current_log}\n[{timestamp}] {entry}".strip()
+        # Cap at ~60KB to stay under HubSpot's 65535 char limit
+        if len(new_log) > 60000:
+            lines = new_log.split("\n")
+            while len("\n".join(lines)) > 60000 and len(lines) > 1:
+                lines.pop(0)
+            new_log = "\n".join(lines)
+        self.update_contact_properties(contact_id, {"oracle_journey_log": new_log})
+
     def batch_check_call_activity(self, contact_ids, since_date):
         """Check which contacts have logged calls on or after since_date.
 
