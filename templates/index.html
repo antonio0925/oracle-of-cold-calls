@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>THE ORACLE OF COLD CALLS</title>
+<title>THE FORGE & THE ORACLE</title>
 <style>
 /* ===== 1998 GEOCITIES ENERGY ===== */
 @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;700&family=MedievalSharp&display=swap');
@@ -258,9 +258,9 @@ body {
     background: #1a0a00;
     border: 2px solid #8B4513;
     border-top: none;
-    max-height: 250px;
+    max-height: 350px;
     overflow-y: auto;
-    z-index: 100;
+    z-index: 1000;
 }
 .search-dropdown.open .dd-list { display: block; }
 .search-dropdown .dd-item {
@@ -273,6 +273,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    word-break: break-word;
+    min-height: 40px;
 }
 .search-dropdown .dd-item:hover {
     background: rgba(255,69,0,0.15);
@@ -1077,12 +1079,262 @@ body {
     border: 1px solid #FFD700;
 }
 
+/* ===== VIEW TOGGLE (Oracle / Forge) ===== */
+.view-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin: 10px auto 0;
+}
+.view-toggle-btn {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 14px;
+    padding: 8px 28px;
+    border: 2px solid #FFD700;
+    background: transparent;
+    color: #CD853F;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 2px;
+}
+.view-toggle-btn:first-child { border-radius: 8px 0 0 8px; }
+.view-toggle-btn:last-child { border-radius: 0 8px 8px 0; }
+.view-toggle-btn.active {
+    background: linear-gradient(180deg, #8B0000, #4B0000);
+    color: #FFD700;
+    text-shadow: 0 0 10px #FF4500;
+    border-color: #FF4500;
+}
+.view-toggle-btn:hover:not(.active) {
+    background: rgba(139, 0, 0, 0.3);
+    color: #FFD700;
+}
+
+/* ===== THE FORGE - Stage Progress ===== */
+.forge-stages-bar {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin: 20px auto 25px;
+    max-width: 700px;
+}
+.forge-stage-indicator {
+    flex: 1;
+    text-align: center;
+    padding: 10px 8px;
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    color: #555;
+    border-bottom: 3px solid #333;
+    position: relative;
+    transition: all 0.3s;
+}
+.forge-stage-indicator.active {
+    color: #FFD700;
+    border-bottom-color: #FF4500;
+    text-shadow: 0 0 8px #FF4500;
+}
+.forge-stage-indicator.completed {
+    color: #00FF00;
+    border-bottom-color: #00FF00;
+}
+.forge-stage-indicator .stage-num {
+    display: block;
+    font-size: 18px;
+    margin-bottom: 3px;
+}
+.forge-stage-indicator.active .stage-num { color: #FF4500; }
+.forge-stage-indicator.completed .stage-num { color: #00FF00; }
+
+/* ===== THE FORGE - Forms & Sections ===== */
+.forge-section {
+    display: none;
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px ridge #8B4513;
+    border-radius: 12px;
+    padding: 25px;
+    margin: 20px auto;
+    max-width: 900px;
+}
+.forge-section h2 {
+    font-family: 'Cinzel Decorative', serif;
+    color: #FF4500;
+    text-align: center;
+    text-shadow: 0 0 15px #8B0000;
+    margin-bottom: 15px;
+}
+
+/* QA Gate Tables */
+.qa-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 13px;
+}
+.qa-table th {
+    font-family: 'Cinzel', serif;
+    background: linear-gradient(180deg, #1a0a00, #0d0500);
+    color: #FFD700;
+    padding: 10px 8px;
+    border-bottom: 2px solid #8B4513;
+    text-align: left;
+    font-size: 12px;
+    letter-spacing: 1px;
+}
+.qa-table td {
+    padding: 8px;
+    border-bottom: 1px solid #333;
+    color: #DDD;
+    vertical-align: middle;
+}
+.qa-table tr:hover { background: rgba(139, 69, 19, 0.15); }
+.qa-table input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #FF4500;
+}
+
+/* Score Badges */
+.score-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 13px;
+    min-width: 35px;
+    text-align: center;
+}
+.score-badge.high { background: #0a3d0a; color: #00FF00; border: 1px solid #00FF00; }
+.score-badge.mid { background: #3d3d0a; color: #FFD700; border: 1px solid #FFD700; }
+.score-badge.low { background: #3d0a0a; color: #FF4444; border: 1px solid #FF4444; }
+
+/* US Badge */
+.us-badge {
+    display: inline-block;
+    background: #0a0a3d;
+    color: #4488FF;
+    border: 1px solid #4488FF;
+    padding: 1px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+/* Forge Buttons */
+.forge-btn {
+    display: block;
+    width: 100%;
+    max-width: 400px;
+    margin: 20px auto 0;
+    padding: 14px 30px;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 16px;
+    color: #FFD700;
+    background: linear-gradient(180deg, #8B0000 0%, #4B0000 100%);
+    border: 3px ridge #FFD700;
+    border-radius: 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    transition: all 0.3s;
+    text-shadow: 0 0 5px #FF4500;
+}
+.forge-btn:hover {
+    background: linear-gradient(180deg, #B22222 0%, #8B0000 100%);
+    box-shadow: 0 0 20px rgba(255, 69, 0, 0.5);
+    transform: scale(1.02);
+}
+.forge-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Forge Brief Preview */
+.brief-preview {
+    background: rgba(20, 10, 0, 0.9);
+    border: 1px solid #8B4513;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+    max-height: 400px;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.6;
+}
+.brief-preview h3 {
+    font-family: 'Cinzel', serif;
+    color: #FF4500;
+    font-size: 14px;
+    margin: 12px 0 5px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 3px;
+}
+.brief-preview p, .brief-preview li { color: #CD853F; margin: 3px 0; }
+.brief-preview .brief-tag {
+    display: inline-block;
+    background: #1a0a00;
+    border: 1px solid #8B4513;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin: 2px 4px 2px 0;
+    font-size: 11px;
+    color: #FFD700;
+}
+
+/* Select All / Deselect All */
+.qa-controls {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0;
+    justify-content: flex-end;
+}
+.qa-controls button {
+    font-family: 'MedievalSharp', cursive;
+    font-size: 12px;
+    padding: 4px 12px;
+    background: transparent;
+    border: 1px solid #666;
+    color: #CD853F;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.qa-controls button:hover { border-color: #FFD700; color: #FFD700; }
+
+/* Forge Log Box */
+.forge-log {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 10px;
+    max-height: 250px;
+    overflow-y: auto;
+    margin: 15px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+}
+
+/* Reasoning tooltip */
+.reasoning-text {
+    display: block;
+    max-width: 300px;
+    font-size: 11px;
+    color: #999;
+    white-space: normal;
+    line-height: 1.4;
+    margin-top: 3px;
+}
+
 /* RESPONSIVE */
 @media (max-width: 700px) {
     .header h1 { font-size: 28px; }
     .contact-row { grid-template-columns: 25px 1fr 80px; }
     .contact-row .company, .contact-row .phone-email { display: none; }
     .error-overlay h1 { font-size: 28px; }
+    .forge-stages-bar { flex-direction: column; gap: 5px; }
+    .view-toggle-btn { font-size: 12px; padding: 6px 16px; }
+    .qa-table { font-size: 11px; }
 }
 </style>
 </head>
@@ -1108,7 +1360,7 @@ body {
 <!-- ===== MARQUEE ===== -->
 <div class="marquee-bar">
     <div class="marquee-inner">
-        &#9876; WELCOME MORTAL TO THE ORACLE OF COLD CALLS &#9876; &bull; POWERED BY THE GODS OF OLYMPUS &bull; &#9876; FORGED IN THE FIRES OF MOUNT ETNA &bull; WHERE HEPHAESTUS CRAFTS YOUR SALES WEAPONS &bull; &#9876; NO QUARTER SHALL BE GIVEN &bull; EVERY DIAL IS A BATTLE &bull; EVERY CONNECT IS A CONQUEST &#9876;
+        &#9876; WELCOME MORTAL TO THE FORGE &amp; THE ORACLE &#9876; &bull; POWERED BY THE GODS OF OLYMPUS &bull; &#9876; FORGED IN THE FIRES OF MOUNT ETNA &bull; WHERE HEPHAESTUS CRAFTS YOUR SALES WEAPONS &bull; &#9876; NO QUARTER SHALL BE GIVEN &bull; EVERY DIAL IS A BATTLE &bull; EVERY CONNECT IS A CONQUEST &#9876;
     </div>
 </div>
 
@@ -1118,18 +1370,26 @@ body {
          src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/John_William_Waterhouse_-_Consulting_the_Oracle_-_1884.jpg/1280px-John_William_Waterhouse_-_Consulting_the_Oracle_-_1884.jpg"
          alt="Consulting the Oracle"
          onerror="this.style.display='none'">
-    <h1>THE ORACLE</h1>
-    <div class="subtitle">of Cold Calls</div>
+    <h1>THE FORGE &amp; THE ORACLE</h1>
+    <div class="subtitle">Campaign Pipeline &bull; Cold Call Preparation</div>
     <div class="torch-row">
         <span class="torch">&#128293;</span>
         <span class="torch">&#127942;</span>
         <span class="torch">&#128293;</span>
+    </div>
+    <!-- VIEW TOGGLE -->
+    <div class="view-toggle">
+        <button class="view-toggle-btn" id="forgeToggle" onclick="switchView('forge')">&#128296; The Forge</button>
+        <button class="view-toggle-btn active" id="oracleToggle" onclick="switchView('oracle')">&#128064; The Oracle</button>
     </div>
 </div>
 
 <div class="fire-divider-css"></div>
 
 <div class="container">
+
+    <!-- ===== ORACLE VIEW (existing) ===== -->
+    <div id="oracleView">
 
     <!-- ===== FORM ===== -->
     <div class="oracle-form" id="formSection">
@@ -1280,7 +1540,189 @@ body {
             </button>
         </div>
         <div class="log-box" id="cleanupLogBox" style="display:none;"></div>
-    </div>
+    </div><!-- end cleanupSection -->
+
+    </div><!-- end oracleView -->
+
+    <!-- ===== THE FORGE VIEW ===== -->
+    <div id="forgeView" style="display:none;">
+
+        <!-- Stage Progress Bar -->
+        <div class="forge-stages-bar" id="forgeStagesBar">
+            <div class="forge-stage-indicator active" id="forgeStage1">
+                <span class="stage-num">I</span>
+                Campaign Intake
+            </div>
+            <div class="forge-stage-indicator" id="forgeStage2">
+                <span class="stage-num">II</span>
+                Prospecting
+            </div>
+            <div class="forge-stage-indicator" id="forgeStage3">
+                <span class="stage-num">III</span>
+                Company Enrichment
+            </div>
+            <div class="forge-stage-indicator" id="forgeStage4">
+                <span class="stage-num">IV</span>
+                People Discovery
+            </div>
+            <div class="forge-stage-indicator" id="forgeStage5">
+                <span class="stage-num">V</span>
+                Export
+            </div>
+        </div>
+
+        <!-- ===== STAGE 1: Campaign Intake ===== -->
+        <div class="forge-section" id="forgeStage1Section" style="display:block;">
+            <h2>&#128296; Select Thy Campaign &#128296;</h2>
+            <p style="text-align:center;color:#CD853F;font-family:'MedievalSharp',cursive;margin-bottom:15px;">
+                Choose a campaign, then tell Claude to forge it
+            </p>
+
+            <div class="form-group">
+                <label style="color:#FFD700;font-family:'Cinzel',serif;">
+                    &#9876; Campaign from Notion
+                    <span class="label-desc">Active campaigns from your Campaign Central</span>
+                </label>
+                <div class="search-dropdown" id="forgeCampaignDropdown">
+                    <input type="text" id="forgeCampaignInput" placeholder="Search campaigns..." autocomplete="off"
+                           onfocus="openForgeDropdown()" oninput="filterForgeDropdown()">
+                    <span class="dd-arrow">&#9660;</span>
+                    <div class="dd-list" id="forgeCampaignList">
+                        <div class="dd-loading">&#128296; Fetching campaigns from Notion...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Brief Preview -->
+            <div class="brief-preview" id="briefPreview" style="display:none;">
+                <h3>&#128220; Campaign Brief</h3>
+                <div id="briefContent">Loading brief...</div>
+            </div>
+
+            <!-- Claude Orchestration Status -->
+            <div id="forgeClaudeStatus" style="display:none;text-align:center;margin-top:20px;
+                padding:20px;border:2px dashed #8B0000;border-radius:8px;background:rgba(139,0,0,0.1);">
+                <p style="color:#FFD700;font-family:'Cinzel',serif;font-size:16px;margin-bottom:10px;">
+                    &#9889; Ready to Forge
+                </p>
+                <p style="color:#CD853F;font-family:'MedievalSharp',cursive;font-size:14px;margin-bottom:15px;">
+                    Tell Claude to discover companies for this campaign:
+                </p>
+                <div id="forgePromptSnippet" style="background:#0a0a0a;border:1px solid #444;border-radius:4px;
+                    padding:12px 16px;display:inline-block;cursor:pointer;position:relative;"
+                    onclick="copyForgePrompt()" title="Click to copy">
+                    <code style="color:#00FF00;font-size:14px;" id="forgePromptText">forge the campaign</code>
+                    <span style="color:#888;font-size:11px;margin-left:10px;">&#128203; click to copy</span>
+                </div>
+                <div id="forgePollStatus" style="margin-top:15px;display:none;">
+                    <p style="color:#888;font-size:12px;font-style:italic;">
+                        &#8987; Waiting for Claude to discover companies...
+                        <span id="forgePollDots"></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== STAGE 2: Prospecting (Prospector + Qualify) ===== -->
+        <div class="forge-section" id="forgeStage2Section">
+            <h2>&#9876; Prospecting &amp; Qualification &#9876;</h2>
+            <div class="forge-log" id="forgeProspectLog"></div>
+            <div id="forgeProspectResults" style="display:none;">
+                <div class="qa-controls">
+                    <button onclick="forgeSelectAll('prospectTable')">Select All Qualified</button>
+                    <button onclick="forgeDeselectAll('prospectTable')">Deselect All</button>
+                </div>
+                <table class="qa-table" id="prospectTable">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;">&#10003;</th>
+                            <th>Company</th>
+                            <th>Domain</th>
+                            <th>Industry</th>
+                            <th>Employees</th>
+                            <th>Location</th>
+                            <th>Score</th>
+                            <th>Source</th>
+                        </tr>
+                    </thead>
+                    <tbody id="prospectTableBody"></tbody>
+                </table>
+                <button class="forge-btn" id="enrichCompaniesBtn" onclick="enrichCompanies()">
+                    &#128270; ENRICH APPROVED COMPANIES &#128270;
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== STAGE 3: Company Enrichment + QA Gate ===== -->
+        <div class="forge-section" id="forgeStage3Section">
+            <h2>&#128270; Company Enrichment &#128270;</h2>
+            <div class="forge-log" id="forgeEnrichCompanyLog"></div>
+            <div id="forgeEnrichCompanyResults" style="display:none;">
+                <div class="qa-controls">
+                    <button onclick="forgeSelectAll('enrichCompanyTable')">Select All</button>
+                    <button onclick="forgeDeselectAll('enrichCompanyTable')">Deselect All</button>
+                </div>
+                <table class="qa-table" id="enrichCompanyTable">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;">&#10003;</th>
+                            <th>Company</th>
+                            <th>Domain</th>
+                            <th>Industry</th>
+                            <th>Score</th>
+                            <th>Enrichment Summary</th>
+                        </tr>
+                    </thead>
+                    <tbody id="enrichCompanyTableBody"></tbody>
+                </table>
+                <button class="forge-btn" id="discoverPeopleBtn" onclick="discoverEnrichPeople()">
+                    &#128101; DISCOVER PEOPLE AT APPROVED COMPANIES &#128101;
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== STAGE 4: People Discovery + Enrichment + QA Gate ===== -->
+        <div class="forge-section" id="forgeStage4Section">
+            <h2>&#128101; People Discovery &amp; Enrichment &#128101;</h2>
+            <div class="forge-log" id="forgeDiscoverPeopleLog"></div>
+            <div id="forgeDiscoverPeopleResults" style="display:none;">
+                <div class="qa-controls">
+                    <button onclick="forgeSelectAll('discoverPeopleTable')">Select All</button>
+                    <button onclick="forgeDeselectAll('discoverPeopleTable')">Deselect All</button>
+                </div>
+                <table class="qa-table" id="discoverPeopleTable">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;">&#10003;</th>
+                            <th>Name</th>
+                            <th>Title</th>
+                            <th>Company</th>
+                            <th>Email</th>
+                            <th>Enrichment Summary</th>
+                        </tr>
+                    </thead>
+                    <tbody id="discoverPeopleTableBody"></tbody>
+                </table>
+                <button class="forge-btn" id="exportProspectsBtn" onclick="exportProspects()">
+                    &#128640; EXPORT APPROVED PROSPECTS &#128640;
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== STAGE 5: Export & Handoff ===== -->
+        <div class="forge-section" id="forgeStage5Section">
+            <h2>&#128640; Export &amp; Handoff &#128640;</h2>
+            <div id="forgeExportSummary" style="text-align:center;padding:20px;">
+                <p style="color:#CD853F;font-family:'MedievalSharp',cursive;font-size:16px;">
+                    Your approved prospects are ready for battle.
+                </p>
+                <p style="color:#888;font-size:12px;margin-top:10px;font-style:italic;">
+                    HubSpot push and Oracle handoff coming in Sprint 2
+                </p>
+            </div>
+        </div>
+
+    </div><!-- end forgeView -->
 
 </div>
 
@@ -2057,6 +2499,610 @@ function cancelCleanup() {
     document.getElementById('cleanupSection').style.display = 'none';
     document.getElementById('cleanupBtn').disabled = false;
     cleanupSessionId = null;
+}
+
+// ===================================================================
+// THE FORGE — Campaign Pipeline JavaScript
+// ===================================================================
+let forgeSessionId = null;
+let forgeCampaigns = [];
+let forgeCampaignsLoaded = false;
+let selectedForgeCampaign = null;
+let forgeBriefData = null;
+let forgeCurrentStage = 1;
+
+// ===== VIEW TOGGLE =====
+function switchView(view) {
+    const oracleView = document.getElementById('oracleView');
+    const forgeView = document.getElementById('forgeView');
+    const oracleBtn = document.getElementById('oracleToggle');
+    const forgeBtn = document.getElementById('forgeToggle');
+
+    if (view === 'oracle') {
+        oracleView.style.display = 'block';
+        forgeView.style.display = 'none';
+        oracleBtn.classList.add('active');
+        forgeBtn.classList.remove('active');
+    } else {
+        oracleView.style.display = 'none';
+        forgeView.style.display = 'block';
+        oracleBtn.classList.remove('active');
+        forgeBtn.classList.add('active');
+        // Load Forge campaigns on first switch
+        if (!forgeCampaignsLoaded) loadForgeCampaigns();
+    }
+    localStorage.setItem('activeView', view);
+}
+
+// Restore view from localStorage
+(function() {
+    const saved = localStorage.getItem('activeView');
+    if (saved === 'forge') switchView('forge');
+})();
+
+// ===== FORGE CAMPAIGN DROPDOWN =====
+function loadForgeCampaigns() {
+    const listEl = document.getElementById('forgeCampaignList');
+    listEl.innerHTML = '<div class="dd-loading">&#128296; Fetching campaigns from Notion...</div>';
+
+    fetch('/api/forge/campaigns')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                listEl.innerHTML = '<div class="dd-empty">\u26A1 ' + data.error + '</div>';
+                return;
+            }
+            forgeCampaigns = data.campaigns || [];
+            forgeCampaignsLoaded = true;
+            renderForgeDropdown();
+        })
+        .catch(err => {
+            listEl.innerHTML = '<div class="dd-empty">\u26A1 Failed: ' + err.message + '</div>';
+        });
+}
+
+function renderForgeDropdown() {
+    const listEl = document.getElementById('forgeCampaignList');
+    const filter = document.getElementById('forgeCampaignInput').value.toLowerCase();
+    const filtered = forgeCampaigns.filter(c => c.title.toLowerCase().includes(filter));
+
+    if (!forgeCampaignsLoaded) return;
+    if (filtered.length === 0) {
+        listEl.innerHTML = '<div class="dd-empty">No campaigns found in Notion</div>';
+        return;
+    }
+    listEl.innerHTML = filtered.map(c =>
+        '<div class="dd-item" onclick="selectForgeCampaign(\'' + c.id.replace(/'/g, "\\'") + '\',\'' + c.title.replace(/'/g, "\\'") + '\')">' +
+        '<span>' + c.title + '</span>' +
+        '</div>'
+    ).join('');
+}
+
+function openForgeDropdown() {
+    document.getElementById('forgeCampaignDropdown').classList.add('open');
+    if (!forgeCampaignsLoaded) loadForgeCampaigns();
+    else renderForgeDropdown();
+}
+
+function filterForgeDropdown() {
+    openForgeDropdown();
+    renderForgeDropdown();
+}
+
+function selectForgeCampaign(id, title) {
+    document.getElementById('forgeCampaignInput').value = title;
+    document.getElementById('forgeCampaignDropdown').classList.remove('open');
+    selectedForgeCampaign = {id: id, title: title};
+
+    // Fetch the brief
+    const preview = document.getElementById('briefPreview');
+    preview.style.display = 'block';
+    document.getElementById('briefContent').innerHTML = '<span style="color:#666;">Loading campaign brief...</span>';
+
+    fetch('/api/forge/campaign-brief/' + id)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                document.getElementById('briefContent').innerHTML = '<span style="color:#FF4444;">' + data.error + '</span>';
+                return;
+            }
+            forgeBriefData = data.brief;
+            renderBriefPreview(data.brief);
+        })
+        .catch(err => {
+            document.getElementById('briefContent').innerHTML = '<span style="color:#FF4444;">Failed: ' + err.message + '</span>';
+        });
+}
+
+function renderBriefPreview(brief) {
+    let html = '';
+
+    if (brief.icp) {
+        html += '<h3>&#127919; ICP (Ideal Customer Profile)</h3><p>' + brief.icp.replace(/\n/g, '<br>') + '</p>';
+    }
+
+    if (brief.personas && brief.personas.length > 0) {
+        html += '<h3>&#128101; Target Personas</h3>';
+        brief.personas.forEach(p => { html += '<p>\u2022 ' + p + '</p>'; });
+    }
+
+    if (brief.target_titles && brief.target_titles.length > 0) {
+        html += '<h3>&#127919; Extracted Target Titles</h3>';
+        brief.target_titles.forEach(t => { html += '<span class="brief-tag">' + t + '</span>'; });
+    }
+
+    if (brief.company_characteristics) {
+        html += '<h3>&#127970; Company Characteristics</h3><p>' + brief.company_characteristics.replace(/\n/g, '<br>') + '</p>';
+    }
+
+    if (brief.keywords && brief.keywords.length > 0) {
+        html += '<h3>&#128273; Search Keywords</h3>';
+        brief.keywords.forEach(k => { html += '<span class="brief-tag">' + k + '</span>'; });
+    }
+
+    if (brief.value_proposition) {
+        html += '<h3>&#128161; Value Proposition</h3><p>' + brief.value_proposition.replace(/\n/g, '<br>') + '</p>';
+    }
+
+    // Show all sections
+    const sectionNames = Object.keys(brief.sections || {});
+    const shown = new Set();
+    if (brief.icp) shown.add('icp');
+    sectionNames.forEach(name => {
+        const upper = name.toUpperCase();
+        if (shown.has(name)) return;
+        if (upper.includes('ICP') || upper.includes('PERSONA') || upper.includes('COMPANY CHAR') || upper.includes('VALUE PROP') || upper.includes('MESSAGING')) return;
+        html += '<h3>' + name + '</h3><p>' + brief.sections[name].replace(/\n/g, '<br>') + '</p>';
+    });
+
+    if (!html) html = '<p style="color:#666;">No structured brief data found. The campaign page may use a different format.</p>';
+
+    document.getElementById('briefContent').innerHTML = html;
+
+    // Show Claude orchestration status and start polling
+    const claudeStatus = document.getElementById('forgeClaudeStatus');
+    claudeStatus.style.display = 'block';
+    const promptText = document.getElementById('forgePromptText');
+    promptText.textContent = 'forge the ' + selectedForgeCampaign.title + ' campaign';
+
+    // Start polling for Claude-injected sessions
+    startForgePolling();
+}
+
+// Close forge dropdown on click outside
+document.addEventListener('click', function(e) {
+    const dd = document.getElementById('forgeCampaignDropdown');
+    if (dd && !dd.contains(e.target)) dd.classList.remove('open');
+});
+
+// ===== STAGE PROGRESSION =====
+function setForgeStage(stage) {
+    forgeCurrentStage = stage;
+    for (let i = 1; i <= 5; i++) {
+        const el = document.getElementById('forgeStage' + i);
+        el.classList.remove('active', 'completed');
+        if (i < stage) el.classList.add('completed');
+        else if (i === stage) el.classList.add('active');
+    }
+}
+
+// ===== FORGE LOG HELPER =====
+function forgeLog(logId, cls, msg) {
+    const el = document.getElementById(logId);
+    const entry = document.createElement('div');
+    entry.className = 'log-entry ' + cls;
+    const icons = {
+        status: '\u2604\uFE0F', skip: '\u274C', generating: '\uD83D\uDD2E',
+        done: '\u2694\uFE0F', error: '\u26A1', qualifying: '\uD83D\uDD0D',
+        found: '\u2705', warn: '\u26A0\uFE0F',
+    };
+    entry.textContent = (icons[cls] || '\u25B6') + ' ' + msg;
+    el.appendChild(entry);
+    el.scrollTop = el.scrollHeight;
+}
+
+// ===== SSE READER HELPER =====
+function readSSE(response, handler) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    function read() {
+        reader.read().then(({done, value}) => {
+            if (done) {
+                if (buffer.trim().startsWith('data: ')) {
+                    try { handler(JSON.parse(buffer.trim().substring(6))); } catch(e) {}
+                }
+                return;
+            }
+            buffer += decoder.decode(value, {stream: true});
+            const events = buffer.split('\n\n');
+            buffer = events.pop() || '';
+            for (const event of events) {
+                const trimmed = event.trim();
+                if (trimmed.startsWith('data: ')) {
+                    try { handler(JSON.parse(trimmed.substring(6))); } catch(e) {}
+                }
+            }
+            read();
+        });
+    }
+    read();
+}
+
+// ===== QA GATE: Select / Deselect All =====
+function forgeSelectAll(tableId) {
+    document.querySelectorAll('#' + tableId + ' tbody input[type="checkbox"]').forEach(cb => {
+        if (!cb.disabled) cb.checked = true;
+    });
+}
+function forgeDeselectAll(tableId) {
+    document.querySelectorAll('#' + tableId + ' tbody input[type="checkbox"]').forEach(cb => cb.checked = false);
+}
+
+// ===== SCORE BADGE HELPER =====
+function scoreBadge(score) {
+    const cls = score >= 8 ? 'high' : score >= 6 ? 'mid' : 'low';
+    return '<span class="score-badge ' + cls + '">' + score + '/10</span>';
+}
+
+// ===== COPY FORGE PROMPT =====
+function copyForgePrompt() {
+    const text = document.getElementById('forgePromptText').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const snippet = document.getElementById('forgePromptSnippet');
+        snippet.style.borderColor = '#00FF00';
+        setTimeout(() => { snippet.style.borderColor = '#444'; }, 1500);
+    });
+}
+
+// ===== FORGE POLLING: Wait for Claude to inject domains =====
+let forgePollInterval = null;
+
+function startForgePolling() {
+    // Show polling indicator
+    document.getElementById('forgePollStatus').style.display = 'block';
+
+    // Animate dots
+    let dotCount = 0;
+    const dotEl = document.getElementById('forgePollDots');
+    const dotInterval = setInterval(() => {
+        dotCount = (dotCount + 1) % 4;
+        dotEl.textContent = '.'.repeat(dotCount);
+    }, 500);
+
+    // Poll every 3 seconds for new sessions matching this campaign
+    if (forgePollInterval) clearInterval(forgePollInterval);
+    forgePollInterval = setInterval(() => {
+        fetch('/api/forge/sessions')
+            .then(r => r.json())
+            .then(data => {
+                const sessions = data.sessions || [];
+                // Find a session for this campaign with domains_ready status
+                const match = sessions.find(s =>
+                    s.campaign_id === selectedForgeCampaign.id &&
+                    s.status === 'domains_ready' &&
+                    s.discovered_domains_count > 0
+                );
+                if (match) {
+                    clearInterval(forgePollInterval);
+                    clearInterval(dotInterval);
+                    forgePollInterval = null;
+                    startProspecting(match.session_id, match.discovered_domains_count);
+                }
+            })
+            .catch(() => {}); // Silently ignore poll errors
+    }, 3000);
+}
+
+function stopForgePolling() {
+    if (forgePollInterval) {
+        clearInterval(forgePollInterval);
+        forgePollInterval = null;
+    }
+}
+
+// ===== STAGE 1 → 2: START PROSPECTING (triggered by poll) =====
+function startProspecting(sessionId, domainCount) {
+    zeusFlash();
+    setForgeStage(2);
+
+    // Update Claude status to show transition
+    const claudeStatus = document.getElementById('forgeClaudeStatus');
+    claudeStatus.innerHTML = '<p style="color:#00FF00;font-family:\'Cinzel\',serif;font-size:16px;">' +
+        '&#9989; Claude discovered ' + domainCount + ' companies. Qualifying now...</p>';
+
+    // Show Stage 2 section
+    const sec = document.getElementById('forgeStage2Section');
+    sec.style.display = 'block';
+    document.getElementById('forgeProspectLog').innerHTML = '';
+    document.getElementById('forgeProspectResults').style.display = 'none';
+    sec.scrollIntoView({behavior: 'smooth'});
+
+    fetch('/forge/prospect', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            session_id: sessionId,
+        }),
+    }).then(response => {
+        if (!response.ok) {
+            return response.json().then(d => { showError(d.error || 'Qualification failed'); throw new Error('stop'); });
+        }
+        readSSE(response, handleProspectMsg);
+    }).catch(err => {
+        if (err.message !== 'stop') showError('Qualification error', err.message);
+    });
+}
+
+function handleProspectMsg(msg) {
+    const t = msg.type;
+    if (t === 'status') {
+        forgeLog('forgeProspectLog', 'status', msg.msg);
+    } else if (t === 'warn') {
+        forgeLog('forgeProspectLog', 'warn', msg.msg);
+    } else if (t === 'progress') {
+        forgeLog('forgeProspectLog', 'status', 'Researching ' + msg.name + ' (' + msg.current + '/' + msg.total + ')');
+    } else if (t === 'skip') {
+        forgeLog('forgeProspectLog', 'skip', msg.name + ' \u2014 ' + msg.reason);
+    } else if (t === 'company_found') {
+        const icon = msg.qualified ? '\u2705' : '\u26A0\uFE0F';
+        const src = msg.source ? ' [' + msg.source + ']' : '';
+        forgeLog('forgeProspectLog', msg.qualified ? 'done' : 'found',
+            icon + ' ' + msg.name + ' (' + msg.domain + ') \u2014 Score: ' + msg.score + '/10 \u2014 ' + (msg.industry || '') + ' \u2014 ' + (msg.location || '') + src);
+    } else if (t === 'error_contact') {
+        forgeLog('forgeProspectLog', 'error', msg.name + ' \u2014 ' + msg.msg);
+    } else if (t === 'error') {
+        forgeLog('forgeProspectLog', 'error', msg.msg);
+    } else if (t === 'prospect_complete') {
+        forgeSessionId = msg.session_id;
+        forgeLog('forgeProspectLog', 'status', msg.msg);
+        zeusFlash();
+
+        // Populate QA table with company data + scores + source column
+        const tbody = document.getElementById('prospectTableBody');
+        tbody.innerHTML = '';
+        const companies = msg.companies || [];
+        companies.forEach(c => {
+            const checked = c.qualified ? 'checked' : '';
+            tbody.innerHTML += '<tr>' +
+                '<td><input type="checkbox" ' + checked + ' value="' + (c.domain || '') + '"></td>' +
+                '<td>' + c.name + '</td>' +
+                '<td>' + (c.domain || '') + '</td>' +
+                '<td>' + (c.industry || '-') + '</td>' +
+                '<td>' + (c.employees || '-') + '</td>' +
+                '<td>' + (c.location || '') + ' <span class="us-badge">US</span></td>' +
+                '<td>' + scoreBadge(c.score || 0) + '</td>' +
+                '<td>' + (c.source || 'qualify') + '</td>' +
+                '</tr>';
+        });
+
+        document.getElementById('forgeProspectResults').style.display = 'block';
+        document.getElementById('forgeProspectResults').scrollIntoView({behavior: 'smooth'});
+    }
+}
+
+// ===== STAGE 2 → 3: ENRICH APPROVED COMPANIES =====
+function enrichCompanies() {
+    if (!forgeSessionId) { showError('No forge session!'); return; }
+
+    const checkboxes = document.querySelectorAll('#prospectTable tbody input[type="checkbox"]:checked');
+    const approvedDomains = Array.from(checkboxes).map(cb => cb.value).filter(v => v);
+
+    if (approvedDomains.length === 0) {
+        showError('Select at least one company!');
+        return;
+    }
+
+    // First, POST approval to backend to save approved domains
+    fetch('/api/forge/approve-stage', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            session_id: forgeSessionId,
+            stage: 2,
+            approved_domains: approvedDomains,
+        }),
+    }).then(r => r.json()).then(data => {
+        if (data.error) { showError(data.error); return; }
+
+        zeusFlash();
+        document.getElementById('enrichCompaniesBtn').disabled = true;
+        setForgeStage(3);
+
+        const sec = document.getElementById('forgeStage3Section');
+        sec.style.display = 'block';
+        document.getElementById('forgeEnrichCompanyLog').innerHTML = '';
+        document.getElementById('forgeEnrichCompanyResults').style.display = 'none';
+        sec.scrollIntoView({behavior: 'smooth'});
+
+        fetch('/forge/enrich-companies', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                session_id: forgeSessionId,
+                approved_domains: approvedDomains,
+            }),
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(d => { showError(d.error || 'Enrichment failed'); throw new Error('stop'); });
+            }
+            readSSE(response, handleEnrichCompanyMsg);
+        }).catch(err => {
+            if (err.message !== 'stop') showError('Enrichment error', err.message);
+        });
+    }).catch(err => showError('Approval error', err.message));
+}
+
+function handleEnrichCompanyMsg(msg) {
+    const t = msg.type;
+    if (t === 'status') {
+        forgeLog('forgeEnrichCompanyLog', 'status', msg.msg);
+    } else if (t === 'progress') {
+        forgeLog('forgeEnrichCompanyLog', 'qualifying', 'Enriching ' + msg.name + ' (' + msg.current + '/' + msg.total + ')...');
+    } else if (t === 'company_enriched') {
+        forgeLog('forgeEnrichCompanyLog', 'done',
+            '\u2705 ' + msg.name + ' (' + msg.domain + ') \u2014 ' + (msg.industry || '') + ' \u2014 enriched');
+    } else if (t === 'error_contact') {
+        forgeLog('forgeEnrichCompanyLog', 'error', msg.name + ' \u2014 ' + msg.msg);
+    } else if (t === 'error') {
+        forgeLog('forgeEnrichCompanyLog', 'error', msg.msg);
+    } else if (t === 'enrich_companies_complete') {
+        forgeLog('forgeEnrichCompanyLog', 'status', msg.msg);
+        zeusFlash();
+
+        const tbody = document.getElementById('enrichCompanyTableBody');
+        tbody.innerHTML = '';
+        const companies = msg.companies || [];
+        companies.forEach(c => {
+            const summary = (c.enrichment_summary || c.summary || c.description || '').substring(0, 200);
+            tbody.innerHTML += '<tr>' +
+                '<td><input type="checkbox" checked value="' + (c.domain || '') + '"></td>' +
+                '<td>' + (c.name || '') + '</td>' +
+                '<td>' + (c.domain || '') + '</td>' +
+                '<td>' + (c.industry || '-') + '</td>' +
+                '<td>' + scoreBadge(c.score || 0) + '</td>' +
+                '<td><span class="reasoning-text">' + summary + '</span></td>' +
+                '</tr>';
+        });
+
+        document.getElementById('forgeEnrichCompanyResults').style.display = 'block';
+        document.getElementById('forgeEnrichCompanyResults').scrollIntoView({behavior: 'smooth'});
+    }
+}
+
+// ===== STAGE 3 → 4: DISCOVER & ENRICH PEOPLE =====
+function discoverEnrichPeople() {
+    if (!forgeSessionId) { showError('No forge session!'); return; }
+
+    const checkboxes = document.querySelectorAll('#enrichCompanyTable tbody input[type="checkbox"]:checked');
+    const approvedDomains = Array.from(checkboxes).map(cb => cb.value).filter(v => v);
+
+    if (approvedDomains.length === 0) {
+        showError('Select at least one enriched company!');
+        return;
+    }
+
+    // POST approval for stage 3
+    fetch('/api/forge/approve-stage', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            session_id: forgeSessionId,
+            stage: 3,
+            approved_enriched_domains: approvedDomains,
+        }),
+    }).then(r => r.json()).then(data => {
+        if (data.error) { showError(data.error); return; }
+
+        zeusFlash();
+        document.getElementById('discoverPeopleBtn').disabled = true;
+        setForgeStage(4);
+
+        const sec = document.getElementById('forgeStage4Section');
+        sec.style.display = 'block';
+        document.getElementById('forgeDiscoverPeopleLog').innerHTML = '';
+        document.getElementById('forgeDiscoverPeopleResults').style.display = 'none';
+        sec.scrollIntoView({behavior: 'smooth'});
+
+        fetch('/forge/discover-enrich-people', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                session_id: forgeSessionId,
+                approved_enriched_domains: approvedDomains,
+            }),
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(d => { showError(d.error || 'People discovery failed'); throw new Error('stop'); });
+            }
+            readSSE(response, handleDiscoverPeopleMsg);
+        }).catch(err => {
+            if (err.message !== 'stop') showError('People discovery error', err.message);
+        });
+    }).catch(err => showError('Approval error', err.message));
+}
+
+function handleDiscoverPeopleMsg(msg) {
+    const t = msg.type;
+    if (t === 'status') {
+        forgeLog('forgeDiscoverPeopleLog', 'status', msg.msg);
+    } else if (t === 'progress') {
+        forgeLog('forgeDiscoverPeopleLog', 'qualifying', msg.msg || ('Processing ' + (msg.name || '') + '...'));
+    } else if (t === 'person_found') {
+        forgeLog('forgeDiscoverPeopleLog', 'found',
+            '\uD83D\uDC64 ' + msg.name + ' (' + (msg.title || '') + ') at ' + (msg.company || ''));
+    } else if (t === 'person_enriched') {
+        forgeLog('forgeDiscoverPeopleLog', 'done',
+            '\u2705 ' + msg.name + ' \u2014 enriched');
+    } else if (t === 'skip') {
+        forgeLog('forgeDiscoverPeopleLog', 'skip', (msg.name || '') + ' \u2014 ' + (msg.reason || ''));
+    } else if (t === 'error_contact') {
+        forgeLog('forgeDiscoverPeopleLog', 'error', (msg.name || '') + ' \u2014 ' + msg.msg);
+    } else if (t === 'error') {
+        forgeLog('forgeDiscoverPeopleLog', 'error', msg.msg);
+    } else if (t === 'people_complete') {
+        forgeLog('forgeDiscoverPeopleLog', 'status', msg.msg);
+        zeusFlash();
+
+        const tbody = document.getElementById('discoverPeopleTableBody');
+        tbody.innerHTML = '';
+        const people = msg.people || [];
+        people.forEach(p => {
+            const summary = (p.summary || p.enrichment_summary || '').substring(0, 200);
+            const identifier = p.email || p.linkedin || p.name;
+            tbody.innerHTML += '<tr>' +
+                '<td><input type="checkbox" checked value="' + identifier + '" data-person=\'' + JSON.stringify({name: p.name, email: p.email, company: p.company, title: p.title, linkedin: p.linkedin}).replace(/'/g, '&#39;') + '\'></td>' +
+                '<td>' + (p.name || '') + '</td>' +
+                '<td>' + (p.title || '-') + '</td>' +
+                '<td>' + (p.company || '-') + '</td>' +
+                '<td>' + (p.email || '-') + '</td>' +
+                '<td><span class="reasoning-text">' + summary + '</span></td>' +
+                '</tr>';
+        });
+
+        document.getElementById('forgeDiscoverPeopleResults').style.display = 'block';
+        document.getElementById('forgeDiscoverPeopleResults').scrollIntoView({behavior: 'smooth'});
+    }
+}
+
+// ===== STAGE 4 → 5: EXPORT APPROVED PROSPECTS =====
+function exportProspects() {
+    if (!forgeSessionId) { showError('No forge session!'); return; }
+
+    const checkboxes = document.querySelectorAll('#discoverPeopleTable tbody input[type="checkbox"]:checked');
+    const approvedPeople = Array.from(checkboxes).map(cb => cb.value).filter(v => v);
+
+    if (approvedPeople.length === 0) {
+        showError('Select at least one prospect!');
+        return;
+    }
+
+    // POST approval for stage 4
+    fetch('/api/forge/approve-stage', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            session_id: forgeSessionId,
+            stage: 4,
+            approved_people: approvedPeople,
+        }),
+    }).then(r => r.json()).then(data => {
+        if (data.error) { showError(data.error); return; }
+
+        zeusFlash();
+        document.getElementById('exportProspectsBtn').disabled = true;
+        setForgeStage(5);
+
+        const sec = document.getElementById('forgeStage5Section');
+        sec.style.display = 'block';
+        document.getElementById('forgeExportSummary').innerHTML =
+            '<p style="color:#00FF00;font-family:\'MedievalSharp\',cursive;font-size:18px;">' +
+            '\u2694\uFE0F ' + approvedPeople.length + ' prospects approved and ready for battle! \u2694\uFE0F</p>' +
+            '<p style="color:#CD853F;font-family:\'MedievalSharp\',cursive;font-size:14px;margin-top:10px;">' +
+            'HubSpot push and Oracle handoff coming in Sprint 2</p>';
+        sec.scrollIntoView({behavior: 'smooth'});
+    }).catch(err => showError('Export error', err.message));
 }
 </script>
 
