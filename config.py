@@ -28,6 +28,8 @@ HUBSPOT_PORTAL_ID = os.getenv("HUBSPOT_PORTAL_ID", "46940643")
 HUBSPOT_CREATOR_ID = os.getenv("HUBSPOT_CREATOR_ID", "87514817")
 
 # --- Notion ---
+NOTION_CAMPAIGNS_DB_ID = os.getenv("NOTION_CAMPAIGNS_DB_ID", "8224ce5d13dd4db69a2618476d527910")
+# Legacy page ID — kept for reference, no longer used by list_campaigns()
 NOTION_CAMPAIGNS_PAGE_ID = os.getenv("NOTION_CAMPAIGNS_PAGE_ID", "2f8c1b1ae5518079b71bdf94212cbda6")
 
 # --- Slack ---
