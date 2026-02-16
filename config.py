@@ -33,6 +33,10 @@ NOTION_CAMPAIGNS_PAGE_ID = os.getenv("NOTION_CAMPAIGNS_PAGE_ID", "2f8c1b1ae55180
 # --- Slack ---
 SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID", "C0AELNTNNDV")
 
+# --- User Timezone ---
+USER_TIMEZONE = os.getenv("USER_TIMEZONE", "US/Pacific")
+USER_START_HOUR = float(os.getenv("USER_START_HOUR", "6.5"))  # 6:30 AM
+
 # --- Thresholds ---
 QUAL_THRESHOLD = int(os.getenv("QUAL_THRESHOLD", "8"))
 

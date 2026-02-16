@@ -1,7 +1,11 @@
 """
 Call sheet builder — title seniority ranking and time-block scheduling.
+
+Display labels are dynamically converted to the user's timezone (config.USER_TIMEZONE).
+Internal scheduling logic always uses ET hours — only the *labels* change.
 """
 import re
+import config
 
 
 def title_seniority(title):
@@ -25,20 +29,92 @@ def title_seniority(title):
     return 4
 
 
-# Time blocks: (start_et_hour, end_et_hour, label, color, who_called, their_local)
-TIME_BLOCKS = [
-    (8, 9, "8:00 - 9:00 AM ET", "green", "Eastern Prospects", "8-9 AM PRIME"),
-    (9, 10, "9:00 - 10:00 AM ET", "green", "Eastern + Central Prospects", "PRIME"),
-    (10, 11, "10:00 - 11:00 AM ET", "green", "Central + Mountain Prospects", "PRIME"),
-    (11, 12, "11:00 AM - 12:00 PM ET", "green", "Mountain + Pacific Prospects", "PRIME"),
-    (12, 13, "12:00 - 1:00 PM ET", "green", "Pacific Prospects", "9-10 AM PRIME"),
-    (13, 15, "1:00 - 3:00 PM ET", "red", "THE UNDERWORLD", "Hades' Domain"),
-    (15, 16, "3:00 - 4:00 PM ET", "yellow", "Eastern Afternoon", "3-4 PM SECONDARY"),
-    (16, 17, "4:00 - 5:00 PM ET", "yellow", "Eastern + Central Afternoon", "SECONDARY"),
-    (17, 18, "5:00 - 6:00 PM ET", "yellow", "Central + Mountain Afternoon", "SECONDARY"),
-    (18, 19, "6:00 - 7:00 PM ET", "yellow", "Mountain + Pacific Afternoon", "SECONDARY"),
-    (19, 20, "7:00 - 8:00 PM ET", "yellow", "Pacific Afternoon", "4-5 PM SECONDARY"),
-]
+# ---------------------------------------------------------------------------
+# Timezone-aware label helpers
+# ---------------------------------------------------------------------------
+
+# Hours behind ET for each US timezone
+_TZ_OFFSET_FROM_ET = {
+    "US/Eastern": 0,
+    "US/Central": 1,
+    "US/Mountain": 2,
+    "US/Pacific": 3,
+    "US/Alaska": 4,
+    "US/Hawaii": 5,
+}
+
+# Short abbreviations for display
+_TZ_ABBREVS = {
+    "US/Eastern": "ET",
+    "US/Central": "CT",
+    "US/Mountain": "MT",
+    "US/Pacific": "PT",
+    "US/Alaska": "AKT",
+    "US/Hawaii": "HT",
+}
+
+
+def _user_tz_offset():
+    """Hours the user's timezone is behind ET (e.g. 3 for Pacific)."""
+    return _TZ_OFFSET_FROM_ET.get(config.USER_TIMEZONE, 0)
+
+
+def user_tz_abbrev():
+    """Short abbreviation for the user's configured timezone."""
+    return _TZ_ABBREVS.get(config.USER_TIMEZONE, "ET")
+
+
+def et_to_user_hour(et_hour):
+    """Convert an ET hour (0-23) to the user's local hour."""
+    return et_hour - _user_tz_offset()
+
+
+def format_hour(h):
+    """Format an hour integer as '5:00 AM' / '12:00 PM' etc."""
+    if h <= 0:
+        h += 24
+    period = "AM" if h < 12 else "PM"
+    display = h if h <= 12 else h - 12
+    if display == 0:
+        display = 12
+    return f"{display}:00 {period}"
+
+
+def _build_time_blocks():
+    """Generate TIME_BLOCKS with labels in the user's timezone.
+
+    Structure is identical to the old static list:
+        (start_et_hour, end_et_hour, label, color, description, their_local)
+    Only the *label* string changes — internal ET hours stay the same.
+    """
+    tz = user_tz_abbrev()
+
+    # Static block definitions: (start_et, end_et, color, description, their_local)
+    _RAW = [
+        (8,  9,  "green",  "Eastern Prospects",              "8-9 AM PRIME"),
+        (9,  10, "green",  "Eastern + Central Prospects",    "PRIME"),
+        (10, 11, "green",  "Central + Mountain Prospects",   "PRIME"),
+        (11, 12, "green",  "Mountain + Pacific Prospects",   "PRIME"),
+        (12, 13, "green",  "Pacific Prospects",              "9-10 AM PRIME"),
+        (13, 15, "red",    "THE UNDERWORLD",                 "Hades' Domain"),
+        (15, 16, "yellow", "Eastern Afternoon",              "3-4 PM SECONDARY"),
+        (16, 17, "yellow", "Eastern + Central Afternoon",    "SECONDARY"),
+        (17, 18, "yellow", "Central + Mountain Afternoon",   "SECONDARY"),
+        (18, 19, "yellow", "Mountain + Pacific Afternoon",   "SECONDARY"),
+        (19, 20, "yellow", "Pacific Afternoon",              "4-5 PM SECONDARY"),
+    ]
+
+    blocks = []
+    for start_et, end_et, color, desc, their_local in _RAW:
+        user_start = et_to_user_hour(start_et)
+        user_end = et_to_user_hour(end_et)
+        label = f"{format_hour(user_start)} - {format_hour(user_end)} {tz}"
+        blocks.append((start_et, end_et, label, color, desc, their_local))
+    return blocks
+
+
+# Computed once at import time — labels are in the user's timezone
+TIME_BLOCKS = _build_time_blocks()
 
 # Map: tz -> list of (et_block_index, priority) where priority 0 = prime
 TZ_TO_BLOCKS = {

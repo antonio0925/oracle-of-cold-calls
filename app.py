@@ -50,7 +50,7 @@ def _shutdown_pool(pool, futures):
 # ---------------------------------------------------------------------------
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", hubspot_portal_id=config.HUBSPOT_PORTAL_ID)
 
 
 @app.route("/api/lists")
@@ -442,6 +442,178 @@ def generate():
     return Response(stream(), mimetype="text/event-stream")
 
 
+@app.route("/quick-generate", methods=["POST"])
+def quick_generate():
+    """SSE endpoint: 'Prepare for Battle' — build call sheet from existing prep notes only.
+
+    Skips all Octave enrichment. Only includes contacts that already have
+    COLD CALL PREP notes logged in HubSpot. No approve step, no Slack posting.
+    """
+    data = request.json
+    segment_name = data.get("segment", "").strip()
+    campaign = data.get("campaign", "").strip()
+    calling_date = data.get("calling_date", "").strip()
+
+    if not segment_name or not campaign:
+        return jsonify({"error": "Segment and campaign are required"}), 400
+
+    if not config.HUBSPOT_ACCESS_TOKEN:
+        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN in .env"}), 500
+
+    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
+    session_id = str(uuid.uuid4())[:8]
+
+    def stream():
+        stats = {
+            "total": 0, "prepped": 0,
+            "skipped_no_notes": 0, "errors": 0,
+            "tz_breakdown": {},
+        }
+        prepped_contacts = []
+
+        def emit(msg_type, payload):
+            return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
+
+        yield emit("status", {"msg": "⚔️ Preparing for battle! Searching for the Legion..."})
+
+        # Find the HubSpot list
+        list_id = hs.search_lists(segment_name)
+        if not list_id:
+            yield emit("error", {"msg": f"Legion '{segment_name}' not found in HubSpot."})
+            yield emit("done", {"session_id": None})
+            return
+
+        yield emit("status", {"msg": f"Legion found! (List ID: {list_id}). Mustering warriors..."})
+
+        contact_ids = hs.get_list_memberships(list_id)
+        stats["total"] = len(contact_ids)
+        yield emit("status", {"msg": f"{len(contact_ids)} mortals found. Checking for existing battle scrolls..."})
+
+        if not contact_ids:
+            yield emit("done", {"session_id": None, "stats": stats})
+            return
+
+        contacts = hs.batch_get_contacts(contact_ids, [
+            "firstname", "lastname", "email", "company", "jobtitle",
+            "phone", "mobilephone", "city", "state", "country", "hs_timezone",
+        ])
+
+        # Check each contact for existing COLD CALL PREP notes
+        for i, contact in enumerate(contacts):
+            cid = contact["id"]
+            props = contact.get("properties", {})
+            name = f"{props.get('firstname', '')} {props.get('lastname', '')}".strip() or f"Contact {cid}"
+            company_name = props.get("company", "Unknown")
+
+            yield emit("progress", {"current": i + 1, "total": len(contacts), "name": name})
+
+            try:
+                prep_notes = hs.get_all_prep_notes_for_contact(cid)
+            except Exception as e:
+                stats["errors"] += 1
+                yield emit("error_contact", {"name": name, "msg": f"Note lookup failed: {e}"})
+                continue
+
+            if not prep_notes:
+                stats["skipped_no_notes"] += 1
+                yield emit("skip", {"name": name, "reason": "No battle scroll found — needs Oracle consultation"})
+                continue
+
+            # Use the most recent prep note
+            latest_note = prep_notes[0]
+            tz = resolve_timezone(props)
+            tz_lbl = tz_label(tz)
+            stats["tz_breakdown"][tz_lbl] = stats["tz_breakdown"].get(tz_lbl, 0) + 1
+            stats["prepped"] += 1
+
+            prepped_contacts.append({
+                "contact": contact,
+                "tz": tz,
+                "tz_label": tz_lbl,
+                "script_content": "",
+                "email_data": {},
+                "note_html": latest_note["body"],
+            })
+
+            yield emit("done_contact", {"name": name, "company": company_name, "tz": tz_lbl})
+
+        if not prepped_contacts:
+            yield emit("error", {"msg": "No warriors have battle scrolls yet! Consult the Oracle first."})
+            yield emit("done", {"session_id": None, "stats": stats})
+            return
+
+        # Build call sheet
+        blocks, unknowns = build_call_sheet(prepped_contacts)
+
+        call_sheet = []
+        for idx, block_info in enumerate(TIME_BLOCKS):
+            block_contacts = []
+            for item in blocks.get(idx, []):
+                p = item["contact"].get("properties", {})
+                block_contacts.append({
+                    "name": f"{p.get('firstname', '')} {p.get('lastname', '')}".strip(),
+                    "title": p.get("jobtitle", ""),
+                    "company": p.get("company", ""),
+                    "tz": item["tz_label"],
+                    "phone": p.get("phone", "") or p.get("mobilephone", ""),
+                    "email": p.get("email", ""),
+                    "contact_id": item["contact"]["id"],
+                })
+            call_sheet.append({
+                "label": block_info[2],
+                "color": block_info[3],
+                "description": block_info[4],
+                "local_time": block_info[5],
+                "contacts": block_contacts,
+            })
+
+        unknown_contacts = []
+        for item in unknowns:
+            p = item["contact"].get("properties", {})
+            unknown_contacts.append({
+                "name": f"{p.get('firstname', '')} {p.get('lastname', '')}".strip(),
+                "title": p.get("jobtitle", ""),
+                "company": p.get("company", ""),
+                "tz": "???",
+                "phone": p.get("phone", "") or p.get("mobilephone", ""),
+                "email": p.get("email", ""),
+                "contact_id": item["contact"]["id"],
+            })
+
+        # Store session
+        session_data = {
+            "session_id": session_id,
+            "segment": segment_name,
+            "campaign": campaign,
+            "calling_date": calling_date,
+            "generation_complete": True,
+            "quick_mode": True,
+            "stats": stats,
+            "call_sheet": call_sheet,
+            "unknown_tz": unknown_contacts,
+            "contacts": [{
+                "contact_id": c["contact"]["id"],
+                "name": f"{c['contact'].get('properties', {}).get('firstname', '')} {c['contact'].get('properties', {}).get('lastname', '')}".strip(),
+                "company": c["contact"].get("properties", {}).get("company", ""),
+                "note_html": c["note_html"],
+                "script_content": c["script_content"],
+                "tz": c["tz_label"],
+            } for c in prepped_contacts],
+        }
+        set_session(session_id, session_data)
+        save_session_to_disk(session_id, session_data)
+
+        yield emit("complete", {
+            "session_id": session_id,
+            "stats": stats,
+            "quick_mode": True,
+            "msg": f"⚔️ Battle stations ready! {stats['prepped']} warriors armed with existing scrolls. "
+                   f"({stats['skipped_no_notes']} lack scrolls, {stats['errors']} errors.)",
+        })
+
+    return Response(stream(), mimetype="text/event-stream")
+
+
 @app.route("/approve/<session_id>", methods=["POST"])
 def approve(session_id):
     """SSE endpoint: writes all notes to HubSpot."""
@@ -530,6 +702,33 @@ def discard(session_id):
     if os.path.exists(path):
         os.remove(path)
     return jsonify({"msg": "Banished to Tartarus! The scrolls have been destroyed."})
+
+
+# ---------------------------------------------------------------------------
+# Activity Refresh — Check which contacts have been dialed
+# ---------------------------------------------------------------------------
+@app.route("/api/contact-activity", methods=["POST"])
+def api_contact_activity():
+    """Check which contacts have logged calls since a given date."""
+    data = request.json or {}
+    contact_ids = data.get("contact_ids", [])
+    since_date = data.get("since_date", "")
+
+    if not contact_ids:
+        return jsonify({"error": "No contact_ids provided"}), 400
+    if not since_date:
+        # Default to start of today (UTC)
+        since_date = datetime.utcnow().strftime("%Y-%m-%dT00:00:00Z")
+
+    if not config.HUBSPOT_ACCESS_TOKEN:
+        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
+
+    try:
+        hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
+        activity = hs.batch_check_call_activity(contact_ids, since_date)
+        return jsonify({"activity": activity, "since_date": since_date})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------
