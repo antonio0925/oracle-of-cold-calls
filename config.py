@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 _log = logging.getLogger(__name__)
 
-load_dotenv()
+load_dotenv(override=True)
 
 # --- Required API Keys ---
 HUBSPOT_ACCESS_TOKEN = os.getenv("HUBSPOT_ACCESS_TOKEN", "")
@@ -51,6 +51,13 @@ ORACLE_WEBHOOK_SECRET = os.getenv("ORACLE_WEBHOOK_SECRET", "")
 SIGNAL_WEBHOOK_API_KEY = os.getenv("SIGNAL_WEBHOOK_API_KEY", "")
 OCTAVE_CALL_PREP_AGENT = os.getenv("OCTAVE_CALL_PREP_AGENT", "ca_DLoI5XBlw9qGNEDBiV1a2")
 
+# --- Anthropic (Claude API for follow-up email generation) ---
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+
+# --- Supersend Campaign Config ---
+SUPERSEND_TEAM_ID = os.getenv("SUPERSEND_TEAM_ID", "")
+SUPERSEND_CAMPAIGN_ID = os.getenv("SUPERSEND_CAMPAIGN_ID", "")
+
 # --- Server ---
 FLASK_PORT = int(os.getenv("FLASK_PORT", "5001"))
 FLASK_DEBUG = os.getenv("FLASK_DEBUG", "true").lower() in ("true", "1", "yes")
@@ -70,6 +77,6 @@ if USER_TIMEZONE not in _VALID_TIMEZONES:
     _log.warning("USER_TIMEZONE='%s' not recognized, defaulting to US/Pacific", USER_TIMEZONE)
     USER_TIMEZONE = "US/Pacific"
 
-for _key_name in ("HUBSPOT_ACCESS_TOKEN", "OCTAVE_API_KEY"):
+for _key_name in ("HUBSPOT_ACCESS_TOKEN", "OCTAVE_API_KEY", "ANTHROPIC_API_KEY"):
     if not locals()[_key_name]:
         _log.warning("Required key %s is empty — some features will be unavailable", _key_name)

@@ -1977,6 +1977,29 @@ body {
         <div class="log-box" id="writeLogBox"></div>
     </div>
 
+    <!-- ===== VM FOLLOW-UP DISPATCH ===== -->
+    <div class="approve-section" id="vmFollowupSection" style="display:none;">
+        <h2>&#9993; Hermes' VM Follow-Up Dispatch &#9993;</h2>
+        <p style="text-align:center;color:#CD853F;font-family:'MedievalSharp',cursive;margin-bottom:15px;">
+            Scan for voicemails left today, generate follow-up emails via Claude, and push to SuperSend.
+        </p>
+        <div class="btn-row">
+            <button class="kraken-btn" id="vmFollowupBtn" onclick="pushVmFollowups()"
+                    style="background:linear-gradient(180deg,#1565C0,#0D47A1);border-color:#42A5F5;text-shadow:0 0 10px #2196F3;">
+                &#9993; PUSH VM FOLLOW-UPS &#9993;
+            </button>
+        </div>
+    </div>
+
+    <div class="write-section" id="vmFollowupProgress" style="display:none;">
+        <h2>&#9993; Hermes Dispatches Follow-Ups &#9993;</h2>
+        <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="vmProgressBar" style="background:linear-gradient(90deg,#0D47A1,#1565C0,#42A5F5);"></div>
+            <div class="progress-text" id="vmProgressText">Scanning calls...</div>
+        </div>
+        <div class="log-box" id="vmLogBox"></div>
+    </div>
+
     <!-- ===== CLEANUP SECTION ===== -->
     <div class="cleanup-section" id="cleanupSection">
         <h2>&#9876;&#65039; Athena's Purge &#9876;&#65039;</h2>
@@ -2868,6 +2891,9 @@ function renderReview(data) {
         document.getElementById('approveSection').style.display = 'block';
     }
 
+    // Always show VM follow-up button when call sheet is rendered
+    document.getElementById('vmFollowupSection').style.display = 'block';
+
     // Scroll to review
     document.getElementById('reviewSection').scrollIntoView({behavior: 'smooth'});
 
@@ -2959,6 +2985,109 @@ function handleWriteMessage(msg) {
         document.getElementById('consultBtn').disabled = false;
         document.getElementById('battleBtn').disabled = false;
         currentSessionId = null;
+    }
+}
+
+// ===================================================================
+// PUSH VM FOLLOW-UPS (Hermes dispatch)
+// ===================================================================
+function pushVmFollowups() {
+    if (!currentSessionId) {
+        showError('No session!', 'Generate a call sheet first.');
+        return;
+    }
+
+    if (!confirm('Push VM follow-up emails for all voicemails left today? This will generate emails via Claude and push them to SuperSend.')) {
+        return;
+    }
+
+    zeusFlash();
+    document.getElementById('vmFollowupBtn').disabled = true;
+    document.getElementById('vmFollowupProgress').style.display = 'block';
+    document.getElementById('vmLogBox').innerHTML = '';
+    document.getElementById('vmProgressBar').style.width = '0%';
+    document.getElementById('vmProgressText').textContent = 'Scanning calls...';
+
+    document.getElementById('vmFollowupProgress').scrollIntoView({behavior: 'smooth'});
+
+    fetch('/api/vm-followup/' + currentSessionId, {method: 'POST'})
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(d => {
+                    showError(d.error || 'VM follow-up failed.', 'HTTP ' + response.status);
+                    document.getElementById('vmFollowupBtn').disabled = false;
+                    throw new Error('stop');
+                });
+            }
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            function read() {
+                reader.read().then(({done, value}) => {
+                    if (done) {
+                        if (buffer.startsWith('data: ')) {
+                            try {
+                                const msg = JSON.parse(buffer.substring(6));
+                                handleVmMessage(msg);
+                            } catch(e) {}
+                        }
+                        return;
+                    }
+                    buffer += decoder.decode(value, {stream: true});
+                    const events = buffer.split('\n\n');
+                    buffer = events.pop() || '';
+                    for (const event of events) {
+                        const trimmed = event.trim();
+                        if (trimmed.startsWith('data: ')) {
+                            try {
+                                const msg = JSON.parse(trimmed.substring(6));
+                                handleVmMessage(msg);
+                            } catch(e) {
+                                console.warn('SSE parse error:', e.message);
+                            }
+                        }
+                    }
+                    read();
+                });
+            }
+            read();
+        }).catch(err => {
+            if (err.message !== 'stop') {
+                showError('VM follow-up dispatch failed!', err.message);
+                document.getElementById('vmFollowupBtn').disabled = false;
+            }
+        });
+}
+
+function handleVmMessage(msg) {
+    if (msg.type === 'status') {
+        log('vmLogBox', 'status', msg.msg);
+    } else if (msg.type === 'progress') {
+        const pct = Math.round((msg.current / msg.total) * 100);
+        document.getElementById('vmProgressBar').style.width = pct + '%';
+        document.getElementById('vmProgressText').textContent =
+            'Processing ' + msg.current + ' of ' + msg.total + ' \u2014 ' + msg.name;
+    } else if (msg.type === 'generating') {
+        log('vmLogBox', 'status', 'Claude generates follow-up for ' + msg.name + ' at ' + msg.company + '...');
+    } else if (msg.type === 'done_contact') {
+        log('vmLogBox', 'done', msg.name + ' (' + msg.disposition + ') \u2014 follow-up pushed! (' + msg.email_length + ' chars)');
+        zeusFlash();
+    } else if (msg.type === 'skip') {
+        log('vmLogBox', 'status', '\u23E9 ' + msg.name + ' \u2014 ' + msg.reason);
+    } else if (msg.type === 'error_contact') {
+        log('vmLogBox', 'error', msg.name + ' \u2014 ' + msg.msg);
+    } else if (msg.type === 'warn') {
+        log('vmLogBox', 'status', '\u26A0\uFE0F ' + msg.name + ' \u2014 ' + msg.msg);
+    } else if (msg.type === 'error') {
+        log('vmLogBox', 'error', msg.msg);
+    } else if (msg.type === 'vm_followup_complete') {
+        zeusFlash();
+        document.getElementById('vmProgressBar').style.width = '100%';
+        document.getElementById('vmProgressText').textContent = 'DISPATCH COMPLETE';
+        log('vmLogBox', 'status', msg.msg);
+        log('vmLogBox', 'done', '\uD83C\uDFC6 Hermes has delivered! Go forth and conquer! \uD83C\uDFC6');
+        document.getElementById('vmFollowupBtn').disabled = false;
     }
 }
 

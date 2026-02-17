@@ -348,6 +348,109 @@ class HubSpotClient:
             new_log = "\n".join(lines)
         self.update_contact_properties(contact_id, {"oracle_journey_log": new_log})
 
+    # ── VM Follow-Up: call search + contact resolution ──────────────
+
+    # HubSpot disposition GUIDs
+    VM_DISPOSITION = "b2cf5968-551e-4856-9783-52b3da59a7d0"
+    GFY_DISPOSITION = "6615e7a3-da48-46e1-8e06-d741c79cd4bb"
+    ACTIONABLE_DISPOSITIONS = {
+        VM_DISPOSITION: "voicemail",
+        GFY_DISPOSITION: "gfy",
+    }
+
+    def search_calls_by_date(self, since_date_str):
+        """Search all outbound calls since a date, filter to VM/GFY dispositions.
+
+        Args:
+            since_date_str: YYYY-MM-DD format date string
+
+        Returns list of dicts:
+            [{"call_id", "disposition", "call_body", "call_title"}]
+        """
+        dt = datetime.strptime(since_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        epoch_ms = str(int(dt.timestamp() * 1000))
+
+        all_calls = []
+        after = None
+        while True:
+            payload = {
+                "filterGroups": [{
+                    "filters": [{
+                        "propertyName": "hs_timestamp",
+                        "operator": "GTE",
+                        "value": epoch_ms,
+                    }]
+                }],
+                "properties": [
+                    "hs_call_body", "hs_call_title", "hs_call_disposition",
+                    "hs_call_direction", "hs_timestamp", "hs_call_status",
+                ],
+                "sorts": [{"propertyName": "hs_timestamp", "direction": "DESCENDING"}],
+                "limit": 100,
+            }
+            if after:
+                payload["after"] = after
+
+            data = self._post("/crm/v3/objects/calls/search", payload)
+            all_calls.extend(data.get("results", []))
+
+            paging_after = data.get("paging", {}).get("next", {}).get("after")
+            if not paging_after:
+                break
+            after = paging_after
+
+        # Filter to actionable outbound completed calls
+        actionable = []
+        for call in all_calls:
+            props = call.get("properties", {})
+            if props.get("hs_call_direction") != "OUTBOUND":
+                continue
+            if props.get("hs_call_status") != "COMPLETED":
+                continue
+            dispo_guid = props.get("hs_call_disposition", "")
+            if dispo_guid not in self.ACTIONABLE_DISPOSITIONS:
+                continue
+
+            actionable.append({
+                "call_id": call["id"],
+                "disposition": self.ACTIONABLE_DISPOSITIONS[dispo_guid],
+                "call_body": props.get("hs_call_body", ""),
+                "call_title": props.get("hs_call_title", ""),
+            })
+
+        return actionable
+
+    def resolve_contact_for_call(self, call_id):
+        """Get the associated contact for a call.
+
+        Returns dict with contact_id, email, firstname, lastname, company
+        or None if no contact found.
+        """
+        try:
+            assoc = self._get(f"/crm/v3/objects/calls/{call_id}/associations/contacts")
+            results = assoc.get("results", [])
+            if not results:
+                return None
+            contact_id = str(results[0]["id"])
+
+            contacts = self.batch_get_contacts([contact_id], [
+                "email", "firstname", "lastname", "company",
+            ])
+            if not contacts:
+                return None
+            props = contacts[0].get("properties", {})
+            return {
+                "contact_id": contact_id,
+                "email": props.get("email", ""),
+                "firstname": props.get("firstname", ""),
+                "lastname": props.get("lastname", ""),
+                "company": props.get("company", ""),
+            }
+        except Exception:
+            return None
+
+    # ── Legacy: batch call activity check ─────────────────────────
+
     def batch_check_call_activity(self, contact_ids, since_date):
         """Check which contacts have logged calls on or after since_date.
 
