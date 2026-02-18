@@ -645,7 +645,7 @@ body {
 .time-block-body { padding: 0; }
 .contact-row {
     display: grid;
-    grid-template-columns: 30px 1fr 1fr 50px 150px;
+    grid-template-columns: 30px 1fr 1fr 50px 90px;
     gap: 10px;
     padding: 8px 15px;
     border-bottom: 1px solid rgba(139,69,19,0.3);
@@ -673,32 +673,25 @@ body {
     text-decoration-color: #8B4513;
     transition: color 0.2s, text-shadow 0.2s;
 }
-.contact-row a.hs-link:hover, .contact-card-header a.hs-link:hover {
+.contact-row a.hs-link:hover {
     color: #FFF;
     text-shadow: 0 0 8px #FF4500;
 }
+.contact-row .status-cell {
+    text-align: center;
+}
 .contact-row.dialed {
     opacity: 0.5;
-    position: relative;
 }
-.contact-row.dialed::after {
+.contact-row.dialed .status-cell::before {
     content: '\2705 DIALED';
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 11px;
+    font-size: 10px;
     color: #00FF00;
     font-family: 'Courier New', monospace;
     background: rgba(0,100,0,0.3);
-    padding: 2px 8px;
+    padding: 2px 6px;
     border: 1px solid #00FF00;
     border-radius: 3px;
-}
-.contact-row .phone-email {
-    font-family: 'Courier New', monospace;
-    font-size: 11px;
-    color: #CD853F;
 }
 .dead-zone-msg {
     padding: 20px;
@@ -725,54 +718,6 @@ body {
     background: linear-gradient(90deg, #8B4500, #FFA500);
     color: #000;
 }
-
-/* CONTACT DETAIL CARDS */
-.contact-cards { margin: 20px 0; }
-.contact-card {
-    background: rgba(20,0,0,0.9);
-    border: 2px ridge #8B4513;
-    margin: 10px 0;
-    overflow: hidden;
-}
-.contact-card-header {
-    padding: 12px 15px;
-    background: linear-gradient(90deg, rgba(139,69,19,0.3), transparent);
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.contact-card-header:hover { background: rgba(139,69,19,0.4); }
-.contact-card-header .card-name {
-    font-family: 'Cinzel', serif;
-    color: #FFD700;
-    font-size: 15px;
-}
-.contact-card-header .card-meta {
-    color: #CD853F;
-    font-size: 12px;
-}
-.contact-card-header .toggle-arrow {
-    color: #FFD700;
-    font-size: 18px;
-    transition: transform 0.3s;
-}
-.contact-card-body {
-    display: none;
-    padding: 18px 20px;
-    border-top: 1px solid #8B4513;
-    font-size: 14px;
-    line-height: 1.7;
-    color: #DDD;
-    font-family: Georgia, 'Times New Roman', serif;
-}
-.contact-card-body p { margin: 6px 0; }
-.contact-card-body strong { color: #FF4500; }
-.contact-card-body em { color: #CD853F; }
-.contact-card-body ul { margin: 8px 0 8px 25px; padding: 0; }
-.contact-card-body li { margin: 5px 0; color: #CCC; }
-.contact-card.open .contact-card-body { display: block; }
-.contact-card.open .toggle-arrow { transform: rotate(180deg); }
 
 /* APPROVE BUTTONS */
 .approve-section {
@@ -1513,7 +1458,7 @@ body {
 @media (max-width: 700px) {
     .header h1 { font-size: 28px; }
     .contact-row { grid-template-columns: 25px 1fr 80px; }
-    .contact-row .company, .contact-row .phone-email { display: none; }
+    .contact-row .company, .contact-row .status-cell { display: none; }
     .error-overlay h1 { font-size: 28px; }
     .forge-stages-bar { flex-direction: column; gap: 5px; }
     .view-toggle-btn { font-size: 12px; padding: 6px 16px; }
@@ -1937,12 +1882,6 @@ body {
             <span id="refreshStatus" style="display:inline-block;margin-left:10px;color:#66BB6A;font-family:'MedievalSharp',cursive;font-size:13px;"></span>
         </div>
 
-        <div class="fire-divider-css"></div>
-
-        <!-- Contact Detail Cards -->
-        <h2 style="font-family:'Cinzel Decorative',serif;color:#FFD700;text-align:center;font-size:22px;margin:25px 0 10px;text-shadow:0 0 10px #FF4500;">&#128220; Sacred Scrolls - Preview</h2>
-        <p style="text-align:center;color:#CD853F;font-family:'MedievalSharp',cursive;font-size:13px;margin-bottom:15px;">Click a warrior's name to reveal their prophesied call script</p>
-        <div class="contact-cards" id="contactCards"></div>
     </div>
 
     <!-- ===== APPROVE ===== -->
@@ -2833,7 +2772,7 @@ function renderReview(data) {
                     '<span class="name-title"><a href="' + hsUrl + '" target="_blank" class="hs-link">' + escapeHtml(c.name) + '</a><br><span class="title">' + escapeHtml(c.title || 'Unknown rank') + '</span></span>' +
                     '<span class="company">' + escapeHtml(c.company) + '</span>' +
                     '<span class="tz-badge">' + escapeHtml(c.tz) + '</span>' +
-                    '<span class="phone-email">' + escapeHtml(c.phone || 'No phone') + '<br>' + escapeHtml(c.email || '') + '</span>' +
+                    '<span class="status-cell"></span>' +
                     '</div>';
                 contactNum++;
             }
@@ -2855,30 +2794,13 @@ function renderReview(data) {
                 '<span class="name-title"><a href="' + unkHsUrl + '" target="_blank" class="hs-link">' + escapeHtml(c.name) + '</a><br><span class="title">' + escapeHtml(c.title || 'Unknown rank') + '</span></span>' +
                 '<span class="company">' + escapeHtml(c.company) + '</span>' +
                 '<span class="tz-badge" style="background:#8B4500;border-color:#FFA500;">???</span>' +
-                '<span class="phone-email">' + escapeHtml(c.phone || 'No phone') + '<br>' + escapeHtml(c.email || '') + '</span>' +
+                '<span class="status-cell"></span>' +
                 '</div>';
             contactNum++;
         }
         unknownHtml += '</div></div>';
         document.getElementById('unknownTzBlock').innerHTML = unknownHtml;
     }
-
-    // Contact detail cards — render the formatted note_html (what gets written to HubSpot)
-    let cardsHtml = '';
-    for (const c of data.contacts) {
-        const cardHsUrl = 'https://app.hubspot.com/contacts/' + HUBSPOT_PORTAL_ID + '/record/0-1/' + c.contact_id;
-        cardsHtml += '<div class="contact-card" onclick="this.classList.toggle(\'open\')">' +
-            '<div class="contact-card-header">' +
-            '<span><a href="' + cardHsUrl + '" target="_blank" class="hs-link card-name" onclick="event.stopPropagation()">' + c.name + '</a>' +
-            '<span class="card-meta"> | ' + c.company + ' | ' + c.tz + '</span></span>' +
-            '<span class="toggle-arrow">\u25BC</span>' +
-            '</div>' +
-            '<div class="contact-card-body" style="font-family:Georgia,serif;font-size:14px;line-height:1.6;padding:15px 20px;">' +
-            (c.note_html || c.script_content || 'No content') +
-            '</div>' +
-            '</div>';
-    }
-    document.getElementById('contactCards').innerHTML = cardsHtml;
 
     // Show sections
     document.getElementById('reviewSection').style.display = 'block';

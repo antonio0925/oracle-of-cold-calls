@@ -135,7 +135,7 @@ def list_forge_sessions():
                 "status": data.get("status", ""),
                 "discovered_domains_count": len(data.get("discovered_domains", [])),
                 "companies_count": len(data.get("companies", [])),
-                "qualified_companies_count": len(data.get("qualified_companies", [])),
+                "enriched_companies_count": len(data.get("enriched_companies", [])),
                 "people_count": len(data.get("people", [])),
                 "modified": datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M"),
             })
