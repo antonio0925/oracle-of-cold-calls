@@ -2844,6 +2844,12 @@ function releaseTheKraken() {
 
     fetch('/approve/' + currentSessionId, {method: 'POST'})
         .then(response => {
+            if (!response.ok) {
+                return response.json().then(d => {
+                    showError(d.error || 'The Kraken refuses to write.', 'HTTP ' + response.status);
+                    throw new Error('stop');
+                });
+            }
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
@@ -3143,6 +3149,13 @@ function startCleanup() {
     // Start SSE scan
     fetch('/cleanup/' + cleanupSessionId, {method: 'POST'})
     .then(response => {
+        if (!response.ok) {
+            return response.json().then(d => {
+                showError(d.error || 'Cleanup scan failed.', 'HTTP ' + response.status);
+                document.getElementById('cleanupBtn').disabled = false;
+                throw new Error('stop');
+            });
+        }
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -3192,13 +3205,13 @@ function handleCleanupMsg(msg) {
         manifest.style.display = 'block';
         if (msg.remove > 0) {
             manifest.innerHTML += '<div class="cleanup-row">' +
-                '<span class="cname">' + msg.name + '</span>' +
+                '<span class="cname">' + escapeHtml(msg.name) + '</span>' +
                 '<span>' + msg.found + ' notes found — ' +
                 '<span class="ckeep">' + msg.keep + ' keep</span>, ' +
                 '<span class="cremove">' + msg.remove + ' remove</span></span></div>';
         } else if (msg.found > 1) {
             manifest.innerHTML += '<div class="cleanup-row">' +
-                '<span class="cname">' + msg.name + '</span>' +
+                '<span class="cname">' + escapeHtml(msg.name) + '</span>' +
                 '<span>' + msg.found + ' notes — <span class="ckeep">all match</span></span></div>';
         }
         // Skip contacts with 0-1 notes (nothing to clean)
@@ -3238,6 +3251,12 @@ function executeCleanup() {
 
     fetch('/execute-cleanup/' + cleanupSessionId, {method: 'POST'})
     .then(response => {
+        if (!response.ok) {
+            return response.json().then(d => {
+                showError(d.error || 'Cleanup execution failed.', 'HTTP ' + response.status);
+                throw new Error('stop');
+            });
+        }
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
