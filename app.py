@@ -723,7 +723,7 @@ def api_contact_activity():
         return jsonify({"error": "No contact_ids provided"}), 400
     if not since_date:
         # Default to start of today (UTC)
-        since_date = datetime.utcnow().strftime("%Y-%m-%dT00:00:00Z")
+        since_date = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
 
     if not config.HUBSPOT_ACCESS_TOKEN:
         return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
