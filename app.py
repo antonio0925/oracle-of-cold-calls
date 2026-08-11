@@ -22,9 +22,9 @@ import config
 from services.sessions import (
     get_session, set_session, delete_session, delete_session_file,
     save_session_to_disk, load_session_from_disk, find_resumable_session,
-    find_latest_session, record_disposition, utc_now_iso,
+    find_latest_session, record_disposition, clear_disposition, utc_now_iso,
 )
-from services.timezone import resolve_timezone, tz_label
+from services.timezone import resolve_timezone, tz_label, work_day
 from services.filters import is_us_company, is_us_person
 from services.formatting import format_note_html, normalize_html_for_compare
 from services.call_sheet import title_seniority, TIME_BLOCKS, TZ_TO_BLOCKS, build_call_sheet
@@ -255,7 +255,7 @@ def generate():
             "skipped_subscriber": 0, "no_source_email": 0,
             "skipped_existing": 0, "skipped_cached": 0,
             "skipped_recent_call": 0, "skipped_account_cap": 0,
-            "errors": 0, "not_reached": 0,
+            "errors": 0, "not_reached": 0, "unscanned": 0,
             "tz_breakdown": {},
         }
         prepped_contacts = []
@@ -265,9 +265,12 @@ def generate():
         #   last_calls   contact_id -> latest logged call timestamp
         per_account = defaultdict(int)
         last_calls = {}
-        cooldown_cutoff = (
+        # Cutoff in the BDR's working day, matching how call dates are
+        # normalised. A UTC cutoff rolls forward at 5pm Pacific and would let
+        # a contact called yesterday afternoon back onto the list.
+        cooldown_cutoff = work_day(
             datetime.now(timezone.utc) - timedelta(days=config.CALL_COOLDOWN_DAYS)
-        ).strftime("%Y-%m-%d")
+        )
 
         # Build cache from previous session
         cached_scripts = {}
@@ -346,15 +349,29 @@ def generate():
         ]
         CHUNK = 100
 
+        # Tracks contacts we asked for but never saw, either because a whole
+        # chunk failed or because HubSpot omitted records from the response.
+        # Both are invisible otherwise: the run just quietly considers fewer
+        # people than the list holds.
+        unscanned = {"count": 0, "chunk_failures": 0}
+
         def contacts_in_chunks():
             for start in range(0, len(contact_ids), CHUNK):
                 batch = contact_ids[start:start + CHUNK]
                 try:
-                    for c in hs.batch_get_contacts(batch, CONTACT_PROPERTIES):
-                        yield c
+                    # _post already retries transient failures, so reaching
+                    # here means the chunk is genuinely unavailable.
+                    got = hs.batch_get_contacts(batch, CONTACT_PROPERTIES)
                 except Exception as e:
                     log.warning("Contact chunk at %d failed: %s", start, e)
                     stats["errors"] += 1
+                    unscanned["count"] += len(batch)
+                    unscanned["chunk_failures"] += 1
+                    continue
+                # HubSpot omits ids it cannot return rather than erroring.
+                unscanned["count"] += max(0, len(batch) - len(got))
+                for c in got:
+                    yield c
 
         # Call history is read per contact, on demand, and cached. Sweeping the
         # whole list up front cost one or two requests for every contact on it,
@@ -376,7 +393,12 @@ def generate():
         for i, contact in enumerate(contacts_in_chunks()):
             resolved += 1
             if stats["prepped"] >= target:
-                stats["not_reached"] = len(contact_ids) - i
+                # i counts records seen; unscanned counts ids we never saw.
+                # Subtracting only i would report contacts that failed to load
+                # as "left for another day", which is a different thing.
+                stats["not_reached"] = max(
+                    0, len(contact_ids) - i - unscanned["count"]
+                )
                 yield emit("status", {
                     "msg": f"Target of {target} reached. "
                            f"{stats['not_reached']} contacts left untouched for another day.",
@@ -542,6 +564,17 @@ def generate():
 
             time.sleep(1)
 
+        if unscanned["count"]:
+            stats["unscanned"] = unscanned["count"]
+            yield emit("warn", {
+                "name": "",
+                "msg": f"{unscanned['count']} contacts could not be loaded from "
+                       f"HubSpot and were never considered"
+                       + (f" ({unscanned['chunk_failures']} batches failed)"
+                          if unscanned["chunk_failures"] else "")
+                       + ". Rerun to pick them up.",
+            })
+
         # A list whose members are not contacts resolves to nothing. Silence
         # here reads as a broken app, so say what happened.
         if resolved == 0 and contact_ids:
@@ -700,15 +733,29 @@ def quick_generate():
         ]
         CHUNK = 100
 
+        # Tracks contacts we asked for but never saw, either because a whole
+        # chunk failed or because HubSpot omitted records from the response.
+        # Both are invisible otherwise: the run just quietly considers fewer
+        # people than the list holds.
+        unscanned = {"count": 0, "chunk_failures": 0}
+
         def contacts_in_chunks():
             for start in range(0, len(contact_ids), CHUNK):
                 batch = contact_ids[start:start + CHUNK]
                 try:
-                    for c in hs.batch_get_contacts(batch, CONTACT_PROPERTIES):
-                        yield c
+                    # _post already retries transient failures, so reaching
+                    # here means the chunk is genuinely unavailable.
+                    got = hs.batch_get_contacts(batch, CONTACT_PROPERTIES)
                 except Exception as e:
                     log.warning("Contact chunk at %d failed: %s", start, e)
                     stats["errors"] += 1
+                    unscanned["count"] += len(batch)
+                    unscanned["chunk_failures"] += 1
+                    continue
+                # HubSpot omits ids it cannot return rather than erroring.
+                unscanned["count"] += max(0, len(batch) - len(got))
+                for c in got:
+                    yield c
 
         # Check each contact for existing COLD CALL PREP notes
         for i, contact in enumerate(contacts_in_chunks()):
@@ -770,6 +817,17 @@ def quick_generate():
             yield emit("error", {"msg": "Nobody on this list has a prep note yet. Build the full list first."})
             yield emit("done", {"session_id": None, "stats": stats})
             return
+
+        if unscanned["count"]:
+            stats["unscanned"] = unscanned["count"]
+            yield emit("warn", {
+                "name": "",
+                "msg": f"{unscanned['count']} contacts could not be loaded from "
+                       f"HubSpot and were never considered"
+                       + (f" ({unscanned['chunk_failures']} batches failed)"
+                          if unscanned["chunk_failures"] else "")
+                       + ". Rerun to pick them up.",
+            })
 
         # A list whose members are not contacts resolves to nothing. Silence
         # here reads as a broken app, so say what happened.
@@ -1160,10 +1218,26 @@ def api_climb():
     """Return the current call list with per-contact completion state."""
     session_id = request.args.get("session_id", "").strip()
 
+    # Prefer, in order: an explicit id, the one bound to this browser session,
+    # then the newest on disk. The last is a guess, and with one shared
+    # password there is no identity to disambiguate it, so it is a fallback
+    # for a fresh sign-in rather than the normal path.
+    asked_for = bool(session_id)
+    if not session_id:
+        session_id = session.get("climb_session_id", "")
+
+    data = None
     if session_id:
         data = get_session(session_id) or load_session_from_disk(session_id)
-    else:
+
+    # Fall back to the newest file only when nobody named a session. If the
+    # caller asked for a specific one and it is gone, say so: handing back a
+    # different list would let one person log calls against another's work.
+    if not data and not asked_for:
         session_id, data = find_latest_session()
+
+    if data:
+        session["climb_session_id"] = data.get("session_id")
 
     if not data:
         return jsonify({
@@ -1236,7 +1310,9 @@ def api_climb_complete():
         return jsonify({"error": f"Unknown disposition: {disposition}"}), 400
 
     # Record it first. The BDR keeps their place even if HubSpot is down.
-    dispositions = record_disposition(session_id, contact_id, disposition, notes)
+    dispositions, already_logged = record_disposition(
+        session_id, contact_id, disposition, notes
+    )
     if dispositions is None:
         return jsonify({"error": "Session not found"}), 404
 
@@ -1253,11 +1329,16 @@ def api_climb_complete():
             f"<p>{entry}</p>"
             f"<p>Logged by SUMMIT on {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>"
         )
-        try:
-            hs.create_note_for_contact(contact_id, body)
-        except Exception as e:
-            log.warning("Outcome note failed for contact %s: %s", contact_id, e)
-            hubspot_ok, hubspot_error = False, str(e)
+        # A double-click or a retry must not stack notes on the contact. The
+        # DNC flag below is exempt: it is idempotent and too important to skip.
+        if already_logged:
+            log.info("Contact %s already logged; skipping duplicate note", contact_id)
+        else:
+            try:
+                hs.create_note_for_contact(contact_id, body)
+            except Exception as e:
+                log.warning("Outcome note failed for contact %s: %s", contact_id, e)
+                hubspot_ok, hubspot_error = False, str(e)
 
         # Compliance: do_not_call must reach the standard HubSpot property,
         # not only a note. A note stops nobody else from dialling. This runs
@@ -1287,6 +1368,9 @@ def api_climb_complete():
         # None unless this was a do_not_call. True means the standard HubSpot
         # Do Not Call flag is set. False must be escalated, not ignored.
         "dnc_flag_set": dnc_ok,
+        # One flag the UI can branch on. A failed legal request must never
+        # share a code path with a routine note failure.
+        "compliance_failure": dnc_ok is False,
         # Surfaced, not fatal. The card is already checked off locally.
         "hubspot_error": hubspot_error,
         "msg": route["log_entry"],
@@ -1302,15 +1386,9 @@ def api_climb_undo():
     if not session_id or not contact_id:
         return jsonify({"error": "Missing session_id or contact_id"}), 400
 
-    sess = get_session(session_id) or load_session_from_disk(session_id)
-    if not sess:
+    dispositions = clear_disposition(session_id, contact_id)
+    if dispositions is None:
         return jsonify({"error": "Session not found"}), 404
-
-    dispositions = sess.get("dispositions") or {}
-    dispositions.pop(str(contact_id), None)
-    sess["dispositions"] = dispositions
-    set_session(session_id, sess)
-    save_session_to_disk(session_id, sess)
     return jsonify({"ok": True, "completed": len(dispositions)})
 @app.route("/api/dispositions")
 def api_dispositions():

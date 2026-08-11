@@ -66,8 +66,28 @@ def test_iso_timestamp_normalises_to_a_date():
 
 
 def test_epoch_millis_normalises_to_a_date():
-    ms = int(datetime(2026, 8, 9, tzinfo=timezone.utc).timestamp() * 1000)
+    # Midday UTC lands on the same calendar day in every US zone.
+    ms = int(datetime(2026, 8, 9, 18, 0, tzinfo=timezone.utc).timestamp() * 1000)
     assert HubSpotClient._call_date(str(ms)) == "2026-08-09"
+
+
+def test_dates_are_the_work_day_not_the_utc_day():
+    """A call at 6pm Pacific carries the next UTC date.
+
+    Comparing UTC days made yesterday evening's call look like today's, and
+    rolled the cutoff forward at 5pm local. Pacing counts the BDR's days.
+    """
+    from services.timezone import work_day
+    evening_pt = datetime(2026, 8, 10, 1, 0, tzinfo=timezone.utc)  # 6pm PT Aug 9
+    assert evening_pt.strftime("%Y-%m-%d") == "2026-08-10"          # UTC says the 10th
+    assert work_day(evening_pt) == "2026-08-09"                     # the BDR says the 9th
+    assert HubSpotClient._call_date("2026-08-10T01:00:00.000Z") == "2026-08-09"
+
+
+def test_the_cutoff_and_the_call_date_share_one_basis():
+    # If these ever diverge the cooldown silently stops working.
+    from services.timezone import work_day, today_work_day
+    assert today_work_day() == work_day(datetime.now(timezone.utc))
 
 
 def test_unparseable_timestamps_do_not_block_a_contact():

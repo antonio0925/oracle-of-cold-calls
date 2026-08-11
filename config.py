@@ -52,10 +52,8 @@ QUAL_THRESHOLD = int(os.getenv("QUAL_THRESHOLD", "8"))
 OCTAVE_CALL_PREP_AGENT = os.getenv("OCTAVE_CALL_PREP_AGENT", "ca_DLoI5XBlw9qGNEDBiV1a2")
 
 # --- Legacy, unused ---
-# Campaign enrollment was removed. Dispositions are HubSpot-only.
-# services/supersend.py and services/anthropic.py stay on disk but
-# nothing imports them. These keys are read for backward compatibility
-# only. Do not set them in a new deployment.
+# Campaign enrollment was removed and its modules were deleted. These keys
+# are read only so an old .env does not break a boot. Do not set them.
 SUPERSEND_API_KEY = os.getenv("SUPERSEND_API_KEY", "")
 SUPERSEND_TEAM_ID = os.getenv("SUPERSEND_TEAM_ID", "")
 SUPERSEND_CAMPAIGN_ID = os.getenv("SUPERSEND_CAMPAIGN_ID", "")

@@ -198,3 +198,41 @@ def resolve_timezone(contact_props):
 
 def tz_label(tz):
     return TZ_LABELS.get(tz, tz)
+
+
+# ---------------------------------------------------------------------------
+# The working day
+# ---------------------------------------------------------------------------
+# Call pacing counts days, and the day that matters is the BDR's calendar day,
+# not UTC's. Cold calls happen in local business hours: a call logged at 6pm
+# Pacific carries the next UTC date, so comparing UTC days both over-blocks a
+# contact called yesterday evening and under-blocks after 5pm local, when the
+# UTC cutoff has already rolled forward.
+
+def _work_tzinfo():
+    """The configured work timezone, or UTC if it cannot be resolved."""
+    import config
+    try:
+        from zoneinfo import ZoneInfo
+        return ZoneInfo(config.USER_TIMEZONE)
+    except Exception:
+        # Python 3.8 or a missing tzdata. Falling back to UTC keeps pacing
+        # working; it only reintroduces the edge case near local midnight.
+        from datetime import timezone as _tz
+        return _tz.utc
+
+
+def work_day(dt):
+    """Return dt as a YYYY-MM-DD date in the configured work timezone."""
+    if dt is None:
+        return ""
+    if dt.tzinfo is None:
+        from datetime import timezone as _tz
+        dt = dt.replace(tzinfo=_tz.utc)
+    return dt.astimezone(_work_tzinfo()).strftime("%Y-%m-%d")
+
+
+def today_work_day():
+    """Today's date in the configured work timezone."""
+    from datetime import datetime, timezone as _tz
+    return work_day(datetime.now(_tz.utc))

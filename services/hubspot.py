@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timezone
 import requests as http_requests
 from services.retry import retry_request
+from services.timezone import work_day
 
 _log = logging.getLogger(__name__)
 
@@ -471,26 +472,44 @@ class HubSpotClient:
 
     @staticmethod
     def _call_date(raw):
-        """Normalise an hs_timestamp to YYYY-MM-DD.
+        """Normalise an hs_timestamp to a YYYY-MM-DD date in the work timezone.
+
+        Two problems this solves.
 
         HubSpot returns either an ISO 8601 string or epoch milliseconds
-        depending on the endpoint. A raw string compare across the two
-        formats silently never matches, which would disable the cooldown.
+        depending on the endpoint. A raw string compare across the two formats
+        silently never matches, which would disable the cooldown entirely.
+
+        The date must also be the BDR's calendar date, not UTC's. A call logged
+        at 6pm Pacific carries the next UTC day, so a UTC comparison both
+        over-blocks (yesterday evening's call looks like today's) and
+        under-blocks (the cutoff rolls forward at 5pm local). Cold calls happen
+        in local business hours, so local days are the only meaningful unit.
         """
         if not raw:
             return ""
         raw = str(raw)
         if raw.isdigit():
             try:
-                return datetime.fromtimestamp(
-                    int(raw) / 1000, tz=timezone.utc
-                ).strftime("%Y-%m-%d")
+                dt = datetime.fromtimestamp(int(raw) / 1000, tz=timezone.utc)
             except (ValueError, OverflowError, OSError):
                 return ""
+            return work_day(dt)
+
         head = raw[:10]
-        # Must be a real YYYY-MM-DD. An unvalidated string sorts above a real
-        # date (any letter beats "2"), which would skip a dialable contact.
-        return head if re.match(r"^\d{4}-\d{2}-\d{2}$", head) else ""
+        # Must be a real YYYY-MM-DD before we trust it. An unvalidated string
+        # sorts above a real date (any letter beats "2"), which would skip a
+        # contact who was never called.
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", head):
+            return ""
+        try:
+            dt = datetime.strptime(raw[:19], "%Y-%m-%dT%H:%M:%S").replace(
+                tzinfo=timezone.utc
+            )
+        except ValueError:
+            # Date-only value: no clock to shift, take it as given.
+            return head
+        return work_day(dt)
 
     def last_call_dates(self, contact_ids):
         """Return {contact_id: latest logged call date} as YYYY-MM-DD.

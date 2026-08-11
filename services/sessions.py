@@ -136,29 +136,73 @@ def find_latest_session():
     return None, None
 
 
+# Serialises the read-modify-write of a session's dispositions map.
+#
+# get_session returns a deep copy and set_session overwrites, so the store's
+# own lock protects each access but not the pair. Two outcomes logged at the
+# same moment would both read the map, each add one key, and the second write
+# would erase the first: a completed call silently vanishes and the card
+# un-ticks on the next refresh. The server runs one worker with eight threads,
+# so this is a live window, not a theoretical one.
+#
+# This is a process-local lock. It is sufficient for one worker and is NOT
+# sufficient if the deployment ever grows to two. At that point the file or a
+# real datastore has to become the serialisation point.
+_disposition_lock = threading.RLock()
+
+
+def _mutate_dispositions(session_id, mutate):
+    """Apply `mutate` to a session's dispositions map, atomically.
+
+    `mutate` takes the map and changes it in place. Returns the updated map,
+    or None if the session no longer exists.
+    """
+    with _disposition_lock:
+        data = get_session(session_id) or load_session_from_disk(session_id)
+        if not data:
+            return None
+
+        dispositions = data.get("dispositions") or {}
+        mutate(dispositions)
+        data["dispositions"] = dispositions
+
+        set_session(session_id, data)
+        save_session_to_disk(session_id, data)
+        return dispositions
+
+
 def record_disposition(session_id, contact_id, disposition, notes=""):
     """Mark one contact done in the session and persist it.
 
-    Returns the updated dispositions map, or None if the session is gone.
-    Writing here is what checks the card off. It is deliberately separate
-    from the HubSpot write, so a HubSpot outage cannot make the BDR lose
-    their place in the list.
+    Returns (dispositions, already_logged), or (None, False) if the session
+    is gone. already_logged is True when this contact was already recorded,
+    which is how a double-click avoids writing a second HubSpot note.
+
+    Recording is deliberately separate from the HubSpot write, so a HubSpot
+    outage cannot make the BDR lose their place in the list.
     """
-    data = get_session(session_id) or load_session_from_disk(session_id)
-    if not data:
-        return None
+    seen = {"already": False}
 
-    dispositions = data.get("dispositions") or {}
-    dispositions[str(contact_id)] = {
-        "disposition": disposition,
-        "notes": notes,
-        "at": utc_now_iso(),
-    }
-    data["dispositions"] = dispositions
+    def mutate(dispositions):
+        key = str(contact_id)
+        seen["already"] = key in dispositions
+        dispositions[key] = {
+            "disposition": disposition,
+            "notes": notes,
+            "at": utc_now_iso(),
+        }
 
-    set_session(session_id, data)
-    save_session_to_disk(session_id, data)
-    return dispositions
+    dispositions = _mutate_dispositions(session_id, mutate)
+    if dispositions is None:
+        return None, False
+    return dispositions, seen["already"]
+
+
+def clear_disposition(session_id, contact_id):
+    """Undo one outcome. Same atomicity as recording it."""
+    return _mutate_dispositions(
+        session_id, lambda d: d.pop(str(contact_id), None)
+    )
 
 
 def utc_now_iso():

@@ -1429,10 +1429,13 @@ function renderDropdown(which) {
             listEl.innerHTML = '<div class="dd-empty">No lists match that search</div>';
             return;
         }
+        // List names come from HubSpot and land in an attribute. Same class of
+        // bug as the card buttons: escape the value, and read it back from the
+        // dataset rather than interpolating it into executable markup.
         listEl.innerHTML = filtered.map(l =>
-            `<div class="dd-item" onclick="selectDropdown('segment','${l.name.replace(/'/g,"\\'")}')">
-                <span>${l.name}</span>
-                <span class="dd-size">${l.size} contacts &bull; ${l.type}</span>
+            `<div class="dd-item" data-pick="segment" data-value="${escapeHtml(l.name)}">
+                <span>${escapeHtml(l.name)}</span>
+                <span class="dd-size">${escapeHtml(String(l.size))} contacts &bull; ${escapeHtml(l.type)}</span>
             </div>`
         ).join('');
     }
@@ -2334,7 +2337,10 @@ function loadBattlePlan() {
     content.innerHTML = '<div class="battle-loading">Loading today\'s climb...</div>';
     document.getElementById('climbBlocks').innerHTML = '';
 
-    fetch('/api/climb')
+    // Pass the session the BDR just built. Without it the server falls back to
+    // the newest file on disk, which is a guess when two lists exist.
+    const wanted = currentSessionId || climbSessionId || '';
+    fetch('/api/climb' + (wanted ? '?session_id=' + encodeURIComponent(wanted) : ''))
         .then(r => r.json())
         .then(data => {
             if (data.error) {
@@ -2463,14 +2469,19 @@ function renderBattleCard(contact) {
     const email = escapeHtml(contact.email || '');
     const hubspotUrl = 'https://app.hubspot.com/contacts/{{ hubspot_portal_id }}/contact/' + encodeURIComponent(contact.contact_id);
     const phoneLink = phone ? '<a href="tel:' + phone + '">' + phone + '</a>' : 'No phone';
-    const safeName = (contact.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
     const done = !!contact.completed;
 
+    // Buttons carry data attributes and are wired by one delegated listener.
+    // The old form interpolated the contact name into an onclick attribute.
+    // Escaping it for a JavaScript string still left a literal quote in the
+    // HTML, so a prospect whose CRM name contained a double quote could close
+    // the attribute and inject markup. Contact names are prospect-controlled,
+    // so this was reachable by anyone in the list.
     const actions = done
         ? '<span class="dispo-done">Done: ' + escapeHtml((contact.disposition || '').replace(/_/g, ' ')) + '</span>' +
-          '<button class="battle-btn undo" onclick="undoDisposition(\'' + cid + '\')">Undo</button>'
-        : '<button class="battle-btn prep" onclick="toggleScript(\'' + cid + '\')">Script</button>' +
-          '<button class="battle-btn complete" onclick="openDisposition(\'' + cid + '\', \'' + safeName + '\')">Log the call</button>';
+          '<button class="battle-btn undo" data-act="undo" data-cid="' + cid + '">Undo</button>'
+        : '<button class="battle-btn prep" data-act="script" data-cid="' + cid + '">Script</button>' +
+          '<button class="battle-btn complete" data-act="log" data-cid="' + cid + '">Log the call</button>';
 
     return '<div class="battle-card' + (done ? ' completed' : '') + '" id="battle-card-' + cid + '">' +
         '<div class="battle-card-info">' +
@@ -2504,6 +2515,27 @@ function toggleScript(contactId) {
         : '<em>No script was generated for this contact.</em>';
     panel.classList.add('show');
 }
+
+document.addEventListener('click', function(ev) {
+    const item = ev.target.closest('.dd-item[data-pick]');
+    if (!item) return;
+    selectDropdown(item.getAttribute('data-pick'), item.getAttribute('data-value'));
+});
+
+// One listener for every card button, present and future. Nothing about a
+// contact is ever interpolated into markup that the browser executes.
+document.addEventListener('click', function(ev) {
+    const btn = ev.target.closest('#climbBlocks .battle-btn[data-act]');
+    if (!btn) return;
+    const cid = btn.getAttribute('data-cid');
+    const act = btn.getAttribute('data-act');
+    if (act === 'script') return toggleScript(cid);
+    if (act === 'undo') return undoDisposition(cid);
+    if (act === 'log') {
+        const c = findClimbContact(cid);
+        openDisposition(cid, (c && c.name) || 'this contact');
+    }
+});
 
 function findClimbContact(contactId) {
     const id = String(contactId);
@@ -2614,7 +2646,27 @@ function submitDisposition() {
         }
         renderBattlePlan();
 
-        // The card is checked off either way. Say so if HubSpot did not take it.
+        // A failed Do Not Call is a failed legal request. It gets its own
+        // message, and the card is left visibly unfinished, because a routine
+        // "saved anyway" notice is exactly what someone learns to click past.
+        if (data.compliance_failure) {
+            const c = findClimbContact(contactId);
+            if (c) { c.completed = false; c.disposition = ''; }
+            if (battleData.totals) {
+                battleData.totals.completed = Math.max(0, data.completed - 1);
+                battleData.totals.remaining = battleData.totals.total - battleData.totals.completed;
+            }
+            renderBattlePlan();
+            showError(
+                'DO NOT CALL WAS NOT SAVED IN HUBSPOT.',
+                'This is a legal request and it did not reach the contact record. '
+                + 'Tell Antonio now, before you call anyone else. '
+                + (data.hubspot_error || '')
+            );
+            return;
+        }
+
+        // Everything else: the card is checked off either way.
         if (data.hubspot_note_written === false) {
             showError('Saved here, but HubSpot did not take the note.',
                       (data.hubspot_error || '') + ' The call is still marked done on your list.');

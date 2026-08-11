@@ -137,11 +137,22 @@ def test_missing_fields_are_rejected(client):
     assert resp.status_code == 400
 
 
-def test_empty_state_when_no_session_exists(client):
+def test_a_named_session_that_is_gone_does_not_fall_back(client):
+    """Handing back a different list would let one person log calls against
+    another person's work. With one shared password there is no identity to
+    tell them apart, so silence is the only safe answer."""
     data = client.get("/api/climb?session_id=nope").get_json()
     assert data["blocks"] == []
     assert data["totals"]["total"] == 0
     assert "Route Plan" in data["msg"]
+
+
+def test_no_session_named_falls_back_to_the_newest(client):
+    # A fresh sign-in has nothing to name, so the newest list is the sane
+    # default. This is the only path allowed to guess.
+    data = client.get("/api/climb").get_json()
+    assert data["session_id"] == "s1"
+    assert data["totals"]["total"] == 3
 
 
 def test_note_is_created_already_associated(monkeypatch):
@@ -226,3 +237,48 @@ def test_the_dnc_flag_still_goes_out_when_the_note_fails(client):
 
     assert resp.get_json()["dnc_flag_set"] is True
     assert hs.update_contact_properties.call_args[0][1]["donotcall"] == "true"
+
+
+def test_a_failed_dnc_is_flagged_as_a_compliance_failure(client):
+    """The UI must be able to branch on this without parsing an error string.
+
+    Codex found that the template only alerted on hubspot_note_written, so a
+    successful note plus a failed DNC flag closed the modal, ticked the card,
+    and showed nothing. That is a failed legal request presented as success.
+    """
+    hs = MagicMock()
+    hs.update_contact_properties.side_effect = RuntimeError("property missing")
+    with patch.object(app_module, "HubSpotClient", return_value=hs), \
+            patch.object(app_module.config, "HUBSPOT_ACCESS_TOKEN", "tok"):
+        body = client.post("/api/climb/complete", json={
+            "session_id": "s1", "contact_id": "1", "disposition": "do_not_call",
+        }).get_json()
+
+    # The note succeeded, so the old signal alone would have said "all good".
+    assert body["hubspot_note_written"] is True
+    assert body["dnc_flag_set"] is False
+    assert body["compliance_failure"] is True
+
+
+def test_ordinary_outcomes_are_never_compliance_failures(client):
+    hs = MagicMock()
+    with patch.object(app_module, "HubSpotClient", return_value=hs), \
+            patch.object(app_module.config, "HUBSPOT_ACCESS_TOKEN", "tok"):
+        body = client.post("/api/climb/complete", json={
+            "session_id": "s1", "contact_id": "1", "disposition": "voicemail",
+        }).get_json()
+    assert body["compliance_failure"] is False
+
+
+def test_a_failed_note_does_not_become_a_compliance_failure(client):
+    # Losing a note is bad. It is not a legal failure, and conflating the two
+    # trains the BDR to click past the message that matters.
+    hs = MagicMock()
+    hs.create_note_for_contact.side_effect = RuntimeError("note failed")
+    with patch.object(app_module, "HubSpotClient", return_value=hs), \
+            patch.object(app_module.config, "HUBSPOT_ACCESS_TOKEN", "tok"):
+        body = client.post("/api/climb/complete", json={
+            "session_id": "s1", "contact_id": "1", "disposition": "voicemail",
+        }).get_json()
+    assert body["hubspot_note_written"] is False
+    assert body["compliance_failure"] is False
