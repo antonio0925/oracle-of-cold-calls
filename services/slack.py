@@ -30,12 +30,12 @@ def build_slack_messages(session_data):
 
     # Header message
     header = (
-        f":crossed_swords: _{date_display} Call Sheet_\n"
-        f"_{total_prepped} warriors armed for battle_ | "
-        f":scroll: _= prophecy inscribed_\n"
+        f":mountain: _{date_display} Call Sheet_\n"
+        f"_{total_prepped} contacts ready_ | "
+        f":memo: _= prep note written_\n"
         f"_Strategy: Every prospect called at their 10-11 AM local. "
         f"Times in {user_tz_abbrev()}._\n\n"
-        f"_Full battle plan below_ :point_down:"
+        f"_Full call sheet below_ :point_down:"
     )
 
     # Build contact lookup for prep status — normalize to str because
@@ -60,7 +60,7 @@ def build_slack_messages(session_data):
             name = c.get("name", "Unknown")
             company = c.get("company", "")
             hs_url = f"https://app.hubspot.com/contacts/{config.HUBSPOT_PORTAL_ID}/record/0-1/{cid}"
-            icon = ":scroll:" if str(cid) in prepped_ids else ":crossed_swords:"
+            icon = ":memo:" if str(cid) in prepped_ids else ":black_small_square:"
             lines.append(f"{icon} <{hs_url}|{name}> — {company}")
 
         msg = block_header + "\n".join(lines)
@@ -68,14 +68,14 @@ def build_slack_messages(session_data):
 
     # Unknown TZ block
     if unknown_tz:
-        unk_header = ":warning: _LOST IN THE LABYRINTH — Unknown Time Zone_ :compass:\n\n"
+        unk_header = ":compass: _Unknown time zone_\n\n"
         unk_lines = []
         for c in unknown_tz:
             cid = c.get("contact_id", "")
             name = c.get("name", "Unknown")
             company = c.get("company", "")
             hs_url = f"https://app.hubspot.com/contacts/{config.HUBSPOT_PORTAL_ID}/record/0-1/{cid}"
-            icon = ":scroll:" if str(cid) in prepped_ids else ":question:"
+            icon = ":memo:" if str(cid) in prepped_ids else ":question:"
             unk_lines.append(f"{icon} <{hs_url}|{name}> — {company}")
         thread_messages.append(unk_header + "\n".join(unk_lines))
 

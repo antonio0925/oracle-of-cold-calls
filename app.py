@@ -299,7 +299,7 @@ def generate():
         if cached_scripts:
             yield emit("status", {
                 "msg": f"Found {len(cached_scripts)} scripts cached from an earlier run on this list. "
-                       f"Only new warriors will be consulted..."
+                       f"Only new contacts need a script."
             })
         else:
             yield emit("status", {"msg": "Finding your list in HubSpot..."})
@@ -814,7 +814,7 @@ def quick_generate():
             "stats": stats,
             "quick_mode": True,
             "msg": f"Route ready. {stats['prepped']} contacts already had prep notes. "
-                   f"({stats['skipped_no_notes']} lack scrolls, {stats['errors']} errors.)",
+                   f"({stats['skipped_no_notes']} had no prep note, {stats['errors']} errors.)",
         })
 
     return Response(stream(), mimetype="text/event-stream")
@@ -825,7 +825,7 @@ def approve(session_id):
     """SSE endpoint: writes all notes to HubSpot."""
     session_data = get_session(session_id) or load_session_from_disk(session_id)
     if not session_data:
-        return jsonify({"error": "Session not found. The scrolls have been lost!"}), 404
+        return jsonify({"error": "Session not found."}), 404
 
     if not config.HUBSPOT_ACCESS_TOKEN:
         return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
@@ -1045,7 +1045,7 @@ def cleanup_scan(session_id):
             "removing": total_remove,
             "manifest": manifest,
             "msg": f"Scan complete. Found {total_remove} stale prep notes across {total} contacts. "
-                   f"({total_keep} true scrolls will be preserved.)",
+                   f"({total_keep} current notes will be kept.)",
         })
 
     return Response(stream(), mimetype="text/event-stream")
@@ -1107,7 +1107,7 @@ def execute_cleanup(session_id):
             "archived": archived,
             "errors": errors,
             "msg": f"Removed {archived} stale prep notes. "
-                   f"{'Zeus wept ' + str(errors) + ' times.' if errors else 'Flawless victory!'}",
+                   f"{str(errors) + ' failed.' if errors else 'No failures.'}",
         })
 
     return Response(stream(), mimetype="text/event-stream")

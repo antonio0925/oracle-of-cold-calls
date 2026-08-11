@@ -1731,7 +1731,7 @@ function handleMessage(msg) {
         document.getElementById('lsPrepared').textContent = livePrepared;
         document.getElementById('oracleEye').textContent = '\uD83D\uDC40';
         if (msg.cached) {
-            log('logBox', 'done', msg.name + ' at ' + msg.company + ' [' + msg.tz + '] \u2014 RECALLED FROM MEMORY \uD83E\udDE0');
+            log('logBox', 'done', msg.name + ' at ' + msg.company + ' [' + msg.tz + '] script reused');
         } else {
             log('logBox', 'done', msg.name + ' at ' + msg.company + ' [' + msg.tz + '] script ready');
             zeusFlash(); // Mini flash per completed contact (only for fresh ones)
@@ -1856,7 +1856,7 @@ function renderReview(data) {
     // Unknown TZ
     if (data.unknown_tz && data.unknown_tz.length > 0) {
         let unknownHtml = '<div class="unknown-tz-block">' +
-            '<div class="time-block-header">\u26A0\uFE0F LOST IN THE LABYRINTH - Unknown Time Zone (verify manually before calling)</div>' +
+            '<div class="time-block-header">\uD83E\uDDED Unknown time zone (verify manually before calling)</div>' +
             '<div class="time-block-body">';
         for (const c of data.unknown_tz) {
             const unkHsUrl = 'https://app.hubspot.com/contacts/' + HUBSPOT_PORTAL_ID + '/record/0-1/' + encodeURIComponent(c.contact_id);
@@ -1973,7 +1973,7 @@ function handleWriteMessage(msg) {
     } else if (msg.type === 'approved_complete') {
         zeusFlash();
         document.getElementById('writeProgressBar').style.width = '100%';
-        document.getElementById('writeProgressText').textContent = 'ALL SCROLLS INSCRIBED!';
+        document.getElementById('writeProgressText').textContent = 'ALL PREP NOTES WRITTEN';
         log('writeLogBox', 'status', msg.msg);
         log('writeLogBox', 'done', 'Prep notes are in HubSpot. Head to Today\'s Climb.');
 
@@ -2025,7 +2025,7 @@ function refreshBattleStatus() {
     });
 
     if (contactIds.length === 0) {
-        refreshStatus.textContent = 'No warriors to check.';
+        refreshStatus.textContent = 'Nobody to check.';
         refreshBtn.disabled = false;
         return;
     }
@@ -2196,7 +2196,7 @@ function handleCleanupMsg(msg) {
             document.getElementById('cleanupBtn').disabled = false;
         } else {
             summary.innerHTML = 'Found <strong style="color:var(--orange)">' + msg.removing + '</strong> stale prep notes to remove. ' +
-                '<strong style="color:#00FF00">' + msg.keeping + '</strong> true scrolls will be preserved.';
+                '<strong style="color:#00FF00">' + msg.keeping + '</strong> current notes will be kept.';
             document.getElementById('cleanupButtons').style.display = 'flex';
         }
     }
