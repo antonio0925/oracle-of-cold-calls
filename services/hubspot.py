@@ -1,9 +1,12 @@
 """
 HubSpot API client — lists, contacts, emails, notes, associations.
 """
+import logging
 from datetime import datetime, timezone
 import requests as http_requests
 from services.retry import retry_request
+
+_log = logging.getLogger(__name__)
 
 
 class HubSpotClient:
@@ -80,7 +83,9 @@ class HubSpotClient:
                 if lst.get("name", "").lower().strip() == name.lower().strip():
                     return lst["listId"]
         except Exception:
-            pass
+            # None means "not found" to callers — log so an auth failure
+            # is distinguishable from a genuinely missing list.
+            _log.warning("search_lists failed for %r", name, exc_info=True)
         return None
 
     def get_list_memberships(self, list_id):

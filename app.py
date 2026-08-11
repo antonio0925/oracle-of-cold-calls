@@ -16,7 +16,7 @@ import requests as http_requests
 import logging
 import config
 from services.sessions import (
-    get_session, set_session, delete_session,
+    get_session, set_session, delete_session, delete_session_file,
     save_session_to_disk, load_session_from_disk, find_resumable_session,
     save_forge_session, load_forge_session, list_forge_sessions,
     utc_now_iso,
@@ -188,6 +188,20 @@ def generate():
             return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
 
         def _save_progress():
+            contacts_payload = [{
+                "contact_id": c["contact"]["id"],
+                "name": f"{c['contact'].get('properties', {}).get('firstname', '')} {c['contact'].get('properties', {}).get('lastname', '')}".strip(),
+                "company": c["contact"].get("properties", {}).get("company", ""),
+                "note_html": c["note_html"],
+                "script_content": c["script_content"],
+                "tz": c["tz_label"],
+            } for c in prepped_contacts]
+            # Preserve cached scripts the loop has not reached yet — writing
+            # only processed contacts destroys them if this run dies early.
+            done_ids = {str(c["contact"]["id"]) for c in prepped_contacts}
+            for cached_id, cached_contact in cached_scripts.items():
+                if cached_id not in done_ids:
+                    contacts_payload.append(cached_contact)
             partial_data = {
                 "session_id": session_id,
                 "segment": segment_name,
@@ -195,14 +209,7 @@ def generate():
                 "calling_date": calling_date,
                 "stats": stats,
                 "generation_complete": False,
-                "contacts": [{
-                    "contact_id": c["contact"]["id"],
-                    "name": f"{c['contact'].get('properties', {}).get('firstname', '')} {c['contact'].get('properties', {}).get('lastname', '')}".strip(),
-                    "company": c["contact"].get("properties", {}).get("company", ""),
-                    "note_html": c["note_html"],
-                    "script_content": c["script_content"],
-                    "tz": c["tz_label"],
-                } for c in prepped_contacts],
+                "contacts": contacts_payload,
             }
             save_session_to_disk(session_id, partial_data)
 
@@ -223,7 +230,12 @@ def generate():
 
         yield emit("status", {"msg": f"Legion found! (List ID: {list_id}). Summoning warriors..."})
 
-        contact_ids = hs.get_list_memberships(list_id)
+        try:
+            contact_ids = hs.get_list_memberships(list_id)
+        except Exception as e:
+            yield emit("error", {"msg": f"Failed to fetch Legion members: {e}"})
+            yield emit("done", {"session_id": None, "stats": stats})
+            return
         stats["total"] = len(contact_ids)
         yield emit("status", {"msg": f"{len(contact_ids)} mortals found in the Legion. Beginning the trials..."})
 
@@ -231,10 +243,15 @@ def generate():
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
-        contacts = hs.batch_get_contacts(contact_ids, [
-            "firstname", "lastname", "email", "company", "jobtitle",
-            "phone", "mobilephone", "city", "state", "country", "hs_timezone",
-        ])
+        try:
+            contacts = hs.batch_get_contacts(contact_ids, [
+                "firstname", "lastname", "email", "company", "jobtitle",
+                "phone", "mobilephone", "city", "state", "country", "hs_timezone",
+            ])
+        except Exception as e:
+            yield emit("error", {"msg": f"Failed to fetch warrior details: {e}"})
+            yield emit("done", {"session_id": None, "stats": stats})
+            return
 
         # Phase 2: Filter + generate
         for i, contact in enumerate(contacts):
@@ -244,29 +261,6 @@ def generate():
             company_name = props.get("company", "Unknown")
 
             yield emit("progress", {"current": i + 1, "total": len(contacts), "name": name})
-
-            # Resume check
-            if str(cid) in cached_scripts:
-                cached = cached_scripts[str(cid)]
-                tz = resolve_timezone(props)
-                tz_lbl = tz_label(tz)
-                stats["tz_breakdown"][tz_lbl] = stats["tz_breakdown"].get(tz_lbl, 0) + 1
-                stats["skipped_cached"] += 1
-                stats["prepped"] += 1
-                fresh_html = format_note_html(props, campaign, cached["script_content"])
-                prepped_contacts.append({
-                    "contact": contact,
-                    "tz": tz,
-                    "tz_label": tz_lbl,
-                    "script_content": cached["script_content"],
-                    "email_data": {},
-                    "note_html": fresh_html,
-                })
-                yield emit("done_contact", {
-                    "name": name, "company": company_name, "tz": tz_lbl,
-                    "cached": True,
-                })
-                continue
 
             # Filter A: Active subscriber check
             try:
@@ -314,6 +308,30 @@ def generate():
                     stats["skipped_existing"] += 1
                     yield emit("skip", {"name": name, "reason": "Has already received the Oracle's wisdom"})
                     continue
+
+            # Resume check — after the filters, so a cached script never
+            # bypasses the subscriber, email, or existing-prep gates
+            if str(cid) in cached_scripts:
+                cached = cached_scripts[str(cid)]
+                tz = resolve_timezone(props)
+                tz_lbl = tz_label(tz)
+                stats["tz_breakdown"][tz_lbl] = stats["tz_breakdown"].get(tz_lbl, 0) + 1
+                stats["skipped_cached"] += 1
+                stats["prepped"] += 1
+                fresh_html = format_note_html(props, campaign, cached["script_content"])
+                prepped_contacts.append({
+                    "contact": contact,
+                    "tz": tz,
+                    "tz_label": tz_lbl,
+                    "script_content": cached["script_content"],
+                    "email_data": email_data,
+                    "note_html": fresh_html,
+                })
+                yield emit("done_contact", {
+                    "name": name, "company": company_name, "tz": tz_lbl,
+                    "cached": True,
+                })
+                continue
 
             # Generate script via Octave
             yield emit("generating", {"name": name, "company": company_name})
@@ -490,7 +508,12 @@ def quick_generate():
 
         yield emit("status", {"msg": f"Legion found! (List ID: {list_id}). Mustering warriors..."})
 
-        contact_ids = hs.get_list_memberships(list_id)
+        try:
+            contact_ids = hs.get_list_memberships(list_id)
+        except Exception as e:
+            yield emit("error", {"msg": f"Failed to fetch Legion members: {e}"})
+            yield emit("done", {"session_id": None, "stats": stats})
+            return
         stats["total"] = len(contact_ids)
         yield emit("status", {"msg": f"{len(contact_ids)} mortals found. Checking for existing battle scrolls..."})
 
@@ -498,10 +521,15 @@ def quick_generate():
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
-        contacts = hs.batch_get_contacts(contact_ids, [
-            "firstname", "lastname", "email", "company", "jobtitle",
-            "phone", "mobilephone", "city", "state", "country", "hs_timezone",
-        ])
+        try:
+            contacts = hs.batch_get_contacts(contact_ids, [
+                "firstname", "lastname", "email", "company", "jobtitle",
+                "phone", "mobilephone", "city", "state", "country", "hs_timezone",
+            ])
+        except Exception as e:
+            yield emit("error", {"msg": f"Failed to fetch warrior details: {e}"})
+            yield emit("done", {"session_id": None, "stats": stats})
+            return
 
         # Check each contact for existing COLD CALL PREP notes
         for i, contact in enumerate(contacts):
@@ -626,6 +654,9 @@ def approve(session_id):
     if not session_data:
         return jsonify({"error": "Session not found. The scrolls have been lost!"}), 404
 
+    if not config.HUBSPOT_ACCESS_TOKEN:
+        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
+
     hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
 
     def stream():
@@ -669,18 +700,26 @@ def approve(session_id):
                 })
             time.sleep(0.5)
 
-        # Post battle plan to Slack
-        yield emit("status", {"msg": "Dispatching the battle plan to Slack..."})
-        slack_ok, slack_msg = post_to_slack(session_data)
-        if slack_ok:
-            yield emit("status", {"msg": f"⚡ {slack_msg}"})
+        # Post battle plan to Slack — first full run only. A retry run
+        # re-inscribes failed scrolls; reposting duplicates the whole plan.
+        slack_ok = False
+        if prev_failed:
+            yield emit("status", {"msg": "Retry run — battle plan already posted to Slack, skipping."})
         else:
-            yield emit("status", {"msg": f"⚠️ {slack_msg}"})
+            yield emit("status", {"msg": "Dispatching the battle plan to Slack..."})
+            slack_ok, slack_msg = post_to_slack(session_data)
+            if slack_ok:
+                yield emit("status", {"msg": f"⚡ {slack_msg}"})
+            else:
+                yield emit("status", {"msg": f"⚠️ {slack_msg}"})
 
         # Only delete session if ALL writes succeeded.
         # On partial failure, keep the session so user can retry.
         if errors == 0:
             delete_session(session_id)
+            # The disk copy must go too — it still holds failed_contact_ids
+            # from earlier runs and would drive duplicate notes on re-approve.
+            delete_session_file(session_id)
         else:
             session_data["failed_contact_ids"] = failed_contact_ids
             session_data["approval_errors"] = errors
@@ -979,7 +1018,7 @@ def vm_followup(session_id):
                 continue
 
             email = contact["email"]
-            first_name = (contact.get("firstname") or "").split()[0] if contact.get("firstname") else "there"
+            first_name = ((contact.get("firstname") or "").split() or ["there"])[0]
             company = contact.get("company", "")
             name = f"{contact.get('firstname', '')} {contact.get('lastname', '')}".strip() or email
 
@@ -1479,15 +1518,16 @@ def forge_discover_enrich_people():
                 result = octave.prospect_people(domain)
                 people_list = []
                 result_data = result.get("data", {})
-                contacts_data = result_data.get("contacts", [])
-                if contacts_data:
-                    for item in contacts_data:
+                # "data" is a dict with "contacts" OR a bare list of people —
+                # check the list shape first, .get on a list raises.
+                if isinstance(result_data, list):
+                    people_list = result_data
+                else:
+                    for item in result_data.get("contacts", []):
                         if isinstance(item, dict) and "contact" in item:
                             people_list.append(item["contact"])
                         else:
                             people_list.append(item)
-                elif isinstance(result_data, list):
-                    people_list = result_data
                 return (company, people_list, None)
             except Exception as e:
                 return (company, [], str(e))

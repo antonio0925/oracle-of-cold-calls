@@ -41,6 +41,17 @@ def delete_session(key):
         _sessions.pop(key, None)
 
 
+def delete_session_file(session_id):
+    """Remove the on-disk prep session file. No-op if missing.
+
+    Must accompany delete_session after a successful approve — a stale
+    disk file with failed_contact_ids drives duplicate retry writes.
+    """
+    path = f"sessions/prep_{session_id}.json"
+    if os.path.exists(path):
+        os.remove(path)
+
+
 # ---------------------------------------------------------------------------
 # Oracle (prep) session disk I/O
 # ---------------------------------------------------------------------------
