@@ -200,19 +200,31 @@ class HubSpotClient:
             pass
         return False
 
+    # Association type 202 is note_to_contact in HubSpot's v4 type registry.
+    NOTE_TO_CONTACT_ASSOCIATION = 202
+
     def create_note_for_contact(self, contact_id, html_body):
-        """Create a note and associate it with a contact."""
+        """Create a note already associated with the contact.
+
+        The association is part of the create call, not a second request.
+        Creating first and associating after leaves an orphan note in the
+        portal whenever the second call fails, and an orphan note is invisible
+        on the contact record while still counting against the portal.
+        """
         note_data = self._post("/crm/v3/objects/notes", {
             "properties": {
                 "hs_note_body": html_body,
                 "hs_timestamp": datetime.now(timezone.utc).isoformat(),
-            }
+            },
+            "associations": [{
+                "to": {"id": str(contact_id)},
+                "types": [{
+                    "associationCategory": "HUBSPOT_DEFINED",
+                    "associationTypeId": self.NOTE_TO_CONTACT_ASSOCIATION,
+                }],
+            }],
         })
-        note_id = note_data["id"]
-        self._put(
-            f"/crm/v3/objects/notes/{note_id}/associations/contacts/{contact_id}/note_to_contact"
-        )
-        return note_id
+        return note_data["id"]
 
     def get_all_prep_notes_for_contact(self, contact_id):
         """Get ALL notes containing 'COLD CALL PREP' for a contact.

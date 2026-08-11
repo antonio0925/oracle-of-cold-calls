@@ -2294,10 +2294,14 @@ function switchView(view) {
     localStorage.setItem('activeView', view);
 }
 
-// Restore view from localStorage
-(function() {
+// Restore view from localStorage.
+// Deferred to DOMContentLoaded on purpose: switchView('battle') calls
+// loadBattlePlan(), which touches `let` bindings declared further down this
+// script. Running it inline hits the temporal dead zone and throws, which
+// left anyone who reloaded straight into Today's Climb with a dead page.
+document.addEventListener('DOMContentLoaded', function() {
     if (localStorage.getItem('activeView') === 'battle') switchView('battle');
-})();
+});
 
 // ===== TODAY'S CLIMB =====
 // The list comes from the session the BDR just generated. Completion is

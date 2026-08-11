@@ -142,3 +142,31 @@ def test_empty_state_when_no_session_exists(client):
     assert data["blocks"] == []
     assert data["totals"]["total"] == 0
     assert "Route Plan" in data["msg"]
+
+
+def test_note_is_created_already_associated(monkeypatch):
+    """The association must ride along with the create call.
+
+    Creating first and associating second leaves an orphan note in HubSpot
+    whenever the second call fails: invisible on the contact, still real in
+    the portal.
+    """
+    from services.hubspot import HubSpotClient
+
+    sent = {}
+
+    def fake_post(self, path, payload):
+        sent["path"], sent["payload"] = path, payload
+        return {"id": "n1"}
+
+    def fail_put(self, path, payload=None):
+        raise AssertionError("second association request must not happen")
+
+    monkeypatch.setattr(HubSpotClient, "_post", fake_post)
+    monkeypatch.setattr(HubSpotClient, "_put", fail_put)
+
+    assert HubSpotClient("tok").create_note_for_contact("42", "<p>hi</p>") == "n1"
+    assert sent["path"] == "/crm/v3/objects/notes"
+    assoc = sent["payload"]["associations"][0]
+    assert assoc["to"]["id"] == "42"
+    assert assoc["types"][0]["associationTypeId"] == 202
