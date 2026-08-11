@@ -73,6 +73,7 @@ AREA_CODE_TO_TZ = {
     "863": "US/Eastern", "904": "US/Eastern", "908": "US/Eastern", "910": "US/Eastern",
     "914": "US/Eastern", "917": "US/Eastern", "919": "US/Eastern", "941": "US/Eastern",
     "954": "US/Eastern", "973": "US/Eastern", "978": "US/Eastern",
+    "502": "US/Eastern", "717": "US/Eastern", "743": "US/Eastern",
     # Central
     "205": "US/Central", "210": "US/Central", "214": "US/Central", "217": "US/Central",
     "219": "US/Central", "224": "US/Central", "225": "US/Central", "228": "US/Central",
@@ -80,28 +81,28 @@ AREA_CODE_TO_TZ = {
     "309": "US/Central", "312": "US/Central", "314": "US/Central", "316": "US/Central",
     "317": "US/Central", "318": "US/Central", "319": "US/Central", "320": "US/Central",
     "331": "US/Central", "334": "US/Central", "346": "US/Central", "361": "US/Central",
-    "385": "US/Central", "402": "US/Central", "405": "US/Central", "409": "US/Central",
+    "402": "US/Central", "405": "US/Central", "409": "US/Central",
     "414": "US/Central", "417": "US/Central", "430": "US/Central", "432": "US/Central",
     "456": "US/Central", "469": "US/Central", "479": "US/Central", "501": "US/Central",
-    "502": "US/Central", "504": "US/Central", "507": "US/Central", "512": "US/Central",
+    "504": "US/Central", "507": "US/Central", "512": "US/Central",
     "515": "US/Central", "531": "US/Central", "534": "US/Central", "563": "US/Central",
     "573": "US/Central", "601": "US/Central", "608": "US/Central", "612": "US/Central",
     "615": "US/Central", "618": "US/Central", "620": "US/Central", "630": "US/Central",
     "636": "US/Central", "641": "US/Central", "651": "US/Central", "660": "US/Central",
     "662": "US/Central", "682": "US/Central", "701": "US/Central", "708": "US/Central",
-    "713": "US/Central", "715": "US/Central", "717": "US/Central", "720": "US/Central",
-    "731": "US/Central", "737": "US/Central", "743": "US/Central", "763": "US/Central",
+    "713": "US/Central", "715": "US/Central",
+    "731": "US/Central", "737": "US/Central", "763": "US/Central",
     "769": "US/Central", "773": "US/Central", "779": "US/Central", "806": "US/Central",
     "815": "US/Central", "816": "US/Central", "817": "US/Central", "830": "US/Central",
     "832": "US/Central", "847": "US/Central", "850": "US/Central", "870": "US/Central",
     "872": "US/Central", "901": "US/Central", "903": "US/Central", "913": "US/Central",
-    "915": "US/Central", "920": "US/Central", "936": "US/Central", "940": "US/Central",
+    "920": "US/Central", "936": "US/Central", "940": "US/Central",
     "952": "US/Central", "956": "US/Central", "972": "US/Central", "979": "US/Central",
     # Mountain
     "303": "US/Mountain", "307": "US/Mountain", "385": "US/Mountain", "406": "US/Mountain",
     "435": "US/Mountain", "480": "US/Mountain", "505": "US/Mountain", "520": "US/Mountain",
     "575": "US/Mountain", "602": "US/Mountain", "623": "US/Mountain", "719": "US/Mountain",
-    "720": "US/Mountain", "801": "US/Mountain", "928": "US/Mountain",
+    "720": "US/Mountain", "801": "US/Mountain", "915": "US/Mountain", "928": "US/Mountain",
     # Pacific
     "206": "US/Pacific", "209": "US/Pacific", "213": "US/Pacific", "253": "US/Pacific",
     "310": "US/Pacific", "323": "US/Pacific", "360": "US/Pacific", "408": "US/Pacific",
@@ -197,3 +198,59 @@ def resolve_timezone(contact_props):
 
 def tz_label(tz):
     return TZ_LABELS.get(tz, tz)
+
+
+# ---------------------------------------------------------------------------
+# The working day
+# ---------------------------------------------------------------------------
+# Call pacing counts days, and the day that matters is the BDR's calendar day,
+# not UTC's. Cold calls happen in local business hours: a call logged at 6pm
+# Pacific carries the next UTC date, so comparing UTC days both over-blocks a
+# contact called yesterday evening and under-blocks after 5pm local, when the
+# UTC cutoff has already rolled forward.
+
+def _work_tzinfo():
+    """The configured work timezone, or UTC if it cannot be resolved."""
+    import config
+    try:
+        from zoneinfo import ZoneInfo
+        return ZoneInfo(config.USER_TIMEZONE)
+    except Exception:
+        # Python 3.8 or a missing tzdata. Falling back to UTC keeps pacing
+        # working; it only reintroduces the edge case near local midnight.
+        from datetime import timezone as _tz
+        return _tz.utc
+
+
+def work_timezone_resolves():
+    """True when the configured zone really loaded.
+
+    Comparing the local date to the UTC date cannot answer this: the two are
+    equal for most of the day even when everything works. Ask the tz database
+    directly instead.
+    """
+    import config
+    if config.USER_TIMEZONE == "UTC":
+        return True
+    try:
+        from zoneinfo import ZoneInfo
+        ZoneInfo(config.USER_TIMEZONE)
+        return True
+    except Exception:
+        return False
+
+
+def work_day(dt):
+    """Return dt as a YYYY-MM-DD date in the configured work timezone."""
+    if dt is None:
+        return ""
+    if dt.tzinfo is None:
+        from datetime import timezone as _tz
+        dt = dt.replace(tzinfo=_tz.utc)
+    return dt.astimezone(_work_tzinfo()).strftime("%Y-%m-%d")
+
+
+def today_work_day():
+    """Today's date in the configured work timezone."""
+    from datetime import datetime, timezone as _tz
+    return work_day(datetime.now(_tz.utc))

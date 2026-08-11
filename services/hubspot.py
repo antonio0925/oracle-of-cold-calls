@@ -1,9 +1,14 @@
 """
 HubSpot API client — lists, contacts, emails, notes, associations.
 """
+import logging
+import re
 from datetime import datetime, timezone
 import requests as http_requests
 from services.retry import retry_request
+from services.timezone import work_day
+
+_log = logging.getLogger(__name__)
 
 
 class HubSpotClient:
@@ -80,7 +85,9 @@ class HubSpotClient:
                 if lst.get("name", "").lower().strip() == name.lower().strip():
                     return lst["listId"]
         except Exception:
-            pass
+            # None means "not found" to callers — log so an auth failure
+            # is distinguishable from a genuinely missing list.
+            _log.warning("search_lists failed for %r", name, exc_info=True)
         return None
 
     def get_list_memberships(self, list_id):
@@ -194,19 +201,31 @@ class HubSpotClient:
             pass
         return False
 
+    # Association type 202 is note_to_contact in HubSpot's v4 type registry.
+    NOTE_TO_CONTACT_ASSOCIATION = 202
+
     def create_note_for_contact(self, contact_id, html_body):
-        """Create a note and associate it with a contact."""
+        """Create a note already associated with the contact.
+
+        The association is part of the create call, not a second request.
+        Creating first and associating after leaves an orphan note in the
+        portal whenever the second call fails, and an orphan note is invisible
+        on the contact record while still counting against the portal.
+        """
         note_data = self._post("/crm/v3/objects/notes", {
             "properties": {
                 "hs_note_body": html_body,
                 "hs_timestamp": datetime.now(timezone.utc).isoformat(),
-            }
+            },
+            "associations": [{
+                "to": {"id": str(contact_id)},
+                "types": [{
+                    "associationCategory": "HUBSPOT_DEFINED",
+                    "associationTypeId": self.NOTE_TO_CONTACT_ASSOCIATION,
+                }],
+            }],
         })
-        note_id = note_data["id"]
-        self._put(
-            f"/crm/v3/objects/notes/{note_id}/associations/contacts/{contact_id}/note_to_contact"
-        )
-        return note_id
+        return note_data["id"]
 
     def get_all_prep_notes_for_contact(self, contact_id):
         """Get ALL notes containing 'COLD CALL PREP' for a contact.
@@ -448,6 +467,86 @@ class HubSpotClient:
             }
         except Exception:
             return None
+
+    # ── Call pacing ───────────────────────────────────────────────
+
+    @staticmethod
+    def _call_date(raw):
+        """Normalise an hs_timestamp to a YYYY-MM-DD date in the work timezone.
+
+        Two problems this solves.
+
+        HubSpot returns either an ISO 8601 string or epoch milliseconds
+        depending on the endpoint. A raw string compare across the two formats
+        silently never matches, which would disable the cooldown entirely.
+
+        The date must also be the BDR's calendar date, not UTC's. A call logged
+        at 6pm Pacific carries the next UTC day, so a UTC comparison both
+        over-blocks (yesterday evening's call looks like today's) and
+        under-blocks (the cutoff rolls forward at 5pm local). Cold calls happen
+        in local business hours, so local days are the only meaningful unit.
+        """
+        if not raw:
+            return ""
+        raw = str(raw)
+        if raw.isdigit():
+            try:
+                dt = datetime.fromtimestamp(int(raw) / 1000, tz=timezone.utc)
+            except (ValueError, OverflowError, OSError):
+                return ""
+            return work_day(dt)
+
+        head = raw[:10]
+        # Must be a real YYYY-MM-DD before we trust it. An unvalidated string
+        # sorts above a real date (any letter beats "2"), which would skip a
+        # contact who was never called.
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", head):
+            return ""
+        try:
+            dt = datetime.strptime(raw[:19], "%Y-%m-%dT%H:%M:%S").replace(
+                tzinfo=timezone.utc
+            )
+        except ValueError:
+            # Date-only value: no clock to shift, take it as given.
+            return head
+        return work_day(dt)
+
+    def last_call_dates(self, contact_ids):
+        """Return {contact_id: latest logged call date} as YYYY-MM-DD.
+
+        Contacts with no logged call map to "". Used to enforce the cooldown:
+        a contact called yesterday is not dialable today, but one called two
+        days ago is. Counts every logged call, inbound or outbound, connected
+        or voicemail, because a voicemail is still a touch.
+        """
+        results = {str(cid): "" for cid in contact_ids}
+        for cid in contact_ids:
+            cid_str = str(cid)
+            try:
+                assoc = self._get(f"/crm/v3/objects/contacts/{cid}/associations/calls")
+                call_ids = [str(r["id"]) for r in assoc.get("results", [])]
+                if not call_ids:
+                    continue
+                latest = ""
+                # Newest calls are last; read the tail first so a contact with
+                # a long history still resolves in one batch.
+                for i in range(0, len(call_ids), 100):
+                    batch = call_ids[i:i + 100]
+                    data = self._post("/crm/v3/objects/calls/batch/read", {
+                        "inputs": [{"id": c} for c in batch],
+                        "properties": ["hs_timestamp"],
+                    })
+                    for obj in data.get("results", []):
+                        day = self._call_date(obj.get("properties", {}).get("hs_timestamp"))
+                        if day > latest:
+                            latest = day
+                results[cid_str] = latest
+            except Exception:
+                # A lookup failure must not silently make a contact dialable.
+                # "" means unknown, and the caller treats unknown as dialable,
+                # so log loudly rather than failing the whole run.
+                _log.warning("Call history lookup failed for contact %s", cid)
+        return results
 
     # ── Legacy: batch call activity check ─────────────────────────
 

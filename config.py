@@ -15,25 +15,14 @@ load_dotenv(override=True)
 # --- Required API Keys ---
 HUBSPOT_ACCESS_TOKEN = os.getenv("HUBSPOT_ACCESS_TOKEN", "")
 OCTAVE_API_KEY = os.getenv("OCTAVE_API_KEY", "")
-NOTION_API_KEY = os.getenv("NOTION_API_KEY", "")
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "")
 
 # --- Octave Agent OIDs ---
 OCTAVE_CONTENT_AGENT = os.getenv("OCTAVE_CONTENT_AGENT", "ca_DLoI5XBlw9qGNEDBiV1a2")
-OCTAVE_QUALIFY_COMPANY_AGENT = os.getenv("OCTAVE_QUALIFY_COMPANY_AGENT", "ca_rCvK8bkJaM92LaocJVWJj")
-OCTAVE_QUALIFY_PERSON_AGENT = os.getenv("OCTAVE_QUALIFY_PERSON_AGENT", "ca_7VSc6ryMeAY7xPj4sVeYn")
-OCTAVE_PROSPECTOR_AGENT = os.getenv("OCTAVE_PROSPECTOR_AGENT", "ca_cHVXNhMbGZQ7L6qdFz6Kr")
-OCTAVE_ENRICH_COMPANY_AGENT = os.getenv("OCTAVE_ENRICH_COMPANY_AGENT", "ca_GsNZuDXi1K3zmgtKLOAif")
-OCTAVE_ENRICH_PERSON_AGENT = os.getenv("OCTAVE_ENRICH_PERSON_AGENT", "ca_VKO6KxdcyO7MDA0j1nL7z")
 
 # --- HubSpot ---
 HUBSPOT_PORTAL_ID = os.getenv("HUBSPOT_PORTAL_ID", "46940643")
 HUBSPOT_CREATOR_ID = os.getenv("HUBSPOT_CREATOR_ID", "87514817")
-
-# --- Notion ---
-NOTION_CAMPAIGNS_DB_ID = os.getenv("NOTION_CAMPAIGNS_DB_ID", "8224ce5d13dd4db69a2618476d527910")
-# Legacy page ID — kept for reference, no longer used by list_campaigns()
-NOTION_CAMPAIGNS_PAGE_ID = os.getenv("NOTION_CAMPAIGNS_PAGE_ID", "2f8c1b1ae5518079b71bdf94212cbda6")
 
 # --- Slack ---
 SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID", "C0AELNTNNDV")
@@ -42,21 +31,52 @@ SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID", "C0AELNTNNDV")
 USER_TIMEZONE = os.getenv("USER_TIMEZONE", "US/Pacific")
 USER_START_HOUR = float(os.getenv("USER_START_HOUR", "6.5"))  # 6:30 AM
 
+# --- Call target ---
+# How many calls a BDR plans for the day. The route builder stops here, so a
+# 400-contact list does not cost 400 Octave calls to work 50.
+DEFAULT_CALL_TARGET = int(os.getenv("DEFAULT_CALL_TARGET", "50"))
+MAX_CALL_TARGET = int(os.getenv("MAX_CALL_TARGET", "500"))
+
+# --- Call pacing ---
+# Never burn an account in one day. Two people per company, maximum.
+MAX_CONTACTS_PER_ACCOUNT_PER_DAY = int(os.getenv("MAX_CONTACTS_PER_ACCOUNT_PER_DAY", "2"))
+# Days a contact rests after any logged call, voicemail included. 1 means a
+# contact called yesterday is not dialable today, but one called two days
+# ago is.
+CALL_COOLDOWN_DAYS = int(os.getenv("CALL_COOLDOWN_DAYS", "1"))
+
 # --- Thresholds ---
 QUAL_THRESHOLD = int(os.getenv("QUAL_THRESHOLD", "8"))
 
-# --- Oracle v2: Supersend + Signal Pipeline ---
-SUPERSEND_API_KEY = os.getenv("SUPERSEND_API_KEY", "")
-ORACLE_WEBHOOK_SECRET = os.getenv("ORACLE_WEBHOOK_SECRET", "")
-SIGNAL_WEBHOOK_API_KEY = os.getenv("SIGNAL_WEBHOOK_API_KEY", "")
+# --- Octave ---
 OCTAVE_CALL_PREP_AGENT = os.getenv("OCTAVE_CALL_PREP_AGENT", "ca_DLoI5XBlw9qGNEDBiV1a2")
 
-# --- Anthropic (Claude API for follow-up email generation) ---
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+# How many scripts to write at once. One Octave call takes about a minute, and
+# that minute is spent waiting on the network. Waiting on several at once is
+# what takes a 50-call route from about 53 minutes to about 11.
+#
+# The ceiling is the shared thread pool in app.py, which holds 8 workers.
+# Measured against the live agent, 8 concurrent calls all succeeded with no
+# rate limiting. 5 is the default because a 50-contact run is far more
+# sustained load than that test was.
+OCTAVE_CONCURRENCY = int(os.getenv("OCTAVE_CONCURRENCY", "5"))
 
-# --- Supersend Campaign Config ---
+# --- Legacy, unused ---
+# Campaign enrollment was removed and its modules were deleted. These keys
+# are read only so an old .env does not break a boot. Do not set them.
+SUPERSEND_API_KEY = os.getenv("SUPERSEND_API_KEY", "")
 SUPERSEND_TEAM_ID = os.getenv("SUPERSEND_TEAM_ID", "")
 SUPERSEND_CAMPAIGN_ID = os.getenv("SUPERSEND_CAMPAIGN_ID", "")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+
+# --- Auth ---
+# Shared password for the UI. There is no default on purpose: an empty
+# value makes the gate reject every login attempt instead of opening the
+# app to the internet.
+SUMMIT_PASSWORD = os.getenv("SUMMIT_PASSWORD", "")
+# Signs the session cookie. No hardcoded fallback: a known secret key lets
+# anyone forge a logged-in session. Generate one per deployment.
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "")
 
 # --- Server ---
 FLASK_PORT = int(os.getenv("FLASK_PORT", "5001"))
@@ -69,6 +89,12 @@ if not 1 <= QUAL_THRESHOLD <= 10:
     _log.warning("QUAL_THRESHOLD=%d is outside 1-10 range, clamping", QUAL_THRESHOLD)
     QUAL_THRESHOLD = max(1, min(10, QUAL_THRESHOLD))
 
+# The pool has 8 workers. A higher value would queue rather than run, which
+# reads as a hang while looking like it was configured.
+if not 1 <= OCTAVE_CONCURRENCY <= 8:
+    _log.warning("OCTAVE_CONCURRENCY=%d is outside 1-8, clamping", OCTAVE_CONCURRENCY)
+    OCTAVE_CONCURRENCY = max(1, min(8, OCTAVE_CONCURRENCY))
+
 if not 1 <= FLASK_PORT <= 65535:
     _log.warning("FLASK_PORT=%d is outside valid range, defaulting to 5001", FLASK_PORT)
     FLASK_PORT = 5001
@@ -77,6 +103,6 @@ if USER_TIMEZONE not in _VALID_TIMEZONES:
     _log.warning("USER_TIMEZONE='%s' not recognized, defaulting to US/Pacific", USER_TIMEZONE)
     USER_TIMEZONE = "US/Pacific"
 
-for _key_name in ("HUBSPOT_ACCESS_TOKEN", "OCTAVE_API_KEY", "ANTHROPIC_API_KEY"):
+for _key_name in ("HUBSPOT_ACCESS_TOKEN", "OCTAVE_API_KEY"):
     if not locals()[_key_name]:
-        _log.warning("Required key %s is empty — some features will be unavailable", _key_name)
+        _log.warning("Required key %s is empty. Some features will be unavailable.", _key_name)

@@ -1,5 +1,5 @@
 """
-The Oracle of Cold Calls & The Forge — Flask routes only.
+SUMMIT: Flask routes only.
 
 All business logic lives in services/. This file is routes + SSE generators.
 """
@@ -8,35 +8,55 @@ import time
 import re
 import uuid
 import hmac
-from datetime import datetime, timezone
+import secrets
+from collections import defaultdict
+from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from flask import Flask, render_template, request, Response, jsonify
+from flask import (
+    Flask, render_template, request, Response, jsonify, session, redirect,
+)
 import requests as http_requests
 
 import logging
 import config
 from services.sessions import (
-    get_session, set_session, delete_session,
+    get_session, set_session, delete_session, delete_session_file,
     save_session_to_disk, load_session_from_disk, find_resumable_session,
-    save_forge_session, load_forge_session, list_forge_sessions,
-    utc_now_iso,
+    find_latest_session, record_disposition, clear_disposition, utc_now_iso,
 )
-from services.timezone import resolve_timezone, tz_label
-from services.filters import is_us_company, is_us_person
-from services.formatting import format_note_html, normalize_html_for_compare
-from services.call_sheet import title_seniority, TIME_BLOCKS, TZ_TO_BLOCKS, build_call_sheet
+from services.timezone import resolve_timezone, tz_label, work_day
+from services.filters import (
+    is_us_company, is_us_person, has_left_the_company, international_reason,
+)
+from services.formatting import (
+    format_note_html, normalize_html_for_compare, format_plan_stamp,
+    clean_clock as _clean_clock,
+)
+from services.call_sheet import (
+    title_seniority, TIME_BLOCKS, TZ_TO_BLOCKS, build_call_sheet, user_tz_abbrev,
+)
 from services.hubspot import HubSpotClient
-from services.octave import OctaveClient
-from services.notion import NotionClient
+from services.octave import OctaveClient, script_text as octave_script_text
 from services.slack import post_to_slack
-from services.supersend import SupersendClient
-from services.signal_classifier import classify_signal, TIER_CONFIG
-from services.dedup import is_duplicate, mark_seen
 from services.routing_config import get_route, list_dispositions
-from services.anthropic import generate_followup_email
 
 app = Flask(__name__)
 log = logging.getLogger(__name__)
+
+# HubSpot object type for contacts. Companies are 0-2, deals 0-3.
+CONTACT_OBJECT_TYPE = "0-1"
+
+# Signs the session cookie. If FLASK_SECRET_KEY is unset we generate a random
+# key at boot: sessions do not survive a restart, which is inconvenient but
+# never insecure. A hardcoded fallback would be forgeable.
+app.secret_key = config.FLASK_SECRET_KEY or secrets.token_hex(32)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    # Secure cookies need HTTPS. The deploy platform terminates TLS; local
+    # development over plain http would never receive the cookie back.
+    SESSION_COOKIE_SECURE=not config.FLASK_DEBUG,
+)
 
 # Shared thread pool for all SSE generators — bounds total concurrency and
 # prevents zombie pools when clients disconnect mid-stream.
@@ -51,7 +71,112 @@ def _cancel_futures(futures):
 
 
 # ---------------------------------------------------------------------------
-# Flask Routes — The Oracle
+# SSE
+# ---------------------------------------------------------------------------
+def sse_response(build_stream, label):
+    """Return an SSE Response whose generator cannot fail silently.
+
+    A generator that raises part way through just closes the response body.
+    The browser reads that as a clean end of stream. It never receives the
+    terminal event, so the page sits on the progress bar and reports nothing,
+    while the traceback is visible only in the server log. A crash after 40
+    minutes of work looked exactly like a hang.
+
+    Every failure now leaves by the same door as a handled one: an `error`
+    event the page can render.
+    """
+    def guarded():
+        try:
+            yield from build_stream()
+        except Exception as exc:  # noqa: BLE001 - the browser must hear this
+            log.exception("%s stream failed", label)
+            yield "data: " + json.dumps({
+                "type": "error",
+                "msg": f"The run stopped early: {exc}",
+            }) + "\n\n"
+
+    return Response(guarded(), mimetype="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# Auth — shared password gate
+# ---------------------------------------------------------------------------
+# Every UI route writes to production HubSpot, so the whole app is closed by
+# default and opened path by path.
+_PUBLIC_PREFIXES = ("/static/",)
+_PUBLIC_PATHS = ("/login", "/healthz")
+
+
+def _is_public(path):
+    return path in _PUBLIC_PATHS or path.startswith(_PUBLIC_PREFIXES)
+
+
+@app.before_request
+def _require_login():
+    if _is_public(request.path) or session.get("summit_auth"):
+        return None
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Not authenticated"}), 401
+    return redirect("/login")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """Shared-password sign-in. The BDR gets a URL and this one password."""
+    if request.method == "GET":
+        if session.get("summit_auth"):
+            return redirect("/")
+        return render_template("login.html")
+
+    # An unset password must fail closed. Otherwise an empty form field would
+    # authenticate and the app would be open to anyone who finds the URL.
+    if not config.SUMMIT_PASSWORD:
+        log.error("Login attempted but SUMMIT_PASSWORD is not set")
+        return render_template(
+            "login.html",
+            error="No password is configured on the server. Tell Antonio.",
+        ), 503
+
+    supplied = request.form.get("password", "")
+    if not hmac.compare_digest(supplied, config.SUMMIT_PASSWORD):
+        log.warning("Failed login attempt from %s", request.remote_addr)
+        return render_template("login.html", error="Wrong password."), 401
+
+    session["summit_auth"] = True
+    session.permanent = True
+    return redirect("/")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
+
+@app.route("/healthz")
+def healthz():
+    """Unauthenticated liveness probe for the deploy platform.
+
+    Reports the resolved work day alongside the UTC day. Call pacing counts
+    the BDR's calendar days, and zoneinfo falls back to UTC when the platform
+    image ships without a timezone database. That failure is invisible in the
+    app and only misfires near local midnight, so it is surfaced here rather
+    than discovered by a contact being called a day early.
+    """
+    from services.timezone import today_work_day, work_timezone_resolves
+    work = today_work_day()
+    utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return jsonify({
+        "ok": True,
+        "work_timezone": config.USER_TIMEZONE,
+        "work_day": work,
+        "utc_day": utc,
+        "timezone_resolved": work_timezone_resolves(),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Flask Routes
 # ---------------------------------------------------------------------------
 @app.route("/")
 def index():
@@ -70,14 +195,20 @@ def api_lists():
         try:
             data = hs._post("/crm/v3/lists/search", {"query": "", "offset": offset})
             for lst in data.get("lists", []):
-                if lst.get("createdById") == config.HUBSPOT_CREATOR_ID:
-                    size = lst.get("additionalProperties", {}).get("hs_list_size", "0")
-                    all_lists.append({
-                        "listId": lst["listId"],
-                        "name": lst["name"],
-                        "size": int(size) if size else 0,
-                        "type": lst.get("processingType", ""),
-                    })
+                if lst.get("createdById") != config.HUBSPOT_CREATOR_ID:
+                    continue
+                # Contact lists only. A company or deal list looks identical in
+                # the picker but resolves to zero contacts, so the BDR gets an
+                # empty route with nothing explaining why.
+                if lst.get("objectTypeId") != CONTACT_OBJECT_TYPE:
+                    continue
+                size = lst.get("additionalProperties", {}).get("hs_list_size", "0")
+                all_lists.append({
+                    "listId": lst["listId"],
+                    "name": lst["name"],
+                    "size": int(size) if size else 0,
+                    "type": lst.get("processingType", ""),
+                })
             if not data.get("hasMore"):
                 break
             offset = data.get("offset", offset + 20)
@@ -87,30 +218,19 @@ def api_lists():
     return jsonify({"lists": all_lists})
 
 
-@app.route("/api/campaigns")
-def api_campaigns():
-    """Return campaign enrollment options from the HubSpot contact property."""
-    if not config.HUBSPOT_ACCESS_TOKEN:
-        return jsonify({"error": "Missing HubSpot token"}), 500
-    try:
-        hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
-        prop = hs._get("/crm/v3/properties/contacts/current_campaign_enrollment")
-        options = [
-            {"value": opt["value"], "label": opt.get("label", opt["value"])}
-            for opt in prop.get("options", [])
-        ]
-        return jsonify({"campaigns": options})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
 @app.route("/api/session/<session_id>")
 def api_session(session_id):
     """Fetch full session data for review."""
     session_data = get_session(session_id) or load_session_from_disk(session_id)
     if not session_data:
         return jsonify({"error": "Session not found"}), 404
-    return jsonify(session_data)
+    # Rendered here rather than stored, so the stamp follows the configured
+    # work timezone instead of freezing whatever it was when the plan was built.
+    return jsonify(dict(session_data, plan_stamp=format_plan_stamp(
+        session_data.get("calling_date", ""),
+        session_data.get("calling_time", ""),
+        user_tz_abbrev(),
+    )))
 
 
 @app.route("/api/recoverable-sessions")
@@ -132,8 +252,8 @@ def api_recoverable_sessions():
                 results.append({
                     "session_id": data.get("session_id", ""),
                     "segment": data.get("segment", ""),
-                    "campaign": data.get("campaign", ""),
                     "calling_date": data.get("calling_date", ""),
+                    "calling_time": data.get("calling_time", ""),
                     "prepped_count": len(data.get("contacts", [])),
                     "is_complete": data.get("generation_complete", False),
                     "modified": datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M"),
@@ -143,17 +263,39 @@ def api_recoverable_sessions():
     return jsonify({"sessions": results[:20]})
 
 
+def _clamp_target(raw):
+    """Resolve the requested daily call target.
+
+    Absent means the default. Present but out of range clamps. These are
+    separate on purpose: `int(raw or DEFAULT)` treats 0 as absent, so a
+    target of 0 silently became 50 while -5 clamped to 1.
+    """
+    if raw is None or raw == "":
+        return config.DEFAULT_CALL_TARGET
+    try:
+        target = int(raw)
+    except (TypeError, ValueError):
+        return config.DEFAULT_CALL_TARGET
+    return max(1, min(target, config.MAX_CALL_TARGET))
+
+
 @app.route("/generate", methods=["POST"])
 def generate():
-    """SSE endpoint: runs Oracle Phases 1-2, streams progress, stores results."""
+    """SSE endpoint: build today's call list, streaming progress as it goes."""
     data = request.json
     segment_name = data.get("segment", "").strip()
-    campaign = data.get("campaign", "").strip()
     calling_date = data.get("calling_date", "").strip()
+    # When the BDR starts dialling. It stamps the plan, the prep note, and the
+    # Slack sheet. It does not change who is on the list.
+    calling_time = _clean_clock(data.get("calling_time"))
     skip_existing = data.get("skip_existing", False)
 
-    if not segment_name or not campaign:
-        return jsonify({"error": "Segment and campaign are required"}), 400
+    # How many calls the BDR wants today. The loop stops once it has this
+    # many, so a 400-contact list does not cost 400 Octave calls to work 50.
+    target = _clamp_target(data.get("target"))
+
+    if not segment_name:
+        return jsonify({"error": "A call list is required"}), 400
 
     if not config.HUBSPOT_ACCESS_TOKEN or not config.OCTAVE_API_KEY:
         return jsonify({"error": "Missing API credentials in .env"}), 500
@@ -162,7 +304,7 @@ def generate():
     octave = OctaveClient(config.OCTAVE_API_KEY)
 
     # Check for a resumable session
-    prev_session_id, prev_session = find_resumable_session(segment_name, campaign, calling_date)
+    prev_session_id, prev_session = find_resumable_session(segment_name, calling_date)
     if prev_session:
         session_id = prev_session_id or str(uuid.uuid4())[:8]
     else:
@@ -171,11 +313,26 @@ def generate():
     def stream():
         stats = {
             "total": 0, "prepped": 0,
-            "skipped_subscriber": 0, "skipped_no_email": 0,
-            "skipped_existing": 0, "skipped_cached": 0, "errors": 0,
+            "skipped_subscriber": 0, "no_source_email": 0,
+            "skipped_left_company": 0, "skipped_international": 0,
+            "skipped_existing": 0, "skipped_cached": 0,
+            "skipped_recent_call": 0, "skipped_account_cap": 0,
+            "errors": 0, "not_reached": 0, "unscanned": 0,
             "tz_breakdown": {},
         }
         prepped_contacts = []
+
+        # Call pacing state, rebuilt each run.
+        #   per_account  how many contacts this company already has today
+        #   last_calls   contact_id -> latest logged call timestamp
+        per_account = defaultdict(int)
+        last_calls = {}
+        # Cutoff in the BDR's working day, matching how call dates are
+        # normalised. A UTC cutoff rolls forward at 5pm Pacific and would let
+        # a contact called yesterday afternoon back onto the list.
+        cooldown_cutoff = work_day(
+            datetime.now(timezone.utc) - timedelta(days=config.CALL_COOLDOWN_DAYS)
+        )
 
         # Build cache from previous session
         cached_scripts = {}
@@ -188,84 +345,259 @@ def generate():
             return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
 
         def _save_progress():
+            contacts_payload = [{
+                "contact_id": c["contact"]["id"],
+                "name": f"{c['contact'].get('properties', {}).get('firstname', '')} {c['contact'].get('properties', {}).get('lastname', '')}".strip(),
+                "company": c["contact"].get("properties", {}).get("company", ""),
+                "note_html": c["note_html"],
+                "script_content": c["script_content"],
+                "tz": c["tz_label"],
+            } for c in prepped_contacts]
+            # Preserve cached scripts the loop has not reached yet — writing
+            # only processed contacts destroys them if this run dies early.
+            done_ids = {str(c["contact"]["id"]) for c in prepped_contacts}
+            for cached_id, cached_contact in cached_scripts.items():
+                if cached_id not in done_ids:
+                    contacts_payload.append(cached_contact)
             partial_data = {
                 "session_id": session_id,
                 "segment": segment_name,
-                "campaign": campaign,
                 "calling_date": calling_date,
+                "calling_time": calling_time,
                 "stats": stats,
                 "generation_complete": False,
-                "contacts": [{
-                    "contact_id": c["contact"]["id"],
-                    "name": f"{c['contact'].get('properties', {}).get('firstname', '')} {c['contact'].get('properties', {}).get('lastname', '')}".strip(),
-                    "company": c["contact"].get("properties", {}).get("company", ""),
-                    "note_html": c["note_html"],
-                    "script_content": c["script_content"],
-                    "tz": c["tz_label"],
-                } for c in prepped_contacts],
+                "contacts": contacts_payload,
             }
             save_session_to_disk(session_id, partial_data)
 
         # Phase 1: Pull contacts
         if cached_scripts:
             yield emit("status", {
-                "msg": f"The Oracle remembers! Found {len(cached_scripts)} cached prophecies from a prior session. "
-                       f"Only new warriors will be consulted..."
+                "msg": f"Found {len(cached_scripts)} scripts cached from an earlier run on this list. "
+                       f"Only new contacts need a script."
             })
         else:
-            yield emit("status", {"msg": "The Oracle awakens... searching for thy Legion..."})
+            yield emit("status", {"msg": "Finding your list in HubSpot..."})
 
         list_id = hs.search_lists(segment_name)
         if not list_id:
-            yield emit("error", {"msg": f"Zeus hurls a thunderbolt! Legion '{segment_name}' not found in HubSpot."})
+            yield emit("error", {"msg": f"List '{segment_name}' not found in HubSpot."})
             yield emit("done", {"session_id": None})
             return
 
-        yield emit("status", {"msg": f"Legion found! (List ID: {list_id}). Summoning warriors..."})
+        yield emit("status", {"msg": f"List found (ID {list_id}). Loading the contacts..."})
 
-        contact_ids = hs.get_list_memberships(list_id)
+        try:
+            contact_ids = hs.get_list_memberships(list_id)
+        except Exception as e:
+            yield emit("error", {"msg": f"Could not load the list members: {e}"})
+            yield emit("done", {"session_id": None, "stats": stats})
+            return
         stats["total"] = len(contact_ids)
-        yield emit("status", {"msg": f"{len(contact_ids)} mortals found in the Legion. Beginning the trials..."})
+        yield emit("status", {"msg": f"{len(contact_ids)} contacts on the list. Checking who is dialable today..."})
 
         if not contact_ids:
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
-        contacts = hs.batch_get_contacts(contact_ids, [
+        # Contact details are fetched a chunk at a time, as the loop consumes
+        # them. Reading all of them up front cost one request per 100 contacts
+        # before any work started: on a 3,400-contact list that is 34 requests
+        # the BDR waits through to make two calls. The loop stops at the
+        # target, so this now costs roughly one request per 100 contacts
+        # actually looked at.
+        CONTACT_PROPERTIES = [
             "firstname", "lastname", "email", "company", "jobtitle",
             "phone", "mobilephone", "city", "state", "country", "hs_timezone",
-        ])
+            # Both gates read from the record itself, so they cost no request.
+            "no_longer_with_company",
+        ]
+        CHUNK = 100
 
-        # Phase 2: Filter + generate
-        for i, contact in enumerate(contacts):
+        # Tracks contacts we asked for but never saw, either because a whole
+        # chunk failed or because HubSpot omitted records from the response.
+        # Both are invisible otherwise: the run just quietly considers fewer
+        # people than the list holds.
+        unscanned = {"count": 0, "chunk_failures": 0}
+
+        def contacts_in_chunks():
+            for start in range(0, len(contact_ids), CHUNK):
+                batch = contact_ids[start:start + CHUNK]
+                try:
+                    # _post already retries transient failures, so reaching
+                    # here means the chunk is genuinely unavailable.
+                    got = hs.batch_get_contacts(batch, CONTACT_PROPERTIES)
+                except Exception as e:
+                    log.warning("Contact chunk at %d failed: %s", start, e)
+                    stats["errors"] += 1
+                    unscanned["count"] += len(batch)
+                    unscanned["chunk_failures"] += 1
+                    continue
+                # HubSpot omits ids it cannot return rather than erroring.
+                unscanned["count"] += max(0, len(batch) - len(got))
+                for c in got:
+                    yield c
+
+        # Call history is read per contact, on demand, and cached. Sweeping the
+        # whole list up front cost one or two requests for every contact on it,
+        # which is most of the wait on a large list when the BDR only wants a
+        # few dozen calls. The loop stops at the target, so this now scales
+        # with the target instead of the list.
+        def last_call_for(cid):
+            key = str(cid)
+            if key not in last_calls:
+                try:
+                    last_calls.update(hs.last_call_dates([cid]))
+                except Exception as e:
+                    log.warning("Call history lookup failed for %s: %s", cid, e)
+                    last_calls[key] = ""
+            return last_calls.get(key, "")
+
+        # Contacts that cleared every filter and still need a script. One
+        # Octave call takes about a minute, and that minute is spent waiting on
+        # the network, not working. Waiting on several at once costs nothing.
+        # Measured against the live agent: 8 contacts took 392s one at a time
+        # and 68s together, with 8 of 8 succeeding.
+        pending = []
+        batch_size = config.OCTAVE_CONCURRENCY
+
+        def run_batch():
+            """Generate the queued scripts together, reporting each as it lands.
+
+            The pool threads are the executor's own, not gunicorn's, so a full
+            batch does not take request-serving capacity away from the box.
+            """
+            if not pending:
+                return
+            batch = list(pending)
+            pending.clear()
+
+            yield emit("status", {
+                "msg": f"Writing {len(batch)} scripts at once. This is the slow part.",
+            })
+            for item in batch:
+                yield emit("generating", {
+                    "name": item["name"], "company": item["company_name"],
+                })
+
+            futures = {}
+            for item in batch:
+                email_data = item["email_data"]
+                futures[_pool.submit(
+                    octave.generate_call_script,
+                    item["props"],
+                    email_data["subject"],
+                    email_data.get("body_html") or email_data.get("body_text", ""),
+                )] = item
+
+            try:
+                for future in as_completed(futures):
+                    item = futures[future]
+                    name = item["name"]
+                    try:
+                        script_content = octave_script_text(future.result())
+                    except http_requests.exceptions.Timeout:
+                        stats["errors"] += 1
+                        yield emit("error_contact", {
+                            "name": name,
+                            "msg": "Script generation timed out after 120s. Skipping this contact.",
+                        })
+                        continue
+                    except http_requests.exceptions.ConnectionError:
+                        stats["errors"] += 1
+                        yield emit("error_contact", {
+                            "name": name,
+                            "msg": "Lost the connection to Octave. Skipping this contact.",
+                        })
+                        continue
+                    except Exception as e:
+                        stats["errors"] += 1
+                        yield emit("error_contact", {"name": name, "msg": f"{str(e)}"})
+                        continue
+
+                    props = item["props"]
+                    tz = resolve_timezone(props)
+                    tz_lbl = tz_label(tz)
+                    stats["tz_breakdown"][tz_lbl] = stats["tz_breakdown"].get(tz_lbl, 0) + 1
+                    prepped_contacts.append({
+                        "contact": item["contact"],
+                        "tz": tz,
+                        "tz_label": tz_lbl,
+                        "script_content": script_content,
+                        "email_data": item["email_data"],
+                        "note_html": format_note_html(
+                            props, script_content,
+                            calling_date, calling_time, user_tz_abbrev(),
+                        ),
+                    })
+                    stats["prepped"] += 1
+                    yield emit("done_contact", {
+                        "name": name, "company": item["company_name"], "tz": tz_lbl,
+                    })
+            except GeneratorExit:
+                # The browser went away. Do not leave a batch of one-minute
+                # calls running against Octave with nobody to receive them.
+                _cancel_futures(futures)
+                raise
+
+            try:
+                _save_progress()
+            except Exception:
+                pass
+
+        # Phase 2: Filter + generate, stopping at the target
+        resolved = 0
+        for i, contact in enumerate(contacts_in_chunks()):
+            resolved += 1
+            # Queued contacts count toward the target. Without them the scan
+            # keeps selecting people while a batch is still being written, and
+            # the run overshoots by up to one batch.
+            if stats["prepped"] + len(pending) >= target:
+                # i counts records seen; unscanned counts ids we never saw.
+                # Subtracting only i would report contacts that failed to load
+                # as "left for another day", which is a different thing.
+                stats["not_reached"] = max(
+                    0, len(contact_ids) - i - unscanned["count"]
+                )
+                yield emit("status", {
+                    "msg": f"Target of {target} reached. "
+                           f"{stats['not_reached']} contacts left untouched for another day.",
+                })
+                break
+
             cid = contact["id"]
             props = contact.get("properties", {})
             name = f"{props.get('firstname', '')} {props.get('lastname', '')}".strip() or f"Contact {cid}"
             company_name = props.get("company", "Unknown")
 
-            yield emit("progress", {"current": i + 1, "total": len(contacts), "name": name})
+            # Progress tracks the target, because that is the finish line the
+            # BDR asked for. Showing progress against the full list would crawl
+            # to 12% and stop, which reads as a hang.
+            yield emit("progress", {
+                "current": min(stats["prepped"] + len(pending) + 1, target),
+                "total": target,
+                "scanned": i + 1,
+                "scanned_total": len(contact_ids),
+                "name": name,
+            })
 
-            # Resume check
-            if str(cid) in cached_scripts:
-                cached = cached_scripts[str(cid)]
-                tz = resolve_timezone(props)
-                tz_lbl = tz_label(tz)
-                stats["tz_breakdown"][tz_lbl] = stats["tz_breakdown"].get(tz_lbl, 0) + 1
-                stats["skipped_cached"] += 1
-                stats["prepped"] += 1
-                fresh_html = format_note_html(props, campaign, cached["script_content"])
-                prepped_contacts.append({
-                    "contact": contact,
-                    "tz": tz,
-                    "tz_label": tz_lbl,
-                    "script_content": cached["script_content"],
-                    "email_data": {},
-                    "note_html": fresh_html,
+            # Gate A: the person left. The call is wasted and the script
+            # would be about the wrong employer. Reported by the BDR after a
+            # VP who had left ClickUp reached her call list.
+            if has_left_the_company(props):
+                stats["skipped_left_company"] += 1
+                yield emit("skip", {
+                    "name": name,
+                    "reason": f"No longer with {company_name}",
                 })
-                yield emit("done_contact", {
-                    "name": name, "company": company_name, "tz": tz_lbl,
-                    "cached": True,
-                })
+                continue
+
+            # Gate B: not dialable from a US desk. She reaches these people by
+            # email or LinkedIn instead.
+            non_us = international_reason(props)
+            if non_us:
+                stats["skipped_international"] += 1
+                yield emit("skip", {"name": name, "reason": non_us})
                 continue
 
             # Filter A: Active subscriber check
@@ -287,7 +619,7 @@ def generate():
                         stats["skipped_subscriber"] += 1
                         yield emit("skip", {
                             "name": name,
-                            "reason": f"Already a loyal subject (${mrr:.0f}/mo)"
+                            "reason": f"Already a customer (${mrr:.0f}/mo)"
                         })
                         break
                 if is_subscriber:
@@ -295,78 +627,120 @@ def generate():
             except Exception as e:
                 yield emit("warn", {"name": name, "msg": f"Could not check subscription: {e}"})
 
-            # Filter B: Must have outbound email
+            # Filter B: Prior outbound email is source material, not a gate.
+            # A segment of cold contacts must still produce a call list, so a
+            # contact with no logged email gets a script from their profile.
             try:
                 email_data = hs.search_emails_for_contact(cid)
             except Exception as e:
-                stats["errors"] += 1
-                yield emit("error_contact", {"name": name, "msg": f"Email search failed: {e}"})
-                continue
+                yield emit("warn", {"name": name, "msg": f"Email lookup failed, using profile only: {e}"})
+                email_data = None
             if not email_data:
-                stats["skipped_no_email"] += 1
-                yield emit("skip", {"name": name, "reason": "No herald has been dispatched to this mortal"})
-                continue
+                stats["no_source_email"] += 1
+                email_data = {"subject": "", "body_html": "", "body_text": ""}
 
             # Filter C: Existing prep check
             if skip_existing:
                 has_prep = hs.search_notes_for_contact(cid)
                 if has_prep:
                     stats["skipped_existing"] += 1
-                    yield emit("skip", {"name": name, "reason": "Has already received the Oracle's wisdom"})
+                    yield emit("skip", {"name": name, "reason": "Prep note already written"})
                     continue
 
-            # Generate script via Octave
-            yield emit("generating", {"name": name, "company": company_name})
+            # Filter D: call cooldown. A contact called inside the cooldown
+            # window rests. A voicemail counts as a call.
+            last_call = last_call_for(cid)
+            if last_call and last_call >= cooldown_cutoff:
+                stats["skipped_recent_call"] += 1
+                yield emit("skip", {
+                    "name": name,
+                    "reason": f"Called {last_call[:10]}, inside the {config.CALL_COOLDOWN_DAYS}-day cooldown",
+                })
+                continue
 
-            try:
-                script_data = octave.generate_call_script(
-                    props,
-                    email_data["subject"],
-                    email_data.get("body_html") or email_data.get("body_text", ""),
-                )
-                script_content = ""
-                if isinstance(script_data, dict):
-                    script_content = script_data.get("content", "") or script_data.get("text", "") or json.dumps(script_data)
-                elif isinstance(script_data, str):
-                    script_content = script_data
+            # Filter E: account cap. Never burn a whole account in one day.
+            account_key = (props.get("company") or "").strip().lower() or f"contact:{cid}"
+            if per_account[account_key] >= config.MAX_CONTACTS_PER_ACCOUNT_PER_DAY:
+                stats["skipped_account_cap"] += 1
+                yield emit("skip", {
+                    "name": name,
+                    "reason": f"{company_name} already has {config.MAX_CONTACTS_PER_ACCOUNT_PER_DAY} on today's list",
+                })
+                continue
 
+            # Resume check — after the filters, so a cached script never
+            # bypasses the subscriber, cooldown, account-cap, or prep gates
+            if str(cid) in cached_scripts:
+                cached = cached_scripts[str(cid)]
                 tz = resolve_timezone(props)
                 tz_lbl = tz_label(tz)
                 stats["tz_breakdown"][tz_lbl] = stats["tz_breakdown"].get(tz_lbl, 0) + 1
-
+                stats["skipped_cached"] += 1
+                stats["prepped"] += 1
+                per_account[account_key] += 1
+                fresh_html = format_note_html(
+                    props, cached["script_content"],
+                    calling_date, calling_time, user_tz_abbrev(),
+                )
                 prepped_contacts.append({
                     "contact": contact,
                     "tz": tz,
                     "tz_label": tz_lbl,
-                    "script_content": script_content,
+                    "script_content": cached["script_content"],
                     "email_data": email_data,
-                    "note_html": format_note_html(props, campaign, script_content),
+                    "note_html": fresh_html,
                 })
-                stats["prepped"] += 1
-                yield emit("done_contact", {"name": name, "company": company_name, "tz": tz_lbl})
-
-                try:
-                    _save_progress()
-                except Exception:
-                    pass
-
-            except http_requests.exceptions.Timeout:
-                stats["errors"] += 1
-                yield emit("error_contact", {
-                    "name": name,
-                    "msg": "The Oracle timed out consulting the stars! (120s timeout — skipping)",
+                yield emit("done_contact", {
+                    "name": name, "company": company_name, "tz": tz_lbl,
+                    "cached": True,
                 })
-            except http_requests.exceptions.ConnectionError:
-                stats["errors"] += 1
-                yield emit("error_contact", {
-                    "name": name,
-                    "msg": "Lost connection to the Oracle of Octave! (Connection error — skipping)",
-                })
-            except Exception as e:
-                stats["errors"] += 1
-                yield emit("error_contact", {"name": name, "msg": f"Zeus hurls a thunderbolt! {str(e)}"})
+                continue
 
-            time.sleep(1)
+            # Queue it. Scripts are written a batch at a time, further down.
+            #
+            # The account cap is charged here rather than after the script
+            # comes back. A batch is chosen before any of it is generated, so
+            # charging on success would let one batch hold five people from
+            # the same company and blow straight through the cap.
+            per_account[account_key] += 1
+            pending.append({
+                "contact": contact,
+                "props": props,
+                "name": name,
+                "company_name": company_name,
+                "email_data": email_data,
+            })
+
+            if len(pending) >= batch_size:
+                yield from run_batch()
+
+        # The scan stops on a partial batch whenever the target or the list
+        # runs out mid-batch, which is the normal case. Those contacts are
+        # already charged against the account cap, so dropping them here would
+        # lose them silently.
+        yield from run_batch()
+
+        if unscanned["count"]:
+            stats["unscanned"] = unscanned["count"]
+            yield emit("warn", {
+                "name": "",
+                "msg": f"{unscanned['count']} contacts could not be loaded from "
+                       f"HubSpot and were never considered"
+                       + (f" ({unscanned['chunk_failures']} batches failed)"
+                          if unscanned["chunk_failures"] else "")
+                       + ". Rerun to pick them up.",
+            })
+
+        # A list whose members are not contacts resolves to nothing. Silence
+        # here reads as a broken app, so say what happened.
+        if resolved == 0 and contact_ids:
+            yield emit("error", {
+                "msg": f"This list has {len(contact_ids)} members, but none of them "
+                       f"are contacts. It is probably a company or deal list. "
+                       f"Pick a contact list.",
+            })
+            yield emit("done", {"session_id": None, "stats": stats})
+            return
 
         # Build call sheet
         blocks, unknowns = build_call_sheet(prepped_contacts)
@@ -410,8 +784,8 @@ def generate():
         session_data = {
             "session_id": session_id,
             "segment": segment_name,
-            "campaign": campaign,
             "calling_date": calling_date,
+            "calling_time": calling_time,
             "generation_complete": True,
             "stats": stats,
             "call_sheet": call_sheet,
@@ -432,11 +806,11 @@ def generate():
         new_count = stats["prepped"] - cached_count
         if cached_count > 0:
             completion_msg = (
-                f"The Oracle has spoken! {stats['prepped']} mortals prepared for battle "
-                f"({cached_count} recalled from memory, {new_count} freshly consulted)."
+                f"Route planned. {stats['prepped']} contacts are ready to call "
+                f"({cached_count} reused from an earlier run, {new_count} newly written)."
             )
         else:
-            completion_msg = f"The Oracle has spoken! {stats['prepped']} mortals prepared for battle."
+            completion_msg = f"Route planned. {stats['prepped']} contacts are ready to call."
 
         yield emit("complete", {
             "session_id": session_id,
@@ -444,7 +818,7 @@ def generate():
             "msg": completion_msg,
         })
 
-    return Response(stream(), mimetype="text/event-stream")
+    return sse_response(stream, "/generate")
 
 
 @app.route("/quick-generate", methods=["POST"])
@@ -456,11 +830,13 @@ def quick_generate():
     """
     data = request.json
     segment_name = data.get("segment", "").strip()
-    campaign = data.get("campaign", "").strip()
     calling_date = data.get("calling_date", "").strip()
+    calling_time = _clean_clock(data.get("calling_time"))
 
-    if not segment_name or not campaign:
-        return jsonify({"error": "Segment and campaign are required"}), 400
+    target = _clamp_target(data.get("target"))
+
+    if not segment_name:
+        return jsonify({"error": "A call list is required"}), 400
 
     if not config.HUBSPOT_ACCESS_TOKEN:
         return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN in .env"}), 500
@@ -471,7 +847,8 @@ def quick_generate():
     def stream():
         stats = {
             "total": 0, "prepped": 0,
-            "skipped_no_notes": 0, "errors": 0,
+            "skipped_no_notes": 0, "errors": 0, "not_reached": 0,
+            "skipped_left_company": 0, "skipped_international": 0,
             "tz_breakdown": {},
         }
         prepped_contacts = []
@@ -479,38 +856,114 @@ def quick_generate():
         def emit(msg_type, payload):
             return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
 
-        yield emit("status", {"msg": "⚔️ Preparing for battle! Searching for the Legion..."})
+        yield emit("status", {"msg": "Finding your list in HubSpot..."})
 
         # Find the HubSpot list
         list_id = hs.search_lists(segment_name)
         if not list_id:
-            yield emit("error", {"msg": f"Legion '{segment_name}' not found in HubSpot."})
+            yield emit("error", {"msg": f"List '{segment_name}' not found in HubSpot."})
             yield emit("done", {"session_id": None})
             return
 
-        yield emit("status", {"msg": f"Legion found! (List ID: {list_id}). Mustering warriors..."})
+        yield emit("status", {"msg": f"List found (ID {list_id}). Loading the contacts..."})
 
-        contact_ids = hs.get_list_memberships(list_id)
+        try:
+            contact_ids = hs.get_list_memberships(list_id)
+        except Exception as e:
+            yield emit("error", {"msg": f"Could not load the list members: {e}"})
+            yield emit("done", {"session_id": None, "stats": stats})
+            return
         stats["total"] = len(contact_ids)
-        yield emit("status", {"msg": f"{len(contact_ids)} mortals found. Checking for existing battle scrolls..."})
+        yield emit("status", {"msg": f"{len(contact_ids)} contacts on the list. Looking for existing prep notes..."})
 
         if not contact_ids:
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
-        contacts = hs.batch_get_contacts(contact_ids, [
+        # Contact details are fetched a chunk at a time, as the loop consumes
+        # them. Reading all of them up front cost one request per 100 contacts
+        # before any work started: on a 3,400-contact list that is 34 requests
+        # the BDR waits through to make two calls. The loop stops at the
+        # target, so this now costs roughly one request per 100 contacts
+        # actually looked at.
+        CONTACT_PROPERTIES = [
             "firstname", "lastname", "email", "company", "jobtitle",
             "phone", "mobilephone", "city", "state", "country", "hs_timezone",
-        ])
+            # Both gates read from the record itself, so they cost no request.
+            "no_longer_with_company",
+        ]
+        CHUNK = 100
+
+        # Tracks contacts we asked for but never saw, either because a whole
+        # chunk failed or because HubSpot omitted records from the response.
+        # Both are invisible otherwise: the run just quietly considers fewer
+        # people than the list holds.
+        unscanned = {"count": 0, "chunk_failures": 0}
+
+        def contacts_in_chunks():
+            for start in range(0, len(contact_ids), CHUNK):
+                batch = contact_ids[start:start + CHUNK]
+                try:
+                    # _post already retries transient failures, so reaching
+                    # here means the chunk is genuinely unavailable.
+                    got = hs.batch_get_contacts(batch, CONTACT_PROPERTIES)
+                except Exception as e:
+                    log.warning("Contact chunk at %d failed: %s", start, e)
+                    stats["errors"] += 1
+                    unscanned["count"] += len(batch)
+                    unscanned["chunk_failures"] += 1
+                    continue
+                # HubSpot omits ids it cannot return rather than erroring.
+                unscanned["count"] += max(0, len(batch) - len(got))
+                for c in got:
+                    yield c
 
         # Check each contact for existing COLD CALL PREP notes
-        for i, contact in enumerate(contacts):
+        resolved = 0
+        for i, contact in enumerate(contacts_in_chunks()):
+            resolved += 1
+            if stats["prepped"] >= target:
+                stats["not_reached"] = len(contact_ids) - i
+                yield emit("status", {
+                    "msg": f"Target of {target} reached. "
+                           f"{stats['not_reached']} contacts left untouched for another day.",
+                })
+                break
+
             cid = contact["id"]
             props = contact.get("properties", {})
             name = f"{props.get('firstname', '')} {props.get('lastname', '')}".strip() or f"Contact {cid}"
             company_name = props.get("company", "Unknown")
 
-            yield emit("progress", {"current": i + 1, "total": len(contacts), "name": name})
+            # Progress tracks the target, because that is the finish line the
+            # BDR asked for. Showing progress against the full list would crawl
+            # to 12% and stop, which reads as a hang.
+            yield emit("progress", {
+                "current": stats["prepped"] + 1,
+                "total": target,
+                "scanned": i + 1,
+                "scanned_total": len(contact_ids),
+                "name": name,
+            })
+
+            # Gate A: the person left. The call is wasted and the script
+            # would be about the wrong employer. Reported by the BDR after a
+            # VP who had left ClickUp reached her call list.
+            if has_left_the_company(props):
+                stats["skipped_left_company"] += 1
+                yield emit("skip", {
+                    "name": name,
+                    "reason": f"No longer with {company_name}",
+                })
+                continue
+
+            # Gate B: not dialable from a US desk. She reaches these people by
+            # email or LinkedIn instead.
+            non_us = international_reason(props)
+            if non_us:
+                stats["skipped_international"] += 1
+                yield emit("skip", {"name": name, "reason": non_us})
+                continue
 
             try:
                 prep_notes = hs.get_all_prep_notes_for_contact(cid)
@@ -521,7 +974,7 @@ def quick_generate():
 
             if not prep_notes:
                 stats["skipped_no_notes"] += 1
-                yield emit("skip", {"name": name, "reason": "No battle scroll found — needs Oracle consultation"})
+                yield emit("skip", {"name": name, "reason": "No prep note yet. Build the full list to write one."})
                 continue
 
             # Use the most recent prep note
@@ -542,8 +995,33 @@ def quick_generate():
 
             yield emit("done_contact", {"name": name, "company": company_name, "tz": tz_lbl})
 
+        # A list whose members are not contacts resolves to nothing. Silence
+        # here reads as a broken app, so say what happened. This is checked
+        # before the prep-note message below, because "none of these are
+        # contacts" and "none of these contacts have a note" are different
+        # problems with different fixes.
+        if resolved == 0 and contact_ids:
+            yield emit("error", {
+                "msg": f"This list has {len(contact_ids)} members, but none of them "
+                       f"are contacts. It is probably a company or deal list. "
+                       f"Pick a contact list.",
+            })
+            yield emit("done", {"session_id": None, "stats": stats})
+            return
+
+        if unscanned["count"]:
+            stats["unscanned"] = unscanned["count"]
+            yield emit("warn", {
+                "name": "",
+                "msg": f"{unscanned['count']} contacts could not be loaded from "
+                       f"HubSpot and were never considered"
+                       + (f" ({unscanned['chunk_failures']} batches failed)"
+                          if unscanned["chunk_failures"] else "")
+                       + ". Rerun to pick them up.",
+            })
+
         if not prepped_contacts:
-            yield emit("error", {"msg": "No warriors have battle scrolls yet! Consult the Oracle first."})
+            yield emit("error", {"msg": "Nobody on this list has a prep note yet. Build the full list first."})
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
@@ -589,8 +1067,8 @@ def quick_generate():
         session_data = {
             "session_id": session_id,
             "segment": segment_name,
-            "campaign": campaign,
             "calling_date": calling_date,
+            "calling_time": calling_time,
             "generation_complete": True,
             "quick_mode": True,
             "stats": stats,
@@ -612,11 +1090,11 @@ def quick_generate():
             "session_id": session_id,
             "stats": stats,
             "quick_mode": True,
-            "msg": f"⚔️ Battle stations ready! {stats['prepped']} warriors armed with existing scrolls. "
-                   f"({stats['skipped_no_notes']} lack scrolls, {stats['errors']} errors.)",
+            "msg": f"Route ready. {stats['prepped']} contacts already had prep notes. "
+                   f"({stats['skipped_no_notes']} had no prep note, {stats['errors']} errors.)",
         })
 
-    return Response(stream(), mimetype="text/event-stream")
+    return sse_response(stream, "/quick-generate")
 
 
 @app.route("/approve/<session_id>", methods=["POST"])
@@ -624,7 +1102,10 @@ def approve(session_id):
     """SSE endpoint: writes all notes to HubSpot."""
     session_data = get_session(session_id) or load_session_from_disk(session_id)
     if not session_data:
-        return jsonify({"error": "Session not found. The scrolls have been lost!"}), 404
+        return jsonify({"error": "Session not found."}), 404
+
+    if not config.HUBSPOT_ACCESS_TOKEN:
+        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
 
     hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
 
@@ -638,7 +1119,7 @@ def approve(session_id):
         if prev_failed:
             pending = [c for c in contacts if str(c["contact_id"]) in prev_failed]
             yield emit("status", {
-                "msg": f"Retrying {len(pending)} failed scrolls from previous attempt..."
+                "msg": f"Retrying {len(pending)} notes that failed last time..."
             })
         else:
             pending = contacts
@@ -647,7 +1128,7 @@ def approve(session_id):
         errors = 0
         failed_contact_ids = []
 
-        yield emit("status", {"msg": f"THE KRAKEN IS RELEASED! Inscribing {total} sacred scrolls..."})
+        yield emit("status", {"msg": f"Writing {total} prep notes to HubSpot..."})
 
         for i, c in enumerate(pending):
             name = c.get("name", "Unknown")
@@ -665,22 +1146,30 @@ def approve(session_id):
                 failed_contact_ids.append(c["contact_id"])
                 yield emit("error_contact", {
                     "name": name,
-                    "msg": f"The scroll crumbles! {str(e)}",
+                    "msg": f"{str(e)}",
                 })
             time.sleep(0.5)
 
-        # Post battle plan to Slack
-        yield emit("status", {"msg": "Dispatching the battle plan to Slack..."})
-        slack_ok, slack_msg = post_to_slack(session_data)
-        if slack_ok:
-            yield emit("status", {"msg": f"⚡ {slack_msg}"})
+        # Post battle plan to Slack — first full run only. A retry run
+        # re-inscribes failed scrolls; reposting duplicates the whole plan.
+        slack_ok = False
+        if prev_failed:
+            yield emit("status", {"msg": "Retry run. The call sheet already went to Slack, skipping."})
         else:
-            yield emit("status", {"msg": f"⚠️ {slack_msg}"})
+            yield emit("status", {"msg": "Posting the call sheet to Slack..."})
+            slack_ok, slack_msg = post_to_slack(session_data)
+            if slack_ok:
+                yield emit("status", {"msg": f"⚡ {slack_msg}"})
+            else:
+                yield emit("status", {"msg": f"⚠️ {slack_msg}"})
 
         # Only delete session if ALL writes succeeded.
         # On partial failure, keep the session so user can retry.
         if errors == 0:
             delete_session(session_id)
+            # The disk copy must go too — it still holds failed_contact_ids
+            # from earlier runs and would drive duplicate notes on re-approve.
+            delete_session_file(session_id)
         else:
             session_data["failed_contact_ids"] = failed_contact_ids
             session_data["approval_errors"] = errors
@@ -691,11 +1180,11 @@ def approve(session_id):
             "success": success,
             "errors": errors,
             "slack_posted": slack_ok,
-            "msg": f"THE ORACLE HAS SPOKEN. {success} sacred scrolls inscribed in the annals of HubSpot!"
+            "msg": f"Done. {success} prep notes written to HubSpot."
                    + (f" ({errors} failed — session preserved for retry.)" if errors else ""),
         })
 
-    return Response(stream(), mimetype="text/event-stream")
+    return sse_response(stream, "/approve")
 
 
 @app.route("/discard/<session_id>", methods=["POST"])
@@ -706,7 +1195,7 @@ def discard(session_id):
     path = f"sessions/prep_{session_id}.json"
     if os.path.exists(path):
         os.remove(path)
-    return jsonify({"msg": "Banished to Tartarus! The scrolls have been destroyed."})
+    return jsonify({"msg": "Route plan discarded."})
 
 
 # ---------------------------------------------------------------------------
@@ -759,7 +1248,7 @@ def cleanup_scan(session_id):
         total = len(contacts)
         manifest = []
 
-        yield emit("status", {"msg": f"Athena surveys the battlefield... scanning {total} contacts for duplicate scrolls."})
+        yield emit("status", {"msg": f"Scanning {total} contacts for duplicate prep notes."})
 
         total_remove = 0
         total_keep = 0
@@ -832,11 +1321,11 @@ def cleanup_scan(session_id):
             "keeping": total_keep,
             "removing": total_remove,
             "manifest": manifest,
-            "msg": f"Athena's survey complete! Found {total_remove} false scrolls to purge across {total} contacts. "
-                   f"({total_keep} true scrolls will be preserved.)",
+            "msg": f"Scan complete. Found {total_remove} stale prep notes across {total} contacts. "
+                   f"({total_keep} current notes will be kept.)",
         })
 
-    return Response(stream(), mimetype="text/event-stream")
+    return sse_response(stream, "/cleanup")
 
 
 @app.route("/execute-cleanup/<session_id>", methods=["POST"])
@@ -864,7 +1353,7 @@ def execute_cleanup(session_id):
         archived = 0
         errors = 0
 
-        yield emit("status", {"msg": f"⚔️ SMITING {total_to_remove} false scrolls from HubSpot..."})
+        yield emit("status", {"msg": f"Removing {total_to_remove} stale prep notes from HubSpot..."})
 
         for entry in manifest:
             name = entry.get("name", "Unknown")
@@ -882,7 +1371,7 @@ def execute_cleanup(session_id):
                     errors += 1
                     yield emit("error_contact", {
                         "name": name,
-                        "msg": f"Failed to smite note {note['id']}: {e}",
+                        "msg": f"Could not remove note {note['id']}: {e}",
                     })
                 time.sleep(0.3)
 
@@ -894,1218 +1383,213 @@ def execute_cleanup(session_id):
         yield emit("cleanup_complete", {
             "archived": archived,
             "errors": errors,
-            "msg": f"⚔️ {archived} false scrolls have been smitten! "
-                   f"{'Zeus wept ' + str(errors) + ' times.' if errors else 'Flawless victory!'}",
+            "msg": f"Removed {archived} stale prep notes. "
+                   f"{str(errors) + ' failed.' if errors else 'No failures.'}",
         })
 
-    return Response(stream(), mimetype="text/event-stream")
+    return sse_response(stream, "/execute-cleanup")
 
 
 # ---------------------------------------------------------------------------
-# VM FOLLOW-UP DISPATCH — Batch process voicemail follow-up emails
+# TODAY'S CLIMB — the call list the BDR works through
 # ---------------------------------------------------------------------------
-@app.route("/api/vm-followup/<session_id>", methods=["POST"])
-def vm_followup(session_id):
-    """SSE endpoint: scan for VM calls, generate follow-up emails, push to SuperSend."""
-    session_data = get_session(session_id) or load_session_from_disk(session_id)
-    if not session_data:
-        return jsonify({"error": "Session not found"}), 404
+# The list comes from the session the BDR just generated, not from HubSpot
+# custom properties. Completion is recorded in the session file, which lives
+# on a persistent volume, so the list checks itself off and survives a
+# refresh or a restart. HubSpot receives the outcome as a note on the
+# contact, which needs no custom schema.
 
-    calling_date = session_data.get("calling_date", "")
-    if not calling_date:
-        return jsonify({"error": "No calling_date on session"}), 400
+@app.route("/api/climb")
+def api_climb():
+    """Return the current call list with per-contact completion state."""
+    session_id = request.args.get("session_id", "").strip()
 
-    if not config.HUBSPOT_ACCESS_TOKEN:
-        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
-    if not config.ANTHROPIC_API_KEY:
-        return jsonify({"error": "Missing ANTHROPIC_API_KEY"}), 500
-    if not config.SUPERSEND_API_KEY:
-        return jsonify({"error": "Missing SUPERSEND_API_KEY"}), 500
+    # Prefer, in order: an explicit id, the one bound to this browser session,
+    # then the newest on disk. The last is a guess, and with one shared
+    # password there is no identity to disambiguate it, so it is a fallback
+    # for a fresh sign-in rather than the normal path.
+    asked_for = bool(session_id)
+    if not session_id:
+        session_id = session.get("climb_session_id", "")
 
-    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
-    ss = SupersendClient(config.SUPERSEND_API_KEY)
+    data = None
+    if session_id:
+        data = get_session(session_id) or load_session_from_disk(session_id)
 
-    def stream():
-        def emit(msg_type, payload):
-            return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
+    # Fall back to the newest file only when nobody named a session. If the
+    # caller asked for a specific one and it is gone, say so: handing back a
+    # different list would let one person log calls against another's work.
+    if not data and not asked_for:
+        session_id, data = find_latest_session()
 
-        stats = {"total_calls": 0, "processed": 0, "skipped": 0, "errors": 0}
+    if data:
+        session["climb_session_id"] = data.get("session_id")
 
-        # Phase 1: Scan HubSpot for calls
-        yield emit("status", {"msg": f"Hermes scours HubSpot for calls since {calling_date}..."})
-
-        try:
-            calls = hs.search_calls_by_date(calling_date)
-        except Exception as e:
-            yield emit("error", {"msg": f"HubSpot call search failed: {e}"})
-            yield emit("vm_followup_complete", {"stats": stats, "msg": "Failed to scan calls."})
-            return
-
-        stats["total_calls"] = len(calls)
-        if not calls:
-            yield emit("status", {"msg": "No voicemail or GFY calls found for this date."})
-            yield emit("vm_followup_complete", {"stats": stats, "msg": "No calls to process."})
-            return
-
-        vm_count = sum(1 for c in calls if c["disposition"] == "voicemail")
-        gfy_count = sum(1 for c in calls if c["disposition"] == "gfy")
-        yield emit("status", {
-            "msg": f"Found {len(calls)} actionable calls ({vm_count} VM, {gfy_count} GFY). Resolving contacts..."
-        })
-
-        # Phase 2: For each call, resolve contact -> lookup SuperSend -> generate -> push
-        for i, call in enumerate(calls):
-            call_id = call["call_id"]
-            disposition = call["disposition"]
-            dispo_label = "VM" if disposition == "voicemail" else "GFY"
-
-            # Step A: Resolve HubSpot contact
-            try:
-                contact = hs.resolve_contact_for_call(call_id)
-            except Exception as e:
-                stats["errors"] += 1
-                yield emit("error_contact", {
-                    "name": call.get("call_title", call_id),
-                    "msg": f"Contact resolution failed: {e}",
-                })
-                continue
-
-            if not contact or not contact.get("email"):
-                stats["skipped"] += 1
-                yield emit("skip", {
-                    "name": call.get("call_title", call_id),
-                    "reason": "No email found on associated contact",
-                })
-                continue
-
-            email = contact["email"]
-            first_name = (contact.get("firstname") or "").split()[0] if contact.get("firstname") else "there"
-            company = contact.get("company", "")
-            name = f"{contact.get('firstname', '')} {contact.get('lastname', '')}".strip() or email
-
-            yield emit("progress", {
-                "current": i + 1,
-                "total": len(calls),
-                "name": f"{name} ({dispo_label})",
-            })
-
-            # Step B: Look up SuperSend contact
-            try:
-                ss_contact = ss.lookup_contact_by_email(email, config.SUPERSEND_TEAM_ID)
-            except Exception as e:
-                stats["errors"] += 1
-                yield emit("error_contact", {"name": name, "msg": f"SuperSend lookup failed: {e}"})
-                continue
-
-            if not ss_contact:
-                stats["skipped"] += 1
-                yield emit("skip", {"name": name, "reason": f"Not found in SuperSend ({email})"})
-                continue
-
-            ss_contact_id = ss_contact.get("id")
-            original_subject = (ss_contact.get("custom") or {}).get("subject_thread_1", "")
-            original_email = (ss_contact.get("custom") or {}).get("email_1", "")
-
-            if not original_email:
-                stats["skipped"] += 1
-                yield emit("skip", {"name": name, "reason": "No original cold email on SuperSend contact"})
-                continue
-
-            # Dedup guard: skip if follow-up already pushed
-            existing_followup = (ss_contact.get("custom") or {}).get("vm_followup_body", "")
-            if existing_followup and len(existing_followup) > 20:
-                stats["skipped"] += 1
-                yield emit("skip", {"name": name, "reason": "Follow-up already pushed (dedup)"})
-                continue
-
-            # Step C: Generate follow-up email via Anthropic Claude
-            yield emit("generating", {"name": name, "company": company})
-
-            try:
-                followup_body = generate_followup_email(
-                    api_key=config.ANTHROPIC_API_KEY,
-                    disposition=disposition,
-                    first_name=first_name,
-                    company_name=company,
-                    original_subject=original_subject,
-                )
-            except Exception as e:
-                stats["errors"] += 1
-                yield emit("error_contact", {"name": name, "msg": f"Claude generation failed: {e}"})
-                continue
-
-            # Step D: Push to SuperSend custom.vm_followup_body
-            try:
-                ss.update_contact_custom(
-                    ss_contact_id,
-                    {"vm_followup_body": followup_body},
-                    config.SUPERSEND_TEAM_ID,
-                    config.SUPERSEND_CAMPAIGN_ID,
-                )
-            except Exception as e:
-                stats["errors"] += 1
-                yield emit("error_contact", {"name": name, "msg": f"SuperSend update failed: {e}"})
-                continue
-
-            stats["processed"] += 1
-            yield emit("done_contact", {
-                "name": name,
-                "company": company,
-                "disposition": dispo_label,
-                "email_length": len(followup_body),
-            })
-
-            time.sleep(0.5)  # Rate limiting
-
-        yield emit("vm_followup_complete", {
-            "stats": stats,
-            "msg": f"Hermes' mission complete! {stats['processed']} follow-up emails "
-                   f"generated and pushed. {stats['skipped']} skipped, {stats['errors']} errors.",
-        })
-
-    return Response(stream(), mimetype="text/event-stream")
-
-
-# ---------------------------------------------------------------------------
-# THE FORGE — Campaign Pipeline Routes (Stages 1-4)
-# ---------------------------------------------------------------------------
-@app.route("/api/forge/campaigns")
-def forge_campaigns():
-    """List campaigns from Notion for The Forge dropdown."""
-    if not config.NOTION_API_KEY:
-        return jsonify({"error": "Missing NOTION_API_KEY in .env"}), 500
-    try:
-        notion = NotionClient(config.NOTION_API_KEY)
-        campaigns = notion.list_campaigns()
-        return jsonify({"campaigns": campaigns})
-    except Exception as e:
-        return jsonify({"error": f"Notion error: {str(e)}"}), 500
-
-
-@app.route("/api/forge/campaign-brief/<page_id>")
-def forge_campaign_brief(page_id):
-    """Fetch and parse a campaign brief from Notion."""
-    if not config.NOTION_API_KEY:
-        return jsonify({"error": "Missing NOTION_API_KEY"}), 500
-    try:
-        notion = NotionClient(config.NOTION_API_KEY)
-        brief = notion.get_campaign_brief(page_id)
-        brief.pop("raw_blocks", None)
-        return jsonify({"brief": brief})
-    except Exception as e:
-        return jsonify({"error": f"Failed to parse campaign brief: {str(e)}"}), 500
-
-
-@app.route("/api/forge/sessions")
-def forge_sessions_list():
-    """List recoverable Forge sessions."""
-    return jsonify({"sessions": list_forge_sessions()})
-
-
-@app.route("/api/forge/session/<session_id>")
-def forge_session_get(session_id):
-    """Fetch a Forge session by ID."""
-    data = get_session(f"forge_{session_id}") or load_forge_session(session_id)
     if not data:
-        return jsonify({"error": "Forge session not found"}), 404
-    return jsonify(data)
-
-
-@app.route("/api/forge/start", methods=["POST"])
-def forge_start():
-    """Claude calls this after MCP discovery to inject domains into the Forge pipeline."""
-    data = request.json or {}
-    campaign_id = data.get("campaign_id", "")
-    campaign_name = data.get("campaign_name", "")
-    playbook_id = data.get("playbook_id", "")
-    domains = data.get("domains", [])
-    brief_summary = data.get("brief_summary", "")
-
-    if not domains:
-        return jsonify({"error": "No domains provided"}), 400
-
-    domains = list(dict.fromkeys(d.strip().lower() for d in domains if d.strip()))
-
-    session_id = str(uuid.uuid4())[:8]
-    forge_data = {
-        "session_id": session_id,
-        "campaign_id": campaign_id,
-        "campaign_name": campaign_name,
-        "playbook_id": playbook_id,
-        "stage": 1,
-        "status": "domains_ready",
-        "discovered_domains": domains,
-        "brief_summary": brief_summary,
-        "companies": [],
-        "enriched_companies": [],
-        "people": [],
-        "enriched_people": [],
-        "created_at": utc_now_iso(),
-    }
-    set_session(f"forge_{session_id}", forge_data)
-    save_forge_session(session_id, forge_data)
-
-    return jsonify({
-        "session_id": session_id,
-        "domain_count": len(domains),
-        "msg": f"Forge session created with {len(domains)} domains. The UI will auto-start qualification.",
-    })
-
-
-@app.route("/forge/prospect", methods=["POST"])
-def forge_prospect():
-    """SSE: Stage 2 — Qualify discovered companies."""
-    data = request.json
-    session_id = data.get("session_id") or str(uuid.uuid4())[:8]
-
-    existing_session = get_session(f"forge_{session_id}") or load_forge_session(session_id)
-    if existing_session and existing_session.get("discovered_domains"):
-        domains = existing_session["discovered_domains"]
-        campaign_id = existing_session.get("campaign_id", "")
-        campaign_name = existing_session.get("campaign_name", "")
-        playbook_id = existing_session.get("playbook_id", "")
-        brief = existing_session.get("brief", {})
-    else:
-        domains = data.get("domains", [])
-        campaign_id = data.get("campaign_id", "")
-        campaign_name = data.get("campaign_name", "")
-        playbook_id = data.get("playbook_id", "")
-        brief = data.get("brief", {})
-
-    domains = list(dict.fromkeys(d.strip().lower() for d in domains if d.strip()))
-
-    if not config.OCTAVE_API_KEY:
-        return jsonify({"error": "Missing OCTAVE_API_KEY"}), 500
-
-    octave = OctaveClient(config.OCTAVE_API_KEY)
-
-    def stream():
-        def emit(msg_type, payload):
-            return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
-
-        companies = []
-        seen_domains = set()
-        filtered_out = 0
-
-        if not domains:
-            yield emit("error", {
-                "msg": "No domains to qualify. Tell Claude to 'forge [campaign name]' first."
-            })
-            return
-
-        # Deduplicate
-        unique_domains = []
-        for d in domains:
-            if d not in seen_domains:
-                seen_domains.add(d)
-                unique_domains.append(d)
-
-        yield emit("status", {"msg": f"Qualifying {len(unique_domains)} discovered companies (parallel)..."})
-
-        def _qualify_one(domain):
-            """Worker: qualify a single domain. Returns (domain, entry_or_None, error_msg)."""
-            try:
-                qual_result = octave.qualify_company(domain)
-                entry = _parse_qualify_company_result(qual_result, domain)
-                return (domain, entry, None)
-            except Exception as e:
-                return (domain, None, str(e))
-
-        completed = 0
-        future_map = {_pool.submit(_qualify_one, d): d for d in unique_domains}
-        try:
-            for future in as_completed(future_map):
-                completed += 1
-                domain, entry, error_msg = future.result()
-
-                yield emit("progress", {"current": completed, "total": len(unique_domains), "name": domain})
-
-                if error_msg:
-                    yield emit("error_contact", {"name": domain, "msg": f"Lookup failed: {error_msg}"})
-                    continue
-                if not entry:
-                    yield emit("skip", {"name": domain, "reason": "Not found in Octave"})
-                    continue
-                if not entry.get("us_based"):
-                    filtered_out += 1
-                    yield emit("skip", {
-                        "name": entry["name"],
-                        "reason": f"Non-US ({entry.get('country', 'unknown')})",
-                    })
-                    continue
-                companies.append(entry)
-                yield emit("company_found", {
-                    "name": entry["name"],
-                    "domain": entry["domain"],
-                    "industry": entry.get("industry", ""),
-                    "employees": entry.get("employees", ""),
-                    "location": entry.get("location", ""),
-                    "score": entry["score"],
-                    "qualified": entry["qualified"],
-                    "source": "claude_discovery",
-                })
-        finally:
-            _cancel_futures(list(future_map.keys()))
-
-        # Merge into existing session — preserve discovered_domains, status, etc.
-        if existing_session:
-            forge_data = existing_session
-        else:
-            forge_data = {
-                "session_id": session_id,
-                "campaign_id": campaign_id,
-                "campaign_name": campaign_name,
-                "playbook_id": playbook_id,
-                "created_at": utc_now_iso(),
-            }
-        forge_data["stage"] = 2
-        forge_data["brief"] = brief
-        forge_data["companies"] = companies
-        forge_data.setdefault("enriched_companies", [])
-        forge_data.setdefault("people", [])
-        forge_data.setdefault("enriched_people", [])
-        set_session(f"forge_{session_id}", forge_data)
-        save_forge_session(session_id, forge_data)
-
-        qualified_count = sum(1 for c in companies if c.get("qualified"))
-        yield emit("prospect_complete", {
-            "session_id": session_id,
-            "total_found": len(companies),
-            "qualified_count": qualified_count,
-            "filtered_out": filtered_out,
-            "companies": companies,
-            "msg": f"Prospecting complete: {len(companies)} US-based companies found, "
-                   f"{qualified_count} pass qualification (>= {config.QUAL_THRESHOLD}/10). "
-                   f"{filtered_out} non-US filtered out. Review and approve below.",
+        return jsonify({
+            "session_id": None,
+            "blocks": [],
+            "unknown_tz": [],
+            "dispositions": {},
+            "totals": {"total": 0, "completed": 0, "remaining": 0},
+            "msg": "No call list yet. Build one on Route Plan.",
         })
 
-    return Response(stream(), mimetype="text/event-stream")
+    dispositions = data.get("dispositions") or {}
 
-
-def _parse_qualify_company_result(result, domain):
-    """Parse a qualify_company response into a standardized company entry."""
-    if not result.get("found") and not result.get("data"):
-        return None
-
-    comp_data = result.get("data", {})
-    company_info = comp_data.get("company") or {}
-    location = company_info.get("location") or {}
-
-    name = company_info.get("name", domain)
-    country_code = (location.get("countryCode") or "").upper()
-
-    score = comp_data.get("score") or 0
-    if isinstance(score, str):
-        try:
-            score = float(score)
-        except (ValueError, TypeError):
-            score = 0
-
-    return {
-        "name": name,
-        "domain": domain,
-        "country": country_code,
-        "industry": company_info.get("industry", ""),
-        "employees": company_info.get("employeeCount", ""),
-        "location": location.get("locality", ""),
-        "description": (company_info.get("description") or "")[:200],
-        "score": score,
-        "reasoning": comp_data.get("rationale") or "",
-        "qualified": score >= config.QUAL_THRESHOLD,
-        "us_based": is_us_company({"country": country_code, "location": location.get("locality", "")}),
-        "product": comp_data.get("product"),
-        "segment": comp_data.get("segment"),
-        "playbook": comp_data.get("playbook"),
+    # Scripts live alongside the sheet; index them so each card carries its own.
+    scripts = {
+        str(c.get("contact_id")): c.get("script_content", "")
+        for c in data.get("contacts", [])
     }
 
-
-@app.route("/forge/enrich-companies", methods=["POST"])
-def forge_enrich_companies():
-    """SSE: Stage 3 — Deep enrichment of approved companies."""
-    data = request.json
-    session_id = data.get("session_id")
-    approved_domains = data.get("approved_domains", [])
-
-    if not session_id:
-        return jsonify({"error": "Missing session_id"}), 400
-
-    forge_data = get_session(f"forge_{session_id}") or load_forge_session(session_id)
-    if not forge_data:
-        return jsonify({"error": "Forge session not found"}), 404
-
-    if not config.OCTAVE_API_KEY:
-        return jsonify({"error": "Missing OCTAVE_API_KEY"}), 500
-
-    octave = OctaveClient(config.OCTAVE_API_KEY)
-
-    approved_set = set(approved_domains)
-    approved_companies = [
-        c for c in forge_data.get("companies", [])
-        if c.get("domain") in approved_set
-    ]
-
-    def stream():
-        def emit(msg_type, payload):
-            return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
-
-        yield emit("status", {
-            "msg": f"Athena studies {len(approved_companies)} companies in depth (parallel)..."
-        })
-
-        enriched_companies = []
-        errors = 0
-
-        def _enrich_one(company):
-            """Worker: enrich a single company. Returns (company, enriched_entry, error_msg)."""
-            domain = company.get("domain", "")
-            try:
-                result = octave.enrich_company(domain)
-                enrich_data = result.get("data", {})
-                enriched_entry = {
-                    **company,
-                    "enrichment": enrich_data,
-                    "enrichment_summary": (
-                        enrich_data.get("summary")
-                        or enrich_data.get("companyOverview")
-                        or enrich_data.get("description")
-                        or ""
-                    )[:300],
-                    "talking_points": enrich_data.get("talkingPoints", []),
-                    "tech_stack": enrich_data.get("techStack", []),
-                    "recent_news": enrich_data.get("recentNews", []),
-                }
-                return (company, enriched_entry, None)
-            except Exception as e:
-                return (company, None, str(e))
-
-        completed = 0
-        future_map = {_pool.submit(_enrich_one, c): c for c in approved_companies}
-        try:
-            for future in as_completed(future_map):
-                completed += 1
-                company, enriched_entry, error_msg = future.result()
-                company_name = company.get("name", "Unknown")
-                domain = company.get("domain", "")
-
-                yield emit("progress", {
-                    "current": completed,
-                    "total": len(approved_companies),
-                    "name": company_name,
-                })
-
-                if error_msg:
-                    errors += 1
-                    yield emit("error_contact", {
-                        "name": company_name,
-                        "msg": f"Enrichment failed: {error_msg}",
-                    })
-                    continue
-
-                enriched_companies.append(enriched_entry)
-                yield emit("company_enriched", {
-                    "name": company_name,
-                    "domain": domain,
-                    "industry": company.get("industry", ""),
-                    "score": company.get("score", 0),
-                    "summary": enriched_entry["enrichment_summary"],
-                    "talking_points": enriched_entry["talking_points"][:3],
-                })
-        finally:
-            _cancel_futures(list(future_map.keys()))
-
-        # Update session
-        forge_data["enriched_companies"] = enriched_companies
-        forge_data["stage"] = 3
-        set_session(f"forge_{session_id}", forge_data)
-        save_forge_session(session_id, forge_data)
-
-        yield emit("enrich_companies_complete", {
-            "session_id": session_id,
-            "total_enriched": len(enriched_companies),
-            "errors": errors,
-            "companies": enriched_companies,
-            "msg": f"Athena's deep study complete: {len(enriched_companies)} companies enriched"
-                   f"{f', {errors} errors' if errors else ''}. "
-                   f"Review the intelligence below and approve for people discovery.",
-        })
-
-    return Response(stream(), mimetype="text/event-stream")
-
-
-@app.route("/forge/discover-enrich-people", methods=["POST"])
-def forge_discover_enrich_people():
-    """SSE: Stage 4 — Discover people at approved enriched companies,
-    filter US-only, then enrich each person."""
-    data = request.json
-    session_id = data.get("session_id")
-    approved_domains = data.get("approved_enriched_domains", data.get("approved_domains", []))
-
-    if not session_id:
-        return jsonify({"error": "Missing session_id"}), 400
-
-    forge_data = get_session(f"forge_{session_id}") or load_forge_session(session_id)
-    if not forge_data:
-        return jsonify({"error": "Forge session not found"}), 404
-
-    if not config.OCTAVE_API_KEY:
-        return jsonify({"error": "Missing OCTAVE_API_KEY"}), 500
-
-    octave = OctaveClient(config.OCTAVE_API_KEY)
-
-    approved_set = set(approved_domains)
-    target_companies = [
-        c for c in forge_data.get("enriched_companies", [])
-        if c.get("domain") in approved_set
-    ]
-
-    def stream():
-        def emit(msg_type, payload):
-            return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
-
-        yield emit("status", {
-            "msg": f"Hermes scouts {len(target_companies)} companies for decision-makers (parallel)..."
-        })
-
-        all_people = []
-        enriched_people = []
-        filtered_non_us = 0
-
-        # --- Phase A: Parallel prospecting (discover people at each company) ---
-        def _prospect_one(company):
-            """Worker: prospect people at one company."""
-            domain = company.get("domain", "")
-            company_name = company.get("name", "Unknown")
-            try:
-                result = octave.prospect_people(domain)
-                people_list = []
-                result_data = result.get("data", {})
-                contacts_data = result_data.get("contacts", [])
-                if contacts_data:
-                    for item in contacts_data:
-                        if isinstance(item, dict) and "contact" in item:
-                            people_list.append(item["contact"])
-                        else:
-                            people_list.append(item)
-                elif isinstance(result_data, list):
-                    people_list = result_data
-                return (company, people_list, None)
-            except Exception as e:
-                return (company, [], str(e))
-
-        # Collect all discovered people (with US filter) before enrichment
-        pending_enrichment = []
-
-        completed_prospect = 0
-        future_map = {_pool.submit(_prospect_one, c): c for c in target_companies}
-        try:
-            for future in as_completed(future_map):
-                completed_prospect += 1
-                company, people_list, error_msg = future.result()
-                company_name = company.get("name", "Unknown")
-                domain = company.get("domain", "")
-
-                if error_msg:
-                    yield emit("error", {
-                        "msg": f"Error scouting {company_name}: {error_msg}",
-                    })
-                    continue
-
-                if not people_list:
-                    yield emit("status", {
-                        "msg": f"No prospects found at {company_name}. Moving on..."
-                    })
-                    continue
-
-                yield emit("status", {
-                    "msg": f"Found {len(people_list)} prospects at {company_name} "
-                           f"({completed_prospect}/{len(target_companies)} companies scouted)."
-                })
-
-                for person in people_list:
-                    person_name = f"{person.get('firstName', '')} {person.get('lastName', '')}".strip()
-                    if not person_name:
-                        person_name = person.get("name", "Unknown")
-
-                    # US-only filter — delegate to services/filters.py
-                    location_raw = person.get("location") or {}
-                    loc_country = ""
-                    if isinstance(location_raw, dict):
-                        loc_country = location_raw.get("countryCode", "")
-                    person_filter_data = {
-                        "countryCode": person.get("countryCode", loc_country),
-                        "location": person.get("location", "") if isinstance(person.get("location"), str) else "",
-                    }
-                    if not is_us_person(person_filter_data):
-                        filtered_non_us += 1
-                        reason = "Non-US" if person_filter_data["countryCode"] else "No country data (not confirmed US)"
-                        yield emit("skip", {"name": person_name, "reason": reason})
-                        continue
-
-                    person_entry = {
-                        "name": person_name,
-                        "firstName": person.get("firstName", ""),
-                        "lastName": person.get("lastName", ""),
-                        "email": person.get("email", ""),
-                        "title": person.get("title", person.get("jobTitle", "")),
-                        "company": company_name,
-                        "domain": domain,
-                        "linkedin": person.get("profileUrl", person.get("linkedInProfile", "")),
-                        "location": person.get("location", "") if isinstance(person.get("location"), str) else "",
-                    }
-                    all_people.append(person_entry)
-                    pending_enrichment.append(person_entry)
-        finally:
-            _cancel_futures(list(future_map.keys()))
-
-        yield emit("status", {
-            "msg": f"Scouting complete! {len(pending_enrichment)} US-based prospects found. "
-                   f"Starting deep enrichment (parallel)..."
-        })
-
-        # --- Phase B: Parallel person enrichment ---
-        def _enrich_one_person(person_entry):
-            """Worker: enrich one person."""
-            try:
-                enrich_input = {
-                    "firstName": person_entry["firstName"],
-                    "lastName": person_entry["lastName"],
-                    "email": person_entry["email"],
-                    "companyDomain": person_entry["domain"],
-                    "jobTitle": person_entry["title"],
-                    "linkedInProfile": person_entry["linkedin"],
-                }
-                enrich_result = octave.enrich_person(enrich_input)
-                enrich_data = enrich_result.get("data", {})
-                enriched_entry = {
-                    **person_entry,
-                    "enrichment": enrich_data,
-                    "enrichment_summary": (
-                        enrich_data.get("summary")
-                        or enrich_data.get("overview")
-                        or ""
-                    )[:300],
-                    "talking_points": enrich_data.get("talkingPoints", []),
-                }
-                return (person_entry, enriched_entry, None)
-            except Exception as e:
-                failed_entry = {
-                    **person_entry,
-                    "enrichment": {},
-                    "enrichment_summary": f"Enrichment failed: {e}",
-                    "talking_points": [],
-                }
-                return (person_entry, failed_entry, str(e))
-
-        completed_enrich = 0
-        future_map = {_pool.submit(_enrich_one_person, p): p for p in pending_enrichment}
-        try:
-            for future in as_completed(future_map):
-                completed_enrich += 1
-                person_entry, enriched_entry, error_msg = future.result()
-                enriched_people.append(enriched_entry)
-
-                if error_msg:
-                    yield emit("warn", {
-                        "msg": f"Enrichment failed for {person_entry['name']}: {error_msg}",
-                    })
-                else:
-                    yield emit("person_enriched", {
-                        "name": person_entry["name"],
-                        "title": person_entry["title"],
-                        "company": person_entry["company"],
-                        "email": person_entry["email"],
-                        "linkedin": person_entry["linkedin"],
-                        "summary": enriched_entry["enrichment_summary"],
-                        "progress": f"{completed_enrich}/{len(pending_enrichment)}",
-                    })
-        finally:
-            _cancel_futures(list(future_map.keys()))
-
-        # Update session
-        forge_data["people"] = all_people
-        forge_data["enriched_people"] = enriched_people
-        forge_data["stage"] = 4
-        set_session(f"forge_{session_id}", forge_data)
-        save_forge_session(session_id, forge_data)
-
-        yield emit("people_complete", {
-            "session_id": session_id,
-            "total_found": len(all_people),
-            "total_enriched": len(enriched_people),
-            "filtered_non_us": filtered_non_us,
-            "people": enriched_people,
-            "msg": f"Hermes' report: {len(enriched_people)} enriched prospects "
-                   f"from {len(target_companies)} companies. "
-                   f"{filtered_non_us} non-US filtered out. "
-                   f"Review and approve your final prospect list below.",
-        })
-
-    return Response(stream(), mimetype="text/event-stream")
-
-
-@app.route("/api/forge/approve-stage", methods=["POST"])
-def forge_approve_stage():
-    """Save approved items and advance the Forge pipeline stage."""
-    data = request.json
-    session_id = data.get("session_id")
-    stage = data.get("stage")
-
-    if not session_id or not stage:
-        return jsonify({"error": "Missing session_id or stage"}), 400
-
-    forge_data = get_session(f"forge_{session_id}") or load_forge_session(session_id)
-    if not forge_data:
-        return jsonify({"error": "Forge session not found"}), 404
-
-    approved_items = []
-    if stage == 2:
-        approved_items = data.get("approved_domains", [])
-        forge_data["approved_company_domains"] = approved_items
-    elif stage == 3:
-        approved_items = data.get("approved_enriched_domains", [])
-        forge_data["approved_enriched_domains"] = approved_items
-    elif stage == 4:
-        approved_items = data.get("approved_people", [])
-        forge_data["approved_people"] = approved_items
-
-    forge_data["stage"] = stage + 1
-    set_session(f"forge_{session_id}", forge_data)
-    save_forge_session(session_id, forge_data)
-
-    return jsonify({
-        "msg": f"Stage {stage} approved. {len(approved_items)} items confirmed.",
-        "session_id": session_id,
-        "next_stage": stage + 1,
-    })
-
-
-# ---------------------------------------------------------------------------
-# ORACLE v2 — Webhook-Driven Sales Pipeline
-# ---------------------------------------------------------------------------
-
-def _verify_webhook_secret(req):
-    """Verify the webhook secret from the Authorization header (timing-safe)."""
-    auth = req.headers.get("Authorization", "")
-    expected = f"Bearer {config.ORACLE_WEBHOOK_SECRET}"
-    return hmac.compare_digest(auth, expected)
-
-
-def _verify_signal_api_key(req):
-    """Verify the signal webhook API key from X-API-Key header (timing-safe)."""
-    key = req.headers.get("X-API-Key", "")
-    return hmac.compare_digest(key, config.SIGNAL_WEBHOOK_API_KEY)
-
-
-@app.route("/api/webhook/supersend-task", methods=["POST"])
-def webhook_supersend_task():
-    """Receive a task-completed webhook from Supersend.
-
-    When Supersend finishes a sequence step (email sent, call task created),
-    this webhook fires. We upsert the contact in HubSpot with oracle_ properties
-    so they appear on the Battle Plan.
-    """
-    if not _verify_webhook_secret(request):
-        return jsonify({"error": "Unauthorized"}), 401
-
-    data = request.json or {}
-    email = data.get("email", "").strip().lower()
-    if not email:
-        return jsonify({"error": "Missing email"}), 400
-
-    contact_name = data.get("name", data.get("firstName", ""))
-    campaign_id = data.get("campaign_id", data.get("sequence_id", ""))
-    node_id = data.get("node_id", data.get("step_id", ""))
-    step_number = data.get("step_number", data.get("step", 1))
-    action_type = data.get("action_type", data.get("task_type", "call"))
-    supersend_contact_id = data.get("contact_id", "")
-
-    if not config.HUBSPOT_ACCESS_TOKEN:
-        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
-
-    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
-
-    try:
-        now_iso = datetime.now(timezone.utc).isoformat()
-        oracle_props = {
-            "oracle_pending_action": "pending",
-            "oracle_action_type": str(action_type),
-            "oracle_campaign_id": str(campaign_id),
-            "oracle_node_id": str(node_id),
-            "oracle_step_number": str(step_number),
-            "oracle_last_action_date": now_iso,
-            "oracle_supersend_contact_id": str(supersend_contact_id),
-        }
-        contact_id = hs.upsert_contact_oracle(email, oracle_props)
-
-        # Append to journey log
-        hs.append_journey_log(
-            contact_id,
-            f"Webhook received: {action_type} task for step {step_number} "
-            f"(campaign {campaign_id})"
+    def decorate(contact):
+        cid = str(contact.get("contact_id"))
+        done = dispositions.get(cid)
+        return dict(
+            contact,
+            script=scripts.get(cid, ""),
+            completed=bool(done),
+            disposition=(done or {}).get("disposition", ""),
+            notes=(done or {}).get("notes", ""),
         )
 
-        return jsonify({
-            "ok": True,
-            "contact_id": contact_id,
-            "msg": f"Contact {email} queued with pending action",
-        })
-    except Exception as e:
-        log.error("Webhook processing failed for %s: %s", email, e)
-        return jsonify({"error": str(e)}), 500
+    blocks = [
+        dict(block, contacts=[decorate(c) for c in block.get("contacts", [])])
+        for block in data.get("call_sheet", [])
+    ]
+    unknown = [decorate(c) for c in data.get("unknown_tz", [])]
+
+    total = sum(len(b["contacts"]) for b in blocks) + len(unknown)
+    completed = sum(1 for b in blocks for c in b["contacts"] if c["completed"])
+    completed += sum(1 for c in unknown if c["completed"])
+
+    return jsonify({
+        "session_id": data.get("session_id"),
+        "segment": data.get("segment", ""),
+        "calling_date": data.get("calling_date", ""),
+        "calling_time": data.get("calling_time", ""),
+        "plan_stamp": format_plan_stamp(
+            data.get("calling_date", ""), data.get("calling_time", ""),
+            user_tz_abbrev(),
+        ),
+        "blocks": blocks,
+        "unknown_tz": unknown,
+        "dispositions": dispositions,
+        "totals": {
+            "total": total,
+            "completed": completed,
+            "remaining": total - completed,
+        },
+    })
 
 
-@app.route("/api/webhook/signal", methods=["POST"])
-def webhook_signal():
-    """Ingest a product/intent signal and classify it.
-
-    Replaces Slack channel monitoring. Signals come from product analytics,
-    marketing automation, or manual triggers.
-    """
-    if not _verify_signal_api_key(request):
-        return jsonify({"error": "Unauthorized"}), 401
-
+@app.route("/api/climb/complete", methods=["POST"])
+def api_climb_complete():
+    """Log a call outcome: mark it done in the session, note it in HubSpot."""
     data = request.json or {}
-    email = data.get("email", "").strip().lower()
-    signal_type = data.get("signal_type", "").strip()
+    session_id = (data.get("session_id") or "").strip()
+    contact_id = (data.get("contact_id") or "").strip()
+    disposition = (data.get("disposition") or "").strip()
+    notes = (data.get("notes") or "").strip()
 
-    if not email or not signal_type:
-        return jsonify({"error": "Missing email or signal_type"}), 400
+    if not session_id or not contact_id or not disposition:
+        return jsonify({"error": "Missing session_id, contact_id, or disposition"}), 400
 
-    # Dedup check
-    if is_duplicate(email, signal_type):
-        return jsonify({
-            "ok": True,
-            "action": "deduplicated",
-            "msg": f"Signal {signal_type} for {email} already processed within cooldown",
-        })
-
-    # Classify
-    tier, tier_config = classify_signal(signal_type)
-    if tier is None:
-        return jsonify({"error": f"Unknown signal type: {signal_type}"}), 400
-
-    if not config.HUBSPOT_ACCESS_TOKEN:
-        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
-
-    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
-
-    try:
-        now_iso = datetime.now(timezone.utc).isoformat()
-
-        if tier == 1:
-            # HOT — immediately add to battle plan
-            oracle_props = {
-                "oracle_pending_action": "pending",
-                "oracle_action_type": f"signal_{signal_type}",
-                "oracle_last_action_date": now_iso,
-            }
-            contact_id = hs.upsert_contact_oracle(email, oracle_props)
-            hs.append_journey_log(contact_id, f"HOT SIGNAL: {signal_type} — queued for immediate action")
-
-        elif tier == 2:
-            # WARM — enrich then decide (mark as enriching)
-            oracle_props = {
-                "oracle_pending_action": "enriching",
-                "oracle_action_type": f"signal_{signal_type}",
-                "oracle_last_action_date": now_iso,
-            }
-            contact_id = hs.upsert_contact_oracle(email, oracle_props)
-            hs.append_journey_log(contact_id, f"WARM SIGNAL: {signal_type} — enriching before routing")
-
-        else:
-            # AMBIENT — park for batch review
-            oracle_props = {
-                "oracle_pending_action": "parked",
-                "oracle_action_type": f"signal_{signal_type}",
-                "oracle_last_action_date": now_iso,
-            }
-            contact_id = hs.upsert_contact_oracle(email, oracle_props)
-            hs.append_journey_log(contact_id, f"AMBIENT SIGNAL: {signal_type} — parked for review")
-
-        mark_seen(email, signal_type)
-
-        return jsonify({
-            "ok": True,
-            "tier": tier,
-            "tier_label": tier_config["label"],
-            "action": tier_config["action"],
-            "contact_id": contact_id,
-            "msg": f"Signal classified as {tier_config['label']} — {tier_config['description']}",
-        })
-    except Exception as e:
-        log.error("Signal processing failed for %s/%s: %s", email, signal_type, e)
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/battle-plan")
-def api_battle_plan():
-    """Return contacts with pending oracle actions for the Battle Plan UI.
-
-    Includes contacts in 'pending' state (ready to call) and optionally
-    'enriching' and 'parked' states.
-    """
-    if not config.HUBSPOT_ACCESS_TOKEN:
-        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
-
-    include_all = request.args.get("all", "false").lower() == "true"
-
-    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
-
-    try:
-        # Get pending contacts
-        pending = hs.get_pending_actions()
-
-        # Optionally also get enriching and parked
-        enriching = []
-        parked = []
-        if include_all:
-            try:
-                enriching_search = hs._post("/crm/v3/objects/contacts/search", {
-                    "filterGroups": [{
-                        "filters": [{
-                            "propertyName": "oracle_pending_action",
-                            "operator": "EQ",
-                            "value": "enriching",
-                        }]
-                    }],
-                    "properties": [
-                        "firstname", "lastname", "email", "company", "jobtitle",
-                        "phone", "mobilephone",
-                    ] + hs.ORACLE_PROPERTIES,
-                    "limit": 100,
-                })
-                enriching = enriching_search.get("results", [])
-            except Exception:
-                pass
-            try:
-                parked_search = hs._post("/crm/v3/objects/contacts/search", {
-                    "filterGroups": [{
-                        "filters": [{
-                            "propertyName": "oracle_pending_action",
-                            "operator": "EQ",
-                            "value": "parked",
-                        }]
-                    }],
-                    "properties": [
-                        "firstname", "lastname", "email", "company", "jobtitle",
-                        "phone", "mobilephone",
-                    ] + hs.ORACLE_PROPERTIES,
-                    "limit": 100,
-                })
-                parked = parked_search.get("results", [])
-            except Exception:
-                pass
-
-        def _format_contact(c, status="pending"):
-            props = c.get("properties", {})
-            fn = props.get("firstname") or ""
-            ln = props.get("lastname") or ""
-            return {
-                "contact_id": c["id"],
-                "name": f"{fn} {ln}".strip() or props.get("email", "Unknown"),
-                "email": props.get("email", ""),
-                "company": props.get("company", ""),
-                "title": props.get("jobtitle", ""),
-                "phone": props.get("phone", "") or props.get("mobilephone", ""),
-                "action_type": props.get("oracle_action_type", ""),
-                "campaign_id": props.get("oracle_campaign_id", ""),
-                "step_number": props.get("oracle_step_number", ""),
-                "last_action_date": props.get("oracle_last_action_date", ""),
-                "status": status,
-                "supersend_contact_id": props.get("oracle_supersend_contact_id", ""),
-            }
-
-        result = {
-            "pending": [_format_contact(c, "pending") for c in pending],
-            "enriching": [_format_contact(c, "enriching") for c in enriching],
-            "parked": [_format_contact(c, "parked") for c in parked],
-            "total_pending": len(pending),
-            "total_enriching": len(enriching),
-            "total_parked": len(parked),
-        }
-
-        return jsonify(result)
-    except Exception as e:
-        log.error("Battle plan fetch failed: %s", e)
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/battle-plan/call-prep", methods=["POST"])
-def api_battle_plan_call_prep():
-    """SSE: Generate Octave call prep for a single contact from the battle plan."""
-    data = request.json or {}
-    contact_id = data.get("contact_id")
-
-    if not contact_id:
-        return jsonify({"error": "Missing contact_id"}), 400
-
-    if not config.HUBSPOT_ACCESS_TOKEN or not config.OCTAVE_API_KEY:
-        return jsonify({"error": "Missing API credentials"}), 500
-
-    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
-    octave = OctaveClient(config.OCTAVE_API_KEY)
-
-    def stream():
-        def emit(msg_type, payload):
-            return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
-
-        yield emit("status", {"msg": "The Oracle awakens for this warrior..."})
-
-        # Fetch contact details
-        try:
-            contacts = hs.batch_get_contacts([contact_id], [
-                "firstname", "lastname", "email", "company", "jobtitle",
-                "phone", "mobilephone", "city", "state", "country", "hs_timezone",
-            ])
-            if not contacts:
-                yield emit("error", {"msg": "Contact not found in HubSpot"})
-                return
-            contact = contacts[0]
-            props = contact.get("properties", {})
-            name = f"{props.get('firstname', '')} {props.get('lastname', '')}".strip()
-        except Exception as e:
-            yield emit("error", {"msg": f"Failed to fetch contact: {e}"})
-            return
-
-        yield emit("status", {"msg": f"Consulting the Oracle for {name}..."})
-
-        # Get most recent outbound email
-        try:
-            email_data = hs.search_emails_for_contact(contact_id)
-        except Exception:
-            email_data = None
-
-        if not email_data:
-            yield emit("status", {"msg": "No outbound email found — generating script from profile only..."})
-            email_data = {"subject": "", "body_html": "", "body_text": ""}
-
-        # Generate call prep via Octave
-        try:
-            script_data = octave.generate_call_script(
-                props,
-                email_data.get("subject", ""),
-                email_data.get("body_html") or email_data.get("body_text", ""),
-            )
-            script_content = ""
-            if isinstance(script_data, dict):
-                script_content = script_data.get("content", "") or script_data.get("text", "") or json.dumps(script_data)
-            elif isinstance(script_data, str):
-                script_content = script_data
-
-            yield emit("call_prep_ready", {
-                "contact_id": contact_id,
-                "name": name,
-                "company": props.get("company", ""),
-                "title": props.get("jobtitle", ""),
-                "phone": props.get("phone", "") or props.get("mobilephone", ""),
-                "email": props.get("email", ""),
-                "script": script_content,
-                "msg": f"The Oracle has spoken for {name}!",
-            })
-        except Exception as e:
-            yield emit("error", {"msg": f"Oracle consultation failed: {e}"})
-
-    return Response(stream(), mimetype="text/event-stream")
-
-
-@app.route("/api/action/complete", methods=["POST"])
-def api_action_complete():
-    """Mark a battle plan item as completed with a disposition.
-
-    Updates HubSpot oracle_ properties and optionally advances the
-    Supersend sequence based on the disposition routing config.
-    """
-    data = request.json or {}
-    contact_id = data.get("contact_id")
-    disposition = data.get("disposition", "").strip()
-    notes = data.get("notes", "").strip()
-
-    if not contact_id or not disposition:
-        return jsonify({"error": "Missing contact_id or disposition"}), 400
-
-    if not config.HUBSPOT_ACCESS_TOKEN:
-        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
-
-    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
     route = get_route(disposition)
-
     if not route:
         return jsonify({"error": f"Unknown disposition: {disposition}"}), 400
 
-    try:
-        now_iso = datetime.now(timezone.utc).isoformat()
+    # Record it first. The BDR keeps their place even if HubSpot is down.
+    dispositions, already_logged = record_disposition(
+        session_id, contact_id, disposition, notes
+    )
+    if dispositions is None:
+        return jsonify({"error": "Session not found"}), 404
 
-        # Clear the pending action
-        update_props = {
-            "oracle_pending_action": "completed",
-            "oracle_call_disposition": disposition,
-            "oracle_last_action_date": now_iso,
-        }
-        hs.update_contact_properties(contact_id, update_props)
-
-        # Append to journey log
-        log_entry = route["log_entry"]
+    # Then write the outcome to the contact as a note.
+    hubspot_ok, hubspot_error = True, ""
+    dnc_ok = None
+    if config.HUBSPOT_ACCESS_TOKEN:
+        hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
+        entry = route["log_entry"]
         if notes:
-            log_entry += f" | Notes: {notes}"
-        hs.append_journey_log(contact_id, log_entry)
-
-        # Execute Supersend action if configured
-        supersend_result = None
-        if config.SUPERSEND_API_KEY and route["action"] in ("advance", "transfer", "finish"):
+            entry += f" | Notes: {notes}"
+        body = (
+            f"<p><strong>\U0001f4de CALL OUTCOME</strong></p>"
+            f"<p>{entry}</p>"
+            f"<p>Logged by SUMMIT on {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>"
+        )
+        # A double-click or a retry must not stack notes on the contact. The
+        # DNC flag below is exempt: it is idempotent and too important to skip.
+        if already_logged:
+            log.info("Contact %s already logged; skipping duplicate note", contact_id)
+        else:
             try:
-                ss = SupersendClient(config.SUPERSEND_API_KEY)
-                # Get the Supersend contact ID from HubSpot
-                contact_data = hs.batch_get_contacts([contact_id], [
-                    "oracle_supersend_contact_id", "oracle_campaign_id", "oracle_step_number",
-                ])
-                if contact_data:
-                    c_props = contact_data[0].get("properties", {})
-                    ss_contact_id = c_props.get("oracle_supersend_contact_id", "")
-                    campaign_id = c_props.get("oracle_campaign_id", "")
-                    step = int(c_props.get("oracle_step_number", "1") or "1")
-
-                    if ss_contact_id and campaign_id:
-                        if route["action"] == "advance":
-                            next_step = route.get("next_step") or step + 1
-                            supersend_result = ss.assign_step(ss_contact_id, campaign_id, next_step)
-                        elif route["action"] == "transfer" and route.get("transfer_to"):
-                            supersend_result = ss.transfer_contact(
-                                ss_contact_id, campaign_id, route["transfer_to"]
-                            )
-                        elif route["action"] == "finish":
-                            supersend_result = ss.finish_contact(ss_contact_id, campaign_id)
+                hs.create_note_for_contact(contact_id, body)
             except Exception as e:
-                log.warning("Supersend action failed for contact %s: %s", contact_id, e)
-                supersend_result = {"error": str(e)}
+                log.warning("Outcome note failed for contact %s: %s", contact_id, e)
+                hubspot_ok, hubspot_error = False, str(e)
 
-        return jsonify({
-            "ok": True,
-            "contact_id": contact_id,
-            "disposition": disposition,
-            "route_action": route["action"],
-            "supersend_result": supersend_result,
-            "msg": f"Action completed: {route['log_entry']}",
-        })
-    except Exception as e:
-        log.error("Action completion failed for %s: %s", contact_id, e)
-        return jsonify({"error": str(e)}), 500
+        # Compliance: do_not_call must reach the standard HubSpot property,
+        # not only a note. A note stops nobody else from dialling. This runs
+        # in its own call so a failed note cannot swallow the DNC flag, and a
+        # failed flag is reported separately rather than hidden.
+        if disposition == "do_not_call":
+            try:
+                hs.update_contact_properties(contact_id, {"donotcall": "true"})
+                dnc_ok = True
+            except Exception as e:
+                log.error("DNC flag failed for contact %s: %s", contact_id, e)
+                dnc_ok = False
+                hubspot_error = (hubspot_error + " | " if hubspot_error else "") + \
+                    f"Do Not Call flag NOT set: {e}"
+    else:
+        hubspot_ok, hubspot_error = False, "No HubSpot token configured"
+        if disposition == "do_not_call":
+            dnc_ok = False
+
+    completed = len(dispositions)
+    return jsonify({
+        "ok": True,
+        "contact_id": contact_id,
+        "disposition": disposition,
+        "completed": completed,
+        "hubspot_note_written": hubspot_ok,
+        # None unless this was a do_not_call. True means the standard HubSpot
+        # Do Not Call flag is set. False must be escalated, not ignored.
+        "dnc_flag_set": dnc_ok,
+        # One flag the UI can branch on. A failed legal request must never
+        # share a code path with a routine note failure.
+        "compliance_failure": dnc_ok is False,
+        # Surfaced, not fatal. The card is already checked off locally.
+        "hubspot_error": hubspot_error,
+        "msg": route["log_entry"],
+    })
 
 
+@app.route("/api/climb/undo", methods=["POST"])
+def api_climb_undo():
+    """Clear one contact's outcome so a misclick does not strand a call."""
+    data = request.json or {}
+    session_id = (data.get("session_id") or "").strip()
+    contact_id = (data.get("contact_id") or "").strip()
+    if not session_id or not contact_id:
+        return jsonify({"error": "Missing session_id or contact_id"}), 400
+
+    dispositions = clear_disposition(session_id, contact_id)
+    if dispositions is None:
+        return jsonify({"error": "Session not found"}), 404
+    return jsonify({"ok": True, "completed": len(dispositions)})
 @app.route("/api/dispositions")
 def api_dispositions():
     """Return all known dispositions for the UI dropdown."""
     return jsonify({"dispositions": list_dispositions()})
 
 
-@app.route("/api/signal-tiers")
-def api_signal_tiers():
-    """Return signal tier configuration for the UI."""
-    return jsonify({"tiers": TIER_CONFIG})
-
-
 if __name__ == "__main__":
     print("\n" + "=" * 60)
-    print("  THE ORACLE OF COLD CALLS & THE FORGE AWAKEN")
+    print("  SUMMIT: DAILY CLIMB")
     print(f"  Navigate to http://localhost:{config.FLASK_PORT}")
     print("=" * 60 + "\n")
     app.run(debug=config.FLASK_DEBUG, port=config.FLASK_PORT, threaded=True)

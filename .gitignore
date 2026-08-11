@@ -26,3 +26,9 @@ server.log
 
 # Claude project files
 .claude/
+
+.venv/
+agent.log
+
+# Stray editor/script backups
+*.bak

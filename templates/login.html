@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUMMIT &middot; Sign In</title>
+<style>
+/* =====================================================================
+   SUMMIT sign-in. Same alpine tokens as the main app.
+   ===================================================================== */
+
+:root {
+    --sky-top: #e0f2fe;
+    --sky-mid: #eff8fd;
+    --sky-bottom: #f8fafc;
+    --card: #ffffff;
+    --ink: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --green: #166534;
+    --green-bright: #16a34a;
+    --orange: #ea580c;
+    --orange-dark: #c2410c;
+    --red-tint: #fef2f2;
+    --red-border: #fecaca;
+    --red-ink: #b91c1c;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(15,23,42,0.07), 0 6px 20px rgba(15,23,42,0.06);
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 40%, var(--sky-bottom) 100%) fixed;
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 36px 32px 32px;
+    text-align: center;
+}
+
+.login-card h1 {
+    margin: 14px 0 2px;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+}
+
+.subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 26px;
+}
+
+label {
+    display: block;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+
+input[type="password"] {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--ink);
+    background: #fff;
+}
+
+input[type="password"]:focus {
+    outline: none;
+    border-color: var(--green-bright);
+    box-shadow: 0 0 0 3px rgba(22,163,74,0.14);
+}
+
+button {
+    width: 100%;
+    margin-top: 18px;
+    padding: 12px 16px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--orange);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: inherit;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+}
+
+button:hover { background: var(--orange-dark); }
+
+.error {
+    margin-bottom: 18px;
+    padding: 10px 12px;
+    background: var(--red-tint);
+    border: 1px solid var(--red-border);
+    border-radius: 8px;
+    color: var(--red-ink);
+    font-size: 13px;
+    text-align: left;
+}
+
+.foot {
+    margin-top: 22px;
+    font-size: 12px;
+    color: var(--muted);
+}
+</style>
+</head>
+<body>
+    <div class="login-card">
+        <svg width="52" height="52" viewBox="0 0 48 48" aria-hidden="true">
+            <polygon points="4,42 19,14 28,30 34,20 44,42" fill="#166534"/>
+            <polygon points="19,14 24,23 21.5,21 19,24 16.5,21 14,23" fill="#ffffff"/>
+            <circle cx="38" cy="10" r="5" fill="#ea580c"/>
+        </svg>
+        <h1>SUMMIT</h1>
+        <div class="subtitle">Daily Climb &bull; Cold Call Basecamp</div>
+
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="/login">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password"
+                   autocomplete="current-password" autofocus required>
+            <button type="submit">Start the climb</button>
+        </form>
+
+        <div class="foot">Ask Antonio if you do not have the password.</div>
+    </div>
+</body>
+</html>

@@ -1,9 +1,24 @@
 """
 Octave API client — cold call scripts, qualification, prospecting, enrichment.
 """
+import json
+
 import requests as http_requests
 import config
 from services.retry import retry_request
+
+
+def script_text(script_data):
+    """Normalize a generate_call_script() response into formatter-ready text.
+
+    Octave returns a dict; format_note_html() needs the string body out of it.
+    Single source of truth — app.py and the agent both call this.
+    """
+    if isinstance(script_data, str):
+        return script_data
+    if isinstance(script_data, dict):
+        return script_data.get("content") or script_data.get("text") or json.dumps(script_data)
+    return ""
 
 
 class OctaveClient:
@@ -31,12 +46,32 @@ class OctaveClient:
         return r.json()
 
     def generate_call_script(self, person, email_subject, email_body):
-        """Call the Personalized Cold Call Content agent."""
-        runtime_ctx = (
-            "Here is the most recent outbound email sent to this prospect. "
-            "Use this as your source material for all outputs.\n\n"
-            f"Subject: {email_subject}\n\n{email_body}"
-        )
+        """Call the Personalized Cold Call Content agent.
+
+        The agent reads the prospect's whole CRM activity history through its
+        own crmActivity tool and writes to the relationship state it finds:
+        never contacted, touched repeatedly with no reply, engaged, or replied.
+
+        The most recent outbound email is passed as one more data point, not as
+        the source material. Framing it as the source is what produced
+        header-only notes for contacts who had never been emailed: the agent
+        was told to build everything from a thing that did not exist.
+        """
+        if email_subject or email_body:
+            runtime_ctx = (
+                "Supporting context: the most recent outbound email we have on "
+                "record for this prospect is below. Treat it as one signal among "
+                "the full activity history you pull from the CRM, not as the sole "
+                "source. Do not reuse an angle that has already gone unanswered.\n\n"
+                f"Subject: {email_subject}\n\n{email_body}"
+            )
+        else:
+            runtime_ctx = (
+                "No outbound email is on record for this prospect in the app's "
+                "lookup. Pull their activity history from the CRM. If it is also "
+                "empty, write for a first touch using their role, company, and "
+                "industry. Do not return empty output."
+            )
         payload = {
             "agentOId": config.OCTAVE_CONTENT_AGENT,
             "firstName": person.get("firstname", ""),
@@ -48,43 +83,3 @@ class OctaveClient:
         }
         data = self._post("/agents/generate-content/run", payload, timeout=120)
         return data.get("data", {})
-
-    def qualify_company(self, domain):
-        """Qualify a company via agents/qualify-company/run."""
-        payload = {
-            "agentOId": config.OCTAVE_QUALIFY_COMPANY_AGENT,
-            "companyDomain": domain,
-        }
-        return self._post("/agents/qualify-company/run", payload, timeout=120)
-
-    def prospect_people(self, company_domain):
-        """Find people at a company via agents/prospector/run."""
-        payload = {
-            "agentOId": config.OCTAVE_PROSPECTOR_AGENT,
-            "companyDomain": company_domain,
-        }
-        return self._post("/agents/prospector/run", payload, timeout=120)
-
-    def qualify_person(self, person):
-        """Qualify a person via agents/qualify-person/run."""
-        payload = {
-            "agentOId": config.OCTAVE_QUALIFY_PERSON_AGENT,
-            "person": person,
-        }
-        return self._post("/agents/qualify-person/run", payload, timeout=120)
-
-    def enrich_company(self, domain):
-        """Deep company enrichment via agents/enrich-company/run."""
-        payload = {
-            "agentOId": config.OCTAVE_ENRICH_COMPANY_AGENT,
-            "companyDomain": domain,
-        }
-        return self._post("/agents/enrich-company/run", payload, timeout=180)
-
-    def enrich_person(self, person):
-        """Deep person enrichment via agents/enrich-person/run."""
-        payload = {
-            "agentOId": config.OCTAVE_ENRICH_PERSON_AGENT,
-            "person": person,
-        }
-        return self._post("/agents/enrich-person/run", payload, timeout=180)

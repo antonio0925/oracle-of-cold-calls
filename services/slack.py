@@ -7,6 +7,7 @@ from dateutil import parser as dateparser
 import config
 from services.retry import retry_request
 from services.call_sheet import user_tz_abbrev, et_to_user_hour, format_hour
+from services.formatting import format_clock
 
 
 def build_slack_messages(session_data):
@@ -14,8 +15,8 @@ def build_slack_messages(session_data):
     Returns (header, thread_messages) — header is the parent message;
     thread_messages are follow-up chunks.
     """
-    campaign = session_data.get("campaign", "Unknown Crusade")
     calling_date = session_data.get("calling_date", "")
+    calling_time = session_data.get("calling_time", "")
     stats = session_data.get("stats", {})
     call_sheet = session_data.get("call_sheet", [])
     unknown_tz = session_data.get("unknown_tz", [])
@@ -29,14 +30,20 @@ def build_slack_messages(session_data):
     except Exception:
         date_display = calling_date
 
+    # The start time the BDR set. Older sessions have no time, so it is only
+    # added when it exists.
+    start_display = format_clock(calling_time)
+    if start_display:
+        date_display = f"{date_display}, from {start_display} {user_tz_abbrev()}"
+
     # Header message
     header = (
-        f":crossed_swords: _{date_display} Battle Plan — {campaign}_\n"
-        f"_{total_prepped} warriors armed for battle_ | "
-        f":scroll: _= prophecy inscribed_\n"
+        f":mountain: _{date_display} Call Sheet_\n"
+        f"_{total_prepped} contacts ready_ | "
+        f":memo: _= prep note written_\n"
         f"_Strategy: Every prospect called at their 10-11 AM local. "
         f"Times in {user_tz_abbrev()}._\n\n"
-        f"_Full battle plan below_ :point_down:"
+        f"_Full call sheet below_ :point_down:"
     )
 
     # Build contact lookup for prep status — normalize to str because
@@ -61,7 +68,7 @@ def build_slack_messages(session_data):
             name = c.get("name", "Unknown")
             company = c.get("company", "")
             hs_url = f"https://app.hubspot.com/contacts/{config.HUBSPOT_PORTAL_ID}/record/0-1/{cid}"
-            icon = ":scroll:" if str(cid) in prepped_ids else ":crossed_swords:"
+            icon = ":memo:" if str(cid) in prepped_ids else ":black_small_square:"
             lines.append(f"{icon} <{hs_url}|{name}> — {company}")
 
         msg = block_header + "\n".join(lines)
@@ -69,14 +76,14 @@ def build_slack_messages(session_data):
 
     # Unknown TZ block
     if unknown_tz:
-        unk_header = ":warning: _LOST IN THE LABYRINTH — Unknown Time Zone_ :compass:\n\n"
+        unk_header = ":compass: _Unknown time zone_\n\n"
         unk_lines = []
         for c in unknown_tz:
             cid = c.get("contact_id", "")
             name = c.get("name", "Unknown")
             company = c.get("company", "")
             hs_url = f"https://app.hubspot.com/contacts/{config.HUBSPOT_PORTAL_ID}/record/0-1/{cid}"
-            icon = ":scroll:" if str(cid) in prepped_ids else ":question:"
+            icon = ":memo:" if str(cid) in prepped_ids else ":question:"
             unk_lines.append(f"{icon} <{hs_url}|{name}> — {company}")
         thread_messages.append(unk_header + "\n".join(unk_lines))
 

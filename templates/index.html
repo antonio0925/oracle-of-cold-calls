@@ -2,1728 +2,983 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>THE FORGE & THE ORACLE</title>
+<title>SUMMIT · Daily Climb</title>
 <style>
-/* ===== 1998 GEOCITIES ENERGY ===== */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;700&family=MedievalSharp&display=swap');
+/* =====================================================================
+   SUMMIT — Daily Climb · Alpine design system
+   Light sky, snow-white cards, forest-green primary, sunrise-orange CTA
+   ===================================================================== */
+
+:root {
+    --sky-top: #e0f2fe;
+    --sky-mid: #eff8fd;
+    --sky-bottom: #f8fafc;
+    --card: #ffffff;
+    --ink: #1e293b;
+    --muted: #64748b;
+    --faint: #94a3b8;
+    --border: #e2e8f0;
+    --green: #166534;
+    --green-bright: #16a34a;
+    --green-tint: #f0fdf4;
+    --green-tint-border: #bbf7d0;
+    --orange: #ea580c;
+    --orange-dark: #c2410c;
+    --amber: #d97706;
+    --slate: #64748b;
+    --trail-track: #e7ddd0;
+    --trail-track-border: #d3c4b0;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(15,23,42,0.07), 0 6px 20px rgba(15,23,42,0.06);
+    --shadow-lift: 0 4px 10px rgba(15,23,42,0.10), 0 12px 32px rgba(15,23,42,0.10);
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
 
 * { box-sizing: border-box; }
 
 body {
     margin: 0;
     padding: 0;
-    background: #000 url('https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Milky_Way_Night_Sky_Black_Rock_Desert_Nevada.jpg/1280px-Milky_Way_Night_Sky_Black_Rock_Desert_Nevada.jpg') fixed center center;
-    background-size: cover;
-    color: #FFD700;
-    font-family: 'Times New Roman', 'MedievalSharp', serif;
-    cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><text y="20" font-size="20">🔱</text></svg>'), auto;
+    background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 40%, var(--sky-bottom) 100%) fixed;
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
 }
 
-::selection { background: #8B0000; color: #FFD700; }
+h1, h2, h3 { color: var(--ink); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 22px; margin: 0 0 8px; }
+.label-opt { font-weight: 600; font-size: 11px; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--faint); border: 1px solid var(--border);
+    border-radius: 999px; padding: 1px 7px; margin-left: 6px; vertical-align: middle; }
+h3 { font-size: 16px; margin: 18px 0 8px; }
+a { color: var(--green); }
+a:hover { color: var(--green-bright); }
 
-/* MARQUEE BAR */
-.marquee-bar {
-    background: linear-gradient(90deg, #8B0000, #FFD700, #8B0000);
-    padding: 4px 0;
-    font-size: 14px;
-    color: #000;
-    font-weight: bold;
-    font-family: 'Comic Sans MS', cursive;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    overflow: hidden;
-}
-.marquee-inner {
-    display: inline-block;
-    white-space: nowrap;
-    animation: marquee 20s linear infinite;
-}
-@keyframes marquee {
-    0% { transform: translateX(100vw); }
-    100% { transform: translateX(-100%); }
-}
-
-/* HEADER */
-.header {
-    text-align: center;
-    padding: 20px;
-    background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(40,0,0,0.8) 100%);
-    border-bottom: 4px ridge #FFD700;
-    position: relative;
-}
-.header h1 {
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 48px;
-    color: #FFD700;
-    text-shadow: 0 0 20px #FF4500, 0 0 40px #8B0000, 2px 2px 0 #000;
-    margin: 10px 0 5px;
-    letter-spacing: 4px;
-    animation: glow 2s ease-in-out infinite alternate;
-}
-@keyframes glow {
-    from { text-shadow: 0 0 20px #FF4500, 0 0 40px #8B0000, 2px 2px 0 #000; }
-    to { text-shadow: 0 0 30px #FFD700, 0 0 60px #FF4500, 0 0 80px #8B0000, 2px 2px 0 #000; }
-}
-.header .subtitle {
-    font-family: 'Cinzel', serif;
-    font-size: 16px;
-    color: #CD853F;
-    letter-spacing: 6px;
-    text-transform: uppercase;
-}
-.header .hero-img {
+input[type="text"], input[type="date"], input[type="time"], textarea {
     width: 100%;
-    max-width: 800px;
-    height: 200px;
-    object-fit: cover;
-    border: 3px ridge #FFD700;
-    margin: 15px auto;
-    display: block;
-    filter: sepia(30%) contrast(1.2);
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
 }
+input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, textarea:focus {
+    border-color: var(--green-bright);
+    box-shadow: 0 0 0 3px rgba(22,163,74,0.15);
+}
+input[type="checkbox"] { accent-color: var(--green); width: 16px; height: 16px; }
 
-/* ANIMATED TORCH COLUMNS */
-.torch-row {
-    display: flex;
-    justify-content: center;
-    gap: 60px;
-    margin: -10px 0 5px;
-}
-.torch {
-    font-size: 36px;
-    animation: torch-flicker 0.3s infinite alternate;
-    filter: drop-shadow(0 0 12px #FF4500);
-}
-.torch:nth-child(2) { animation-delay: 0.1s; }
-.torch:nth-child(3) { animation-delay: 0.2s; }
-@keyframes torch-flicker {
-    0% { transform: scale(1) rotate(-2deg); opacity: 0.9; }
-    100% { transform: scale(1.1) rotate(2deg); opacity: 1; }
-}
+button { font-family: inherit; cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ZEUS LIGHTNING BOLT (animated decoration) */
+/* ===== ambient layers (kept for JS hooks, calmed down) ===== */
+.sprite-layer { display: none; }
+.floating-sprite { display: none; }
+
 .zeus-bolt {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
     pointer-events: none;
     z-index: 9998;
-    opacity: 0;
-    background: radial-gradient(ellipse at center, rgba(255,255,255,0.4) 0%, transparent 70%);
-    transition: opacity 0.05s;
 }
-.zeus-bolt.flash {
-    animation: lightning-flash 0.4s ease-out;
-}
-@keyframes lightning-flash {
-    0% { opacity: 0.8; }
-    10% { opacity: 0; }
-    15% { opacity: 0.6; }
-    20% { opacity: 0; }
-    25% { opacity: 0.3; }
+.zeus-bolt.flash { animation: gentle-flash 0.45s ease-out; }
+@keyframes gentle-flash {
+    0% { opacity: 0; }
+    20% { opacity: 0.35; }
     100% { opacity: 0; }
 }
 
-/* FLOATING MYTHOLOGY SPRITES */
-.sprite-layer {
+/* ===== error overlay ===== */
+.error-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
+    inset: 0;
+    background: rgba(15,23,42,0.45);
+    backdrop-filter: blur(2px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 24px;
+}
+.error-overlay.visible { display: flex; }
+.error-card {
     width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 0;
+    max-width: 420px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lift);
+    padding: 28px 28px 24px;
+    text-align: center;
+}
+.error-icon {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #fef3c7;
+}
+.error-msg {
+    color: var(--ink);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+}
+.error-detail {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+    word-break: break-word;
+}
+.dismiss-btn {
+    width: 100%;
+    margin-top: 22px;
+    padding: 11px 20px;
+    border: none;
+    border-radius: 8px;
+    background: var(--orange);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+}
+.dismiss-btn:hover { background: var(--orange-dark); }
+
+/* ===== top ribbon ===== */
+.marquee-bar {
+    background: var(--green);
+    color: #dcfce7;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 7px 12px;
+    text-align: center;
     overflow: hidden;
 }
-.floating-sprite {
-    position: absolute;
-    font-size: 24px;
-    opacity: 0.15;
-    animation: float-up 15s linear infinite;
-}
-@keyframes float-up {
-    0% { transform: translateY(110vh) rotate(0deg); opacity: 0; }
-    10% { opacity: 0.15; }
-    90% { opacity: 0.15; }
-    100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
-}
+.marquee-inner { display: inline-block; white-space: normal; }
 
-/* FIRE DIVIDER */
-.fire-divider-css {
-    height: 8px;
-    background: linear-gradient(90deg, #000, #8B0000, #FF4500, #FFD700, #FF4500, #8B0000, #000);
-    background-size: 200px 100%;
-    animation: fire-shift 2s linear infinite;
-    margin: 10px 0;
-}
-@keyframes fire-shift {
-    0% { background-position: 0 0; }
-    100% { background-position: 200px 0; }
-}
-
-/* MAIN CONTAINER */
-.container {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 20px;
-    position: relative;
-    z-index: 1;
-}
-
-/* FORM SECTION */
-.oracle-form {
-    background: linear-gradient(135deg, rgba(20,0,0,0.95), rgba(40,10,0,0.95));
-    border: 3px ridge #FFD700;
-    padding: 30px;
-    margin: 20px 0;
-    box-shadow: 0 0 30px rgba(255,69,0,0.3), inset 0 0 30px rgba(0,0,0,0.5);
-}
-.oracle-form h2 {
-    font-family: 'Cinzel Decorative', serif;
-    color: #FFD700;
+/* ===== header ===== */
+.header {
     text-align: center;
-    font-size: 28px;
-    margin: 0 0 5px;
-    text-shadow: 0 0 10px #FF4500;
+    padding: 34px 16px 22px;
 }
-.oracle-form .form-subtitle {
-    text-align: center;
-    color: #CD853F;
-    font-style: italic;
-    margin-bottom: 25px;
-    font-family: 'MedievalSharp', cursive;
+.header h1 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 34px;
+    letter-spacing: 0.04em;
+    margin: 0 0 4px;
+    color: var(--ink);
 }
-
-.form-group {
+.header h1 svg { flex: 0 0 auto; }
+.subtitle {
+    color: var(--muted);
+    font-size: 15px;
     margin-bottom: 20px;
 }
+
+/* view toggle — segmented control */
+.view-toggle {
+    display: inline-flex;
+    gap: 4px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px;
+    box-shadow: var(--shadow);
+}
+.view-toggle-btn {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    padding: 9px 20px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background .15s, color .15s;
+}
+.view-toggle-btn:hover { color: var(--ink); background: #f1f5f9; }
+.view-toggle-btn.active { background: var(--green); color: #fff; }
+
+/* divider */
+.fire-divider-css {
+    height: 1px;
+    max-width: 1080px;
+    margin: 18px auto;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+/* ===== layout ===== */
+.container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 16px 60px;
+}
+
+/* ===== generic section cards ===== */
+.oracle-form, .progress-section, .review-section, .approve-section,
+.write-section, .cleanup-section,
+.battle-header, .brief-preview {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 26px 28px;
+    margin: 18px 0;
+}
+.progress-section, .review-section, .approve-section, .write-section,
+.cleanup-section { display: none; }
+.progress-section h2, .approve-section h2, .write-section h2,
+.cleanup-section h2, .review-section h2, .oracle-form h2 { text-align: center; }
+
+.form-subtitle, .review-subtitle, .battle-subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0 0 20px;
+}
+
+.form-group { margin-bottom: 18px; }
 .form-group label {
     display: block;
-    font-family: 'Cinzel', serif;
+    font-weight: 600;
     font-size: 14px;
-    color: #FFD700;
+    color: var(--ink);
     margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
 }
-.form-group label .label-desc {
-    font-family: 'MedievalSharp', cursive;
-    font-size: 11px;
-    color: #CD853F;
-    text-transform: none;
-    letter-spacing: 0;
+.label-desc {
     display: block;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--faint);
     margin-top: 2px;
-}
-
-/* SEARCHABLE DROPDOWN */
-.search-dropdown {
-    position: relative;
-    width: 100%;
-}
-.search-dropdown input {
-    width: 100%;
-    padding: 12px 40px 12px 15px;
-    background: #1a0a00;
-    border: 2px inset #8B4513;
-    color: #FFD700;
-    font-family: 'Courier New', monospace;
-    font-size: 16px;
-    outline: none;
-}
-.search-dropdown input:focus {
-    border-color: #FFD700;
-    box-shadow: 0 0 10px rgba(255,215,0,0.3);
-}
-.search-dropdown input::placeholder { color: #8B4513; }
-.search-dropdown .dd-arrow {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #8B4513;
-    font-size: 14px;
-    pointer-events: none;
-    transition: transform 0.2s;
-}
-.search-dropdown.open .dd-arrow { transform: translateY(-50%) rotate(180deg); }
-.search-dropdown .dd-list {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: #1a0a00;
-    border: 2px solid #8B4513;
-    border-top: none;
-    max-height: 350px;
-    overflow-y: auto;
-    z-index: 1000;
-}
-.search-dropdown.open .dd-list { display: block; }
-.search-dropdown .dd-item {
-    padding: 10px 15px;
-    cursor: pointer;
-    font-family: 'Courier New', monospace;
-    font-size: 14px;
-    color: #FFD700;
-    border-bottom: 1px solid rgba(139,69,19,0.2);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    word-break: break-word;
-    min-height: 40px;
-}
-.search-dropdown .dd-item:hover {
-    background: rgba(255,69,0,0.15);
-}
-.search-dropdown .dd-item.selected {
-    background: rgba(139,69,19,0.3);
-}
-.search-dropdown .dd-item .dd-meta {
-    font-size: 11px;
-    color: #8B4513;
-}
-.search-dropdown .dd-item .dd-size {
-    font-size: 11px;
-    color: #CD853F;
-    background: rgba(139,69,19,0.2);
-    padding: 2px 8px;
-    border-radius: 3px;
-    white-space: nowrap;
-}
-.search-dropdown .dd-empty {
-    padding: 15px;
-    color: #666;
-    text-align: center;
-    font-style: italic;
-    font-family: 'MedievalSharp', cursive;
-}
-.search-dropdown .dd-loading {
-    padding: 15px;
-    color: #FF4500;
-    text-align: center;
-    font-family: 'MedievalSharp', cursive;
-    animation: pulse 1s infinite;
-}
-
-/* DATE PICKER STYLING */
-.form-group input[type="date"] {
-    width: 100%;
-    padding: 12px 15px;
-    background: #1a0a00;
-    border: 2px inset #8B4513;
-    color: #FFD700;
-    font-family: 'Courier New', monospace;
-    font-size: 16px;
-    outline: none;
-    -webkit-appearance: none;
-    appearance: none;
-}
-.form-group input[type="date"]:focus {
-    border-color: #FFD700;
-    box-shadow: 0 0 10px rgba(255,215,0,0.3);
-}
-.form-group input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(0.7) sepia(1) hue-rotate(0deg) saturate(5);
-    cursor: pointer;
-    font-size: 20px;
 }
 
 .checkbox-group {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-top: 15px;
+    margin: 16px 0 22px;
+    font-size: 14px;
+    color: var(--muted);
 }
-.checkbox-group input[type="checkbox"] {
-    width: 20px; height: 20px;
-    accent-color: #FFD700;
-}
-.checkbox-group label {
-    font-family: 'MedievalSharp', cursive;
-    color: #CD853F;
-    font-size: 15px;
-    cursor: pointer;
-}
+.checkbox-group label { cursor: pointer; }
 
-/* THE BIG BUTTON */
-.oracle-btn {
-    display: block;
-    width: 100%;
-    padding: 18px;
-    margin-top: 25px;
-    background: linear-gradient(180deg, #8B0000, #4a0000);
-    border: 3px ridge #FFD700;
-    color: #FFD700;
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 22px;
-    letter-spacing: 4px;
-    cursor: pointer;
-    text-transform: uppercase;
-    text-shadow: 0 0 10px #FF4500;
-    transition: all 0.3s;
-    position: relative;
-    overflow: hidden;
-}
-.oracle-btn:hover {
-    background: linear-gradient(180deg, #B22222, #8B0000);
-    box-shadow: 0 0 30px rgba(255,69,0,0.6);
-    transform: scale(1.02);
-}
-.oracle-btn:active { transform: scale(0.98); }
-.oracle-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-}
-.oracle-btn::before {
-    content: '\26A1 ';
+/* ===== search dropdowns ===== */
+.search-dropdown { position: relative; }
+.search-dropdown .dd-arrow {
     position: absolute;
-    left: 20px;
-    animation: bolt 1.5s infinite;
-}
-.oracle-btn::after {
-    content: '\26A1 ';
-    position: absolute;
-    right: 20px;
-    animation: bolt 1.5s infinite 0.75s;
-}
-@keyframes bolt {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-}
-.battle-btn {
-    background: linear-gradient(180deg, #2E7D32, #1B5E20) !important;
-    border-color: #66BB6A !important;
-    text-shadow: 0 0 10px #00E676 !important;
-    font-size: 18px !important;
-}
-.battle-btn:hover {
-    background: linear-gradient(180deg, #388E3C, #2E7D32) !important;
-    box-shadow: 0 0 30px rgba(0,230,118,0.5) !important;
-}
-.battle-btn::before, .battle-btn::after { content: none !important; }
-
-/* PROGRESS SECTION */
-.progress-section {
-    display: none;
-    background: linear-gradient(135deg, rgba(0,0,0,0.95), rgba(20,5,0,0.95));
-    border: 3px ridge #8B4513;
-    padding: 20px;
-    margin: 20px 0;
-    position: relative;
-    overflow: hidden;
-}
-.progress-section h2 {
-    font-family: 'Cinzel Decorative', serif;
-    color: #FF4500;
-    text-align: center;
-    margin: 0 0 15px;
-    text-shadow: 0 0 15px #8B0000;
-}
-/* Animated eye of the oracle during processing */
-.oracle-eye {
-    text-align: center;
-    font-size: 64px;
-    margin: 10px 0;
-    animation: oracle-eye-pulse 2s ease-in-out infinite;
-    filter: drop-shadow(0 0 20px #FF4500);
-}
-@keyframes oracle-eye-pulse {
-    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px #FF4500); }
-    50% { transform: scale(1.15); filter: drop-shadow(0 0 40px #FFD700) drop-shadow(0 0 60px #FF4500); }
-}
-/* Spinning runes around the oracle eye */
-.rune-ring {
-    text-align: center;
-    font-size: 18px;
-    letter-spacing: 12px;
-    color: #8B4513;
-    animation: rune-spin 8s linear infinite;
-    margin: -5px 0 15px;
-}
-@keyframes rune-spin {
-    0% { letter-spacing: 12px; color: #8B4513; }
-    50% { letter-spacing: 20px; color: #FFD700; }
-    100% { letter-spacing: 12px; color: #8B4513; }
-}
-
-.progress-bar-container {
-    background: #1a0a00;
-    border: 2px inset #8B4513;
-    height: 30px;
-    margin: 10px 0;
-    position: relative;
-}
-.progress-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #8B0000, #FF4500, #FFD700);
-    width: 0%;
-    transition: width 0.5s;
-    position: relative;
-}
-.progress-bar-fill::after {
-    content: '';
-    position: absolute;
-    top: 0; right: 0; bottom: 0;
-    width: 20px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
-    animation: shimmer 1s infinite;
-}
-@keyframes shimmer {
-    0% { opacity: 0; }
-    50% { opacity: 1; }
-    100% { opacity: 0; }
-}
-.progress-text {
-    position: absolute;
+    right: 12px;
     top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #FFD700;
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
-    font-size: 12px;
-    text-shadow: 1px 1px 2px #000;
-    z-index: 1;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: var(--faint);
+    pointer-events: none;
 }
-/* Current action display */
+.dd-list {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 260px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lift);
+    z-index: 50;
+}
+.search-dropdown.open .dd-list { display: block; }
+.dd-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 14px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.dd-item:last-child { border-bottom: none; }
+.dd-item:hover { background: var(--green-tint); }
+.dd-size { color: var(--faint); font-size: 12px; white-space: nowrap; }
+.dd-loading, .dd-empty {
+    padding: 14px;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+}
+
+/* ===== buttons ===== */
+.oracle-btn {
+    display: inline-block;
+    padding: 13px 30px;
+    border: 1px solid var(--green);
+    border-radius: 10px;
+    background: var(--green);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    transition: background .15s, transform .1s;
+}
+.oracle-btn:hover:not(:disabled) { background: #14532d; transform: translateY(-1px); }
+
+.oracle-btn.battle-btn {
+    background: #fff;
+    color: var(--green);
+    border: 1px solid var(--green);
+    padding: 13px 30px;
+    font-size: 15px;
+}
+.oracle-btn.battle-btn:hover:not(:disabled) { background: var(--green-tint); }
+
+/* small action buttons (battle cards, modal) */
+.battle-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    transition: background .15s, border-color .15s;
+}
+.battle-btn:hover:not(:disabled) { border-color: var(--green-bright); background: var(--green-tint); }
+.battle-btn.complete {
+    background: var(--green);
+    border-color: var(--green);
+    color: #fff;
+}
+.battle-btn.complete:hover:not(:disabled) { background: #14532d; }
+.battle-btn.prep { color: var(--green); border-color: var(--green-tint-border); }
+
+.btn-row {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 18px;
+}
+
+/* approve CTA — sunrise orange */
+.kraken-btn {
+    padding: 15px 36px;
+    border: none;
+    border-radius: 10px;
+    background: var(--orange);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    box-shadow: 0 4px 14px rgba(234,88,12,0.35);
+    transition: background .15s, transform .1s;
+}
+.kraken-btn:hover:not(:disabled) { background: var(--orange-dark); transform: translateY(-1px); }
+
+.tartarus-btn, .cleanup-cancel-btn {
+    padding: 13px 26px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+}
+.tartarus-btn:hover:not(:disabled), .cleanup-cancel-btn:hover:not(:disabled) {
+    border-color: var(--faint);
+    color: var(--ink);
+}
+
+.smite-btn {
+    padding: 13px 28px;
+    border: none;
+    border-radius: 10px;
+    background: var(--orange);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+}
+.smite-btn:hover:not(:disabled) { background: var(--orange-dark); }
+
+/* ===== progress panel ===== */
+.oracle-eye {
+    font-size: 44px;
+    text-align: center;
+    margin: 8px 0 2px;
+}
 .current-action {
     text-align: center;
-    font-family: 'MedievalSharp', cursive;
     font-size: 16px;
-    color: #FFD700;
-    margin: 12px 0 5px;
+    font-weight: 600;
+    color: var(--ink);
     min-height: 24px;
-    animation: action-glow 1.5s ease-in-out infinite alternate;
-}
-@keyframes action-glow {
-    from { text-shadow: 0 0 5px transparent; }
-    to { text-shadow: 0 0 15px #FF4500; }
+    margin-top: 8px;
 }
 .current-action-sub {
     text-align: center;
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-    color: #8B4513;
-    margin-bottom: 12px;
-    min-height: 18px;
-}
-
-.log-box {
-    background: #0a0500;
-    border: 2px inset #333;
-    max-height: 600px;
-    overflow-y: auto;
-    padding: 10px;
-    font-family: 'Courier New', monospace;
     font-size: 13px;
-    line-height: 1.6;
-}
-.log-box .log-entry { margin: 2px 0; }
-.log-entry.status { color: #FFD700; }
-.log-entry.skip { color: #808080; }
-.log-entry.generating { color: #FF4500; animation: pulse 1s infinite; }
-.log-entry.done { color: #00FF00; }
-.log-entry.error { color: #FF0000; font-weight: bold; }
-.log-entry.warn { color: #FFA500; }
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+    color: var(--muted);
+    min-height: 20px;
+    margin-bottom: 12px;
 }
 
-/* STATS COUNTER DURING PROCESSING */
+/* progress bars — trail-brown track, green fill */
+.progress-bar-container {
+    position: relative;
+    height: 28px;
+    background: var(--trail-track);
+    border: 1px solid var(--trail-track-border);
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 14px 0;
+}
+.progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--green-bright), var(--green));
+    border-radius: 999px;
+    transition: width .4s ease;
+}
+.progress-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+    text-shadow: 0 1px 2px rgba(255,255,255,0.6);
+}
+
+/* live stats */
 .live-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin: 12px 0;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin: 16px 0;
+    flex-wrap: wrap;
 }
 .live-stat {
+    background: var(--green-tint);
+    border: 1px solid var(--green-tint-border);
+    border-radius: 10px;
+    padding: 10px 22px;
     text-align: center;
-    padding: 8px;
-    border: 1px solid rgba(139,69,19,0.3);
-    background: rgba(0,0,0,0.4);
+    min-width: 110px;
 }
-.live-stat .ls-num {
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 22px;
-    color: #FFD700;
-}
-.live-stat .ls-label {
-    font-family: 'MedievalSharp', cursive;
-    font-size: 10px;
-    color: #8B4513;
-    text-transform: uppercase;
-}
+.ls-num { font-size: 24px; font-weight: 800; color: var(--ink); }
+.ls-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 
-/* REVIEW SECTION */
-.review-section {
-    display: none;
-    margin: 20px 0;
+/* ===== trail log (monospace console for SSE flavor text) ===== */
+.log-box {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    padding: 14px 16px;
+    height: 240px;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #cbd5e1;
+    margin-top: 14px;
 }
-.review-section h2 {
-    font-family: 'Cinzel Decorative', serif;
-    color: #FFD700;
-    text-align: center;
-    font-size: 32px;
-    text-shadow: 0 0 20px #FF4500;
-    margin-bottom: 5px;
-}
-.review-subtitle {
-    text-align: center;
-    color: #CD853F;
-    font-family: 'MedievalSharp', cursive;
-    font-size: 16px;
-    margin-bottom: 20px;
-}
+.log-entry { white-space: pre-wrap; word-break: break-word; }
+.log-entry.status { color: #93c5fd; }
+.log-entry.done { color: #4ade80; }
+.log-entry.found { color: #4ade80; }
+.log-entry.generating { color: #38bdf8; }
+.log-entry.qualifying { color: #38bdf8; }
+.log-entry.skip { color: #64748b; }
+.log-entry.warn { color: #fbbf24; }
+.log-entry.error { color: #f87171; }
 
-/* STATS BOX */
+/* ===== review: stats box (dark chips — JS injects bright accent colors) ===== */
 .stats-box {
-    background: linear-gradient(135deg, rgba(20,0,0,0.95), rgba(40,10,0,0.95));
-    border: 3px ridge #FFD700;
-    padding: 20px;
-    margin: 15px 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin: 10px 0 18px;
 }
 .stat-item {
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 12px 20px;
     text-align: center;
-    padding: 10px;
-    border: 1px solid #8B4513;
-    background: rgba(0,0,0,0.5);
+    min-width: 120px;
 }
-.stat-item .stat-num {
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 36px;
-    color: #FFD700;
-    text-shadow: 0 0 10px #FF4500;
-}
-.stat-item .stat-label {
-    font-family: 'MedievalSharp', cursive;
-    color: #CD853F;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-top: 5px;
-}
+.stat-item .stat-num { font-size: 24px; font-weight: 800; color: #f1f5f9; }
+.stat-item .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-top: 2px; }
 
-/* CALL SHEET */
-.call-sheet { margin: 20px 0; }
+/* ===== call sheet time blocks ===== */
+.call-sheet { margin-top: 6px; }
 .time-block {
-    margin: 15px 0;
-    border: 2px ridge;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 12px 0;
     overflow: hidden;
+    background: #fff;
 }
-.time-block.green { border-color: #228B22; }
-.time-block.yellow { border-color: #DAA520; }
-.time-block.red { border-color: #8B0000; }
 .time-block-header {
-    padding: 10px 15px;
-    font-family: 'Cinzel', serif;
+    padding: 10px 16px;
+    font-weight: 700;
     font-size: 14px;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 2px;
+    color: var(--ink);
+    background: #f8fafc;
+    border-bottom: 1px solid var(--border);
 }
-.green .time-block-header {
-    background: linear-gradient(90deg, #006400, #228B22);
-    color: #90EE90;
+.time-block.green { border-left: 4px solid var(--green-bright); }
+.time-block.green .time-block-header { background: var(--green-tint); color: var(--green); }
+.time-block.yellow { border-left: 4px solid var(--amber); }
+.time-block.yellow .time-block-header { background: #fffbeb; color: #92400e; }
+.time-block.red { border-left: 4px solid var(--slate); }
+.time-block.red .time-block-header { background: #f1f5f9; color: var(--muted); }
+.time-block-body { padding: 6px 0; }
+.dead-zone-msg, .empty-block {
+    padding: 14px 18px;
+    color: var(--muted);
+    font-size: 13px;
+    font-style: italic;
 }
-.yellow .time-block-header {
-    background: linear-gradient(90deg, #8B6914, #DAA520);
-    color: #FAFAD2;
+.unknown-tz-block {
+    border: 1px solid #fcd34d;
+    border-left: 4px solid var(--amber);
+    border-radius: 10px;
+    margin: 12px 0;
+    overflow: hidden;
+    background: #fffbeb;
 }
-.red .time-block-header {
-    background: linear-gradient(90deg, #4a0000, #8B0000);
-    color: #FF6B6B;
-}
-.time-block-body { padding: 0; }
+.unknown-tz-block .time-block-header { background: #fef3c7; color: #92400e; border-bottom: 1px solid #fcd34d; }
+
 .contact-row {
     display: grid;
-    grid-template-columns: 30px 1fr 1fr 50px 90px;
-    gap: 10px;
-    padding: 8px 15px;
-    border-bottom: 1px solid rgba(139,69,19,0.3);
-    font-size: 13px;
+    grid-template-columns: 36px 1.5fr 1fr auto auto;
+    gap: 12px;
     align-items: center;
-}
-.contact-row:hover { background: rgba(255,215,0,0.05); }
-.contact-row .num { color: #8B4513; font-weight: bold; text-align: right; }
-.contact-row .name-title { color: #FFD700; }
-.contact-row .name-title .title { color: #CD853F; font-size: 11px; }
-.contact-row .company { color: #BDB76B; }
-.contact-row .tz-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    background: rgba(139,69,19,0.4);
-    border: 1px solid #8B4513;
-    border-radius: 3px;
-    font-size: 11px;
-    color: #FFD700;
-    text-align: center;
-}
-.contact-row a.hs-link {
-    color: #FFD700;
-    text-decoration: underline;
-    text-decoration-color: #8B4513;
-    transition: color 0.2s, text-shadow 0.2s;
-}
-.contact-row a.hs-link:hover {
-    color: #FFF;
-    text-shadow: 0 0 8px #FF4500;
-}
-.contact-row .status-cell {
-    text-align: center;
-}
-.contact-row.dialed {
-    opacity: 0.5;
-}
-.contact-row.dialed .status-cell::before {
-    content: '\2705 DIALED';
-    font-size: 10px;
-    color: #00FF00;
-    font-family: 'Courier New', monospace;
-    background: rgba(0,100,0,0.3);
-    padding: 2px 6px;
-    border: 1px solid #00FF00;
-    border-radius: 3px;
-}
-.dead-zone-msg {
-    padding: 20px;
-    text-align: center;
-    font-family: 'MedievalSharp', cursive;
-    color: #FF6B6B;
+    padding: 9px 18px;
+    border-bottom: 1px solid #f1f5f9;
     font-size: 14px;
-    font-style: italic;
 }
-.empty-block {
-    padding: 10px 15px;
-    color: #555;
-    font-style: italic;
-    font-size: 12px;
+.contact-row:last-child { border-bottom: none; }
+.contact-row .num { color: var(--faint); font-weight: 600; }
+.contact-row .name-title { line-height: 1.35; }
+.contact-row .title { color: var(--muted); font-size: 12px; }
+.contact-row .company { color: var(--ink); font-weight: 500; }
+.hs-link { color: var(--green); font-weight: 600; text-decoration: none; }
+.hs-link:hover { text-decoration: underline; }
+.tz-badge {
+    background: #f1f5f9;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    white-space: nowrap;
 }
-
-/* UNKNOWN TZ WARNING */
-.unknown-tz-block {
-    margin: 15px 0;
-    border: 2px dashed #FFA500;
-    background: rgba(255,165,0,0.05);
-}
-.unknown-tz-block .time-block-header {
-    background: linear-gradient(90deg, #8B4500, #FFA500);
-    color: #000;
-}
-
-/* APPROVE BUTTONS */
-.approve-section {
-    display: none;
-    text-align: center;
-    margin: 30px 0;
-    padding: 30px;
-    background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(30,0,0,0.9));
-    border: 3px ridge #FFD700;
-}
-.approve-section h2 {
-    font-family: 'Cinzel Decorative', serif;
-    color: #FFD700;
-    margin-bottom: 10px;
-}
-.approve-section p {
-    color: #CD853F;
-    font-family: 'MedievalSharp', cursive;
-    margin-bottom: 25px;
-}
-.btn-row { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
-.kraken-btn {
-    padding: 20px 40px;
-    background: linear-gradient(180deg, #006400, #003300);
-    border: 3px ridge #00FF00;
-    color: #00FF00;
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 20px;
-    letter-spacing: 3px;
-    cursor: pointer;
-    text-transform: uppercase;
-    text-shadow: 0 0 10px #00FF00;
-    transition: all 0.3s;
-    animation: kraken-pulse 2s infinite;
-}
-@keyframes kraken-pulse {
-    0%, 100% { box-shadow: 0 0 10px rgba(0,255,0,0.3); }
-    50% { box-shadow: 0 0 30px rgba(0,255,0,0.6); }
-}
-.kraken-btn:hover {
-    background: linear-gradient(180deg, #008000, #004d00);
-    box-shadow: 0 0 40px rgba(0,255,0,0.8);
-    transform: scale(1.05);
-}
-.tartarus-btn {
-    padding: 20px 40px;
-    background: linear-gradient(180deg, #333, #111);
-    border: 3px ridge #666;
-    color: #999;
-    font-family: 'Cinzel', serif;
-    font-size: 16px;
-    letter-spacing: 2px;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: all 0.3s;
-}
-.tartarus-btn:hover {
-    background: linear-gradient(180deg, #4a0000, #1a0000);
-    border-color: #8B0000;
-    color: #FF6B6B;
+.status-cell { min-width: 70px; text-align: right; font-size: 12px; }
+.contact-row.dialed { background: var(--green-tint); }
+.contact-row.dialed .status-cell::before {
+    content: "\2713 dialed";
+    color: var(--green-bright);
+    font-weight: 700;
 }
 
-/* WRITE PROGRESS */
-.write-section {
-    display: none;
-    background: linear-gradient(135deg, rgba(0,0,0,0.95), rgba(0,20,0,0.95));
-    border: 3px ridge #00FF00;
-    padding: 20px;
-    margin: 20px 0;
-}
-.write-section h2 {
-    font-family: 'Cinzel Decorative', serif;
-    color: #00FF00;
-    text-align: center;
-    text-shadow: 0 0 15px #006400;
-}
-
-/* CLEANUP SECTION */
-.cleanup-section {
-    display: none;
-    background: linear-gradient(135deg, rgba(0,0,0,0.95), rgba(30,0,30,0.95));
-    border: 3px ridge #9370DB;
-    padding: 20px;
-    margin: 20px 0;
-}
-.cleanup-section h2 {
-    font-family: 'Cinzel Decorative', serif;
-    color: #9370DB;
-    text-align: center;
-    text-shadow: 0 0 15px #4B0082;
-}
+/* ===== cleanup ===== */
 .cleanup-manifest {
-    max-height: 700px;
+    max-height: 260px;
     overflow-y: auto;
-    margin: 15px 0;
-    padding: 10px;
-    background: rgba(0,0,0,0.5);
-    border: 1px solid #9370DB;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 14px 0;
+    background: #fff;
 }
 .cleanup-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid rgba(147,112,219,0.2);
-    font-family: Georgia, serif;
-    font-size: 14px;
-    color: #CCC;
+    gap: 12px;
+    padding: 8px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid #f1f5f9;
 }
 .cleanup-row:last-child { border-bottom: none; }
-.cleanup-row .cname { color: #FFD700; font-weight: bold; }
-.cleanup-row .cremove { color: #FF6B6B; }
-.cleanup-row .ckeep { color: #00FF00; }
-.cleanup-row .cnone { color: #666; font-style: italic; }
+.cleanup-row .cname { font-weight: 600; color: var(--ink); }
+.ckeep { color: var(--green-bright); font-weight: 600; }
+.cremove { color: var(--orange); font-weight: 600; }
+/* dark chip — JS injects bright #00FF00 / #FF6B6B counts here */
 .cleanup-summary {
     text-align: center;
-    padding: 15px;
-    font-family: 'MedievalSharp', cursive;
-    color: #CD853F;
-    font-size: 16px;
-}
-.smite-btn {
-    padding: 20px 40px;
-    background: linear-gradient(180deg, #4B0082, #1a0030);
-    border: 3px ridge #9370DB;
-    color: #DDA0DD;
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 18px;
-    letter-spacing: 3px;
-    cursor: pointer;
-    text-transform: uppercase;
-    text-shadow: 0 0 10px #9370DB;
-    transition: all 0.3s;
-    animation: smite-pulse 2s infinite;
-}
-@keyframes smite-pulse {
-    0%, 100% { box-shadow: 0 0 10px rgba(147,112,219,0.3); }
-    50% { box-shadow: 0 0 30px rgba(147,112,219,0.6); }
-}
-.smite-btn:hover {
-    background: linear-gradient(180deg, #6a0dad, #2d004d);
-    box-shadow: 0 0 40px rgba(147,112,219,0.8);
-    transform: scale(1.05);
-}
-.smite-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    animation: none;
-}
-.cleanup-cancel-btn {
-    padding: 15px 30px;
-    background: linear-gradient(180deg, #333, #111);
-    border: 3px ridge #666;
-    color: #999;
-    font-family: 'Cinzel', serif;
-    font-size: 14px;
-    letter-spacing: 2px;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: all 0.3s;
-}
-.cleanup-cancel-btn:hover {
-    border-color: #999;
-    color: #CCC;
-}
-
-/* ========================================= */
-/*      FULL-SCREEN ERROR OVERLAY            */
-/* ========================================= */
-.error-overlay {
-    display: none;
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    z-index: 10000;
-    background: rgba(0,0,0,0.92);
-    backdrop-filter: blur(5px);
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
-    animation: error-overlay-in 0.3s ease-out;
-}
-.error-overlay.visible {
-    display: flex;
-}
-@keyframes error-overlay-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-.error-overlay .error-icon {
-    font-size: 120px;
-    margin-bottom: 10px;
-    animation: error-shake 0.5s ease-in-out infinite alternate;
-    filter: drop-shadow(0 0 40px #FF0000);
-}
-@keyframes error-shake {
-    0% { transform: rotate(-5deg) scale(1); }
-    100% { transform: rotate(5deg) scale(1.05); }
-}
-.error-overlay h1 {
-    font-family: 'Cinzel Decorative', serif;
-    color: #FF0000;
-    font-size: 42px;
-    text-shadow: 0 0 30px #FF0000, 0 0 60px #8B0000;
-    margin: 10px 0;
-    text-align: center;
-    letter-spacing: 4px;
-    animation: error-glow 1s infinite alternate;
-}
-@keyframes error-glow {
-    from { text-shadow: 0 0 30px #FF0000, 0 0 60px #8B0000; }
-    to { text-shadow: 0 0 50px #FF4500, 0 0 80px #FF0000, 0 0 100px #8B0000; }
-}
-.error-overlay .error-msg {
-    font-family: 'MedievalSharp', cursive;
-    color: #FF6B6B;
-    font-size: 18px;
-    max-width: 600px;
-    text-align: center;
-    margin: 15px 0 30px;
-    line-height: 1.6;
-    padding: 0 20px;
-}
-.error-overlay .error-detail {
-    font-family: 'Courier New', monospace;
-    color: #CD853F;
-    font-size: 12px;
-    max-width: 600px;
-    text-align: center;
-    margin-bottom: 30px;
-    padding: 10px 20px;
-    background: rgba(139,69,19,0.1);
-    border: 1px solid rgba(139,69,19,0.3);
-    word-break: break-word;
-}
-.error-overlay .dismiss-btn {
-    padding: 15px 40px;
-    background: linear-gradient(180deg, #8B0000, #4a0000);
-    border: 3px ridge #FF0000;
-    color: #FFD700;
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 16px;
-    letter-spacing: 3px;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: all 0.3s;
-}
-.error-overlay .dismiss-btn:hover {
-    background: linear-gradient(180deg, #B22222, #8B0000);
-    box-shadow: 0 0 20px rgba(255,0,0,0.5);
-}
-/* Lightning cracks on the error overlay */
-.error-overlay .crack-left,
-.error-overlay .crack-right {
-    position: absolute;
-    top: 0;
-    width: 3px;
-    height: 100%;
-    opacity: 0;
-}
-.error-overlay .crack-left { left: 30%; }
-.error-overlay .crack-right { right: 25%; }
-.error-overlay.visible .crack-left {
-    animation: crack-flash 3s infinite;
-}
-.error-overlay.visible .crack-right {
-    animation: crack-flash 3s infinite 1.5s;
-}
-@keyframes crack-flash {
-    0%, 95%, 100% { opacity: 0; }
-    96% {
-        opacity: 1;
-        background: linear-gradient(180deg,
-            transparent 0%, #FFD700 10%, transparent 12%,
-            transparent 20%, #FFF 22%, transparent 24%,
-            transparent 40%, #FFD700 42%, transparent 44%,
-            transparent 55%, #FFF 57%, transparent 59%,
-            transparent 75%, #FFD700 77%, transparent 80%,
-            transparent 100%
-        );
-        box-shadow: 0 0 30px #FFD700, 0 0 60px #FF4500;
-    }
-    97% { opacity: 0.5; }
-}
-
-/* FOOTER */
-.footer {
-    text-align: center;
-    padding: 30px;
-    border-top: 4px ridge #8B4513;
-    background: rgba(0,0,0,0.8);
-    margin-top: 40px;
-    position: relative;
-    z-index: 1;
-}
-.footer .counter {
-    font-family: 'Courier New', monospace;
-    color: #00FF00;
-    background: #000;
-    border: 2px inset #333;
-    display: inline-block;
-    padding: 5px 15px;
-    margin: 10px;
-}
-.footer .links {
-    margin: 10px 0;
-    font-size: 12px;
-}
-.footer .links a {
-    color: #4169E1;
-    margin: 0 10px;
-    text-decoration: underline;
-    font-family: 'Comic Sans MS', cursive;
-}
-.footer .best-viewed {
-    font-family: 'Comic Sans MS', cursive;
-    font-size: 11px;
-    color: #808080;
-    margin-top: 10px;
-}
-
-/* BLINK */
-.blink { animation: blinker 1s step-end infinite; }
-@keyframes blinker {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
-}
-
-/* UNDER CONSTRUCTION */
-.under-construction {
-    text-align: center;
-    font-family: 'Comic Sans MS', cursive;
-    color: #FFD700;
-    font-size: 12px;
-    padding: 5px;
-}
-
-/* SCROLLBAR */
-::-webkit-scrollbar { width: 12px; }
-::-webkit-scrollbar-track { background: #1a0a00; }
-::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #8B4513, #4a2000);
-    border: 1px solid #FFD700;
-}
-
-/* ===== VIEW TOGGLE (Oracle / Forge) ===== */
-.view-toggle {
-    display: flex;
-    justify-content: center;
-    gap: 0;
-    margin: 10px auto 0;
-}
-.view-toggle-btn {
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 14px;
-    padding: 8px 28px;
-    border: 2px solid #FFD700;
-    background: transparent;
-    color: #CD853F;
-    cursor: pointer;
-    transition: all 0.3s;
-    letter-spacing: 2px;
-}
-.view-toggle-btn:first-child { border-radius: 8px 0 0 8px; border-right: none; }
-.view-toggle-btn:last-child { border-radius: 0 8px 8px 0; border-left: none; }
-.view-toggle-btn:not(:first-child):not(:last-child) { border-left: none; border-right: none; }
-.view-toggle-btn.active {
-    background: linear-gradient(180deg, #8B0000, #4B0000);
-    color: #FFD700;
-    text-shadow: 0 0 10px #FF4500;
-    border-color: #FF4500;
-}
-.view-toggle-btn:hover:not(.active) {
-    background: rgba(139, 0, 0, 0.3);
-    color: #FFD700;
-}
-
-/* ===== THE FORGE - Stage Progress ===== */
-.forge-stages-bar {
-    display: flex;
-    justify-content: center;
-    gap: 0;
-    margin: 20px auto 25px;
-    max-width: 700px;
-}
-.forge-stage-indicator {
-    flex: 1;
-    text-align: center;
-    padding: 10px 8px;
-    font-family: 'Cinzel', serif;
-    font-size: 11px;
-    color: #555;
-    border-bottom: 3px solid #333;
-    position: relative;
-    transition: all 0.3s;
-}
-.forge-stage-indicator.active {
-    color: #FFD700;
-    border-bottom-color: #FF4500;
-    text-shadow: 0 0 8px #FF4500;
-}
-.forge-stage-indicator.completed {
-    color: #00FF00;
-    border-bottom-color: #00FF00;
-}
-.forge-stage-indicator .stage-num {
-    display: block;
-    font-size: 18px;
-    margin-bottom: 3px;
-}
-.forge-stage-indicator.active .stage-num { color: #FF4500; }
-.forge-stage-indicator.completed .stage-num { color: #00FF00; }
-
-/* ===== THE FORGE - Forms & Sections ===== */
-.forge-section {
-    display: none;
-    background: rgba(0, 0, 0, 0.85);
-    border: 2px ridge #8B4513;
-    border-radius: 12px;
-    padding: 25px;
-    margin: 20px auto;
-    max-width: 900px;
-}
-.forge-section h2 {
-    font-family: 'Cinzel Decorative', serif;
-    color: #FF4500;
-    text-align: center;
-    text-shadow: 0 0 15px #8B0000;
-    margin-bottom: 15px;
-}
-
-/* QA Gate Tables */
-.qa-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 15px 0;
-    font-size: 13px;
-}
-.qa-table th {
-    font-family: 'Cinzel', serif;
-    background: linear-gradient(180deg, #1a0a00, #0d0500);
-    color: #FFD700;
-    padding: 10px 8px;
-    border-bottom: 2px solid #8B4513;
-    text-align: left;
-    font-size: 12px;
-    letter-spacing: 1px;
-}
-.qa-table td {
-    padding: 8px;
-    border-bottom: 1px solid #333;
-    color: #DDD;
-    vertical-align: middle;
-}
-.qa-table tr:hover { background: rgba(139, 69, 19, 0.15); }
-.qa-table input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    accent-color: #FF4500;
-}
-
-/* Score Badges */
-.score-badge {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-weight: bold;
-    font-size: 13px;
-    min-width: 35px;
-    text-align: center;
-}
-.score-badge.high { background: #0a3d0a; color: #00FF00; border: 1px solid #00FF00; }
-.score-badge.mid { background: #3d3d0a; color: #FFD700; border: 1px solid #FFD700; }
-.score-badge.low { background: #3d0a0a; color: #FF4444; border: 1px solid #FF4444; }
-
-/* US Badge */
-.us-badge {
-    display: inline-block;
-    background: #0a0a3d;
-    color: #4488FF;
-    border: 1px solid #4488FF;
-    padding: 1px 8px;
-    border-radius: 8px;
-    font-size: 11px;
-    font-weight: bold;
-}
-
-/* Forge Buttons */
-.forge-btn {
-    display: block;
-    width: 100%;
-    max-width: 400px;
-    margin: 20px auto 0;
-    padding: 14px 30px;
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 16px;
-    color: #FFD700;
-    background: linear-gradient(180deg, #8B0000 0%, #4B0000 100%);
-    border: 3px ridge #FFD700;
-    border-radius: 8px;
-    cursor: pointer;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    transition: all 0.3s;
-    text-shadow: 0 0 5px #FF4500;
-}
-.forge-btn:hover {
-    background: linear-gradient(180deg, #B22222 0%, #8B0000 100%);
-    box-shadow: 0 0 20px rgba(255, 69, 0, 0.5);
-    transform: scale(1.02);
-}
-.forge-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
-/* Forge Brief Preview */
-.brief-preview {
-    background: rgba(20, 10, 0, 0.9);
-    border: 1px solid #8B4513;
-    border-radius: 8px;
-    padding: 15px;
-    margin: 15px 0;
-    max-height: 600px;
-    overflow-y: auto;
-    font-size: 13px;
-    line-height: 1.6;
-}
-.brief-preview h3 {
-    font-family: 'Cinzel', serif;
-    color: #FF4500;
-    font-size: 14px;
-    margin: 12px 0 5px;
-    border-bottom: 1px solid #333;
-    padding-bottom: 3px;
-}
-.brief-preview p, .brief-preview li { color: #CD853F; margin: 3px 0; }
-.brief-preview .brief-tag {
-    display: inline-block;
-    background: #1a0a00;
-    border: 1px solid #8B4513;
-    padding: 2px 8px;
-    border-radius: 4px;
-    margin: 2px 4px 2px 0;
-    font-size: 11px;
-    color: #FFD700;
-}
-
-/* Awaiting Claude Panel */
-.forge-awaiting {
-    margin-top: 20px;
-    padding: 30px 20px;
-    border: 2px solid #8B4513;
-    border-radius: 8px;
-    background: rgba(20, 10, 0, 0.9);
-    text-align: center;
-}
-.awaiting-icon { font-size: 48px; margin-bottom: 10px; }
-.awaiting-msg {
-    color: #CD853F;
-    font-family: 'MedievalSharp', cursive;
-    font-size: 15px;
-    line-height: 1.6;
-    margin: 0 0 8px;
-}
-.awaiting-campaign {
-    color: #FFD700;
-    font-family: 'Cinzel', serif;
-    font-size: 13px;
-    margin: 0 0 15px;
-}
-.awaiting-spinner {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 15px;
-}
-.awaiting-dot {
-    width: 8px; height: 8px;
-    background: #FF4500;
-    border-radius: 50%;
-    animation: awaiting-pulse 1.4s ease-in-out infinite;
-}
-.awaiting-dot:nth-child(2) { animation-delay: 0.2s; }
-.awaiting-dot:nth-child(3) { animation-delay: 0.4s; }
-@keyframes awaiting-pulse {
-    0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
-    40% { opacity: 1; transform: scale(1.2); }
-}
-.manual-fallback-toggle {
-    display: inline-block;
-    color: #666;
-    font-family: 'MedievalSharp', cursive;
-    font-size: 11px;
-    text-decoration: none;
-    cursor: pointer;
-    margin-top: 5px;
-}
-.manual-fallback-toggle:hover { color: #8B4513; }
-.manual-domains {
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid #333;
-}
-
-/* Domain Tags (shared by manual fallback) */
-.domain-arsenal-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 12px;
-    min-height: 32px;
-}
-.domain-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: #1a0a00;
-    border: 1px solid #8B4513;
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-size: 12px;
-    color: #FFD700;
-    font-family: 'MedievalSharp', cursive;
-}
-.domain-tag .domain-remove {
-    cursor: pointer;
-    color: #888;
-    font-size: 14px;
-    line-height: 1;
-}
-.domain-tag .domain-remove:hover { color: #FF4444; }
-.domain-arsenal-add {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 15px;
-}
-.domain-arsenal-add input {
-    flex: 1;
-    background: #0a0a0a;
-    border: 1px solid #444;
-    border-radius: 4px;
-    padding: 6px 10px;
-    color: #FFD700;
-    font-family: 'MedievalSharp', cursive;
-    font-size: 13px;
-}
-.domain-arsenal-add input::placeholder { color: #666; }
-.domain-arsenal-add button {
-    font-family: 'Cinzel', serif;
-    font-size: 12px;
-    padding: 6px 16px;
-    background: transparent;
-    border: 1px solid #8B4513;
-    color: #CD853F;
-    border-radius: 4px;
-    cursor: pointer;
-}
-.domain-arsenal-add button:hover { border-color: #FFD700; color: #FFD700; }
-.domain-arsenal-empty {
-    color: #666;
-    font-style: italic;
-    font-size: 12px;
-    text-align: center;
-    padding: 8px;
-}
-.forge-launch-btn {
-    display: block;
-    width: 100%;
     padding: 12px;
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 16px;
-    letter-spacing: 3px;
-    color: #FFD700;
-    background: linear-gradient(180deg, #8B0000, #4B0000);
-    border: 2px solid #FF4500;
-    border-radius: 6px;
-    cursor: pointer;
-    text-shadow: 0 0 10px #FF4500;
-    transition: all 0.3s;
-}
-.forge-launch-btn:hover {
-    background: linear-gradient(180deg, #AA0000, #6B0000);
-    box-shadow: 0 0 20px rgba(255, 69, 0, 0.4);
-}
-.forge-launch-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    box-shadow: none;
+    font-size: 14px;
+    color: #e2e8f0;
+    background: #1e293b;
+    border-radius: 10px;
+    margin: 12px 0;
 }
 
-/* Select All / Deselect All */
-.qa-controls {
-    display: flex;
-    gap: 10px;
-    margin: 10px 0;
-    justify-content: flex-end;
+.resume-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    flex-wrap: wrap;
+    max-width: 760px; margin: 0 auto 18px;
+    background: #fffbeb; border: 1px solid #fcd34d; border-left: 4px solid var(--amber);
+    border-radius: var(--radius); padding: 16px 18px;
 }
-.qa-controls button {
-    font-family: 'MedievalSharp', cursive;
-    font-size: 12px;
-    padding: 4px 12px;
-    background: transparent;
-    border: 1px solid #666;
-    color: #CD853F;
-    border-radius: 4px;
-    cursor: pointer;
-}
-.qa-controls button:hover { border-color: #FFD700; color: #FFD700; }
+.resume-text { color: #92400e; font-size: 14px; line-height: 1.5; }
+.resume-text strong { color: #78350f; }
+#resumeDetail { color: #a16207; font-size: 13px; margin-top: 3px; }
+.resume-actions { display: flex; gap: 8px; align-items: center; }
+.resume-actions .oracle-btn { margin: 0; padding: 9px 20px; font-size: 14px; }
 
-/* Forge Log Box */
-.forge-log {
-    background: #0a0a0a;
-    border: 1px solid #333;
-    border-radius: 6px;
-    padding: 10px;
-    max-height: 250px;
-    overflow-y: auto;
-    margin: 15px 0;
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
+/* ===== battle plan (Today's Climb) ===== */
+.climb-source { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+.block-meta { text-align: center; color: var(--faint); font-size: 12px; margin: -4px 0 12px; }
+.block-count {
+    float: right; font-size: 12px; font-weight: 600; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 999px; padding: 1px 9px;
 }
+.battle-section.block-done { opacity: 0.55; }
+.battle-section.block-done:hover { opacity: 1; }
+.tz-chip {
+    margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--green);
+    background: var(--green-tint); border: 1px solid var(--green-tint-border);
+    border-radius: 999px; padding: 1px 8px; vertical-align: middle;
+}
+.dispo-done { color: var(--green-bright); font-weight: 700; font-size: 13px; }
+.battle-btn.undo { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.battle-btn.undo:hover { color: var(--ink); border-color: var(--faint); }
 
-/* Reasoning tooltip */
-.reasoning-text {
-    display: block;
-    max-width: 300px;
-    font-size: 11px;
-    color: #999;
-    white-space: normal;
-    line-height: 1.4;
-    margin-top: 3px;
-}
+.battle-header { text-align: center; padding: 22px 28px; }
+.battle-header h2 { margin-bottom: 4px; }
+.battle-subtitle { margin-bottom: 0; }
 
-/* RESPONSIVE */
-@media (max-width: 700px) {
-    .header h1 { font-size: 28px; }
-    .contact-row { grid-template-columns: 25px 1fr 80px; }
-    .contact-row .company, .contact-row .status-cell { display: none; }
-    .error-overlay h1 { font-size: 28px; }
-    .forge-stages-bar { flex-direction: column; gap: 5px; }
-    .view-toggle-btn { font-size: 12px; padding: 6px 16px; }
-    .qa-table { font-size: 11px; }
-}
-@media (min-width: 1200px) {
-    .container { max-width: 1200px; }
-}
-
-/* ===== BATTLE PLAN VIEW (Oracle v2) ===== */
-.battle-header {
-    text-align: center;
-    margin-bottom: 20px;
-}
-.battle-header h2 {
-    font-family: 'Cinzel Decorative', serif;
-    color: #FFD700;
-    font-size: 28px;
-    text-shadow: 0 0 10px #FF4500;
-    margin: 0 0 5px;
-}
-.battle-header .battle-subtitle {
-    color: #CD853F;
-    font-style: italic;
-    font-family: 'MedievalSharp', cursive;
-}
 .battle-stats-row {
     display: flex;
+    gap: 14px;
     justify-content: center;
-    gap: 20px;
-    margin: 15px 0;
+    margin: 18px 0;
     flex-wrap: wrap;
 }
 .battle-stat-box {
-    background: rgba(20,0,0,0.9);
-    border: 2px ridge #FFD700;
-    padding: 12px 24px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 30px;
     text-align: center;
-    min-width: 120px;
+    min-width: 130px;
 }
-.battle-stat-box .stat-number {
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 32px;
-    color: #FFD700;
-    text-shadow: 0 0 10px #FF4500;
-}
-.battle-stat-box .stat-label {
-    font-family: 'MedievalSharp', cursive;
+.battle-stat-box.hot { border-top-color: var(--orange); }
+.battle-stat-box.warm { border-top-color: var(--amber); }
+.battle-stat-box.parked { border-top-color: var(--slate); }
+.stat-number { font-size: 30px; font-weight: 800; color: var(--ink); }
+.stat-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+
+.battle-loading, .battle-empty {
+    text-align: center;
+    color: var(--muted);
     font-size: 14px;
-    color: #CD853F;
-    margin-top: 4px;
+    padding: 26px;
+    background: var(--card);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    margin: 14px 0;
 }
-.battle-stat-box.hot { border-color: #FF4500; }
-.battle-stat-box.hot .stat-number { color: #FF4500; }
-.battle-stat-box.warm { border-color: #FFD700; }
-.battle-stat-box.parked { border-color: #4682B4; }
-.battle-stat-box.parked .stat-number { color: #4682B4; }
 
 .battle-section {
-    background: linear-gradient(135deg, rgba(20,0,0,0.95), rgba(40,10,0,0.95));
-    border: 3px ridge #FFD700;
-    padding: 20px;
-    margin: 15px 0;
-    box-shadow: 0 0 20px rgba(255,69,0,0.2), inset 0 0 20px rgba(0,0,0,0.5);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px 24px;
+    margin: 18px 0;
 }
 .battle-section h3 {
-    font-family: 'Cinzel Decorative', serif;
-    color: #FFD700;
-    font-size: 20px;
-    margin: 0 0 15px;
-    text-shadow: 0 0 8px #FF4500;
-    border-bottom: 2px solid rgba(255,215,0,0.3);
-    padding-bottom: 8px;
+    margin: 0 0 14px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
-.battle-section h3.hot { color: #FF4500; border-color: rgba(255,69,0,0.3); }
-.battle-section h3.warm { color: #FFD700; }
-.battle-section h3.parked { color: #4682B4; border-color: rgba(70,130,180,0.3); }
+.battle-section h3.hot { color: var(--orange); }
+.battle-section h3.warm { color: var(--amber); }
+.battle-section h3.parked { color: var(--slate); }
 
 .battle-card {
-    background: rgba(0,0,0,0.5);
-    border: 1px solid rgba(255,215,0,0.2);
-    border-left: 4px solid #FF4500;
-    padding: 15px;
-    margin: 10px 0;
+    position: relative;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 15px;
-    transition: border-color 0.3s, box-shadow 0.3s;
+    gap: 16px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--orange);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 10px 0;
+    transition: box-shadow .15s, background .3s;
 }
-.battle-card:hover {
-    border-color: rgba(255,215,0,0.5);
-    box-shadow: 0 0 15px rgba(255,69,0,0.2);
+.battle-card:hover { box-shadow: var(--shadow); }
+.battle-card.warm { border-left-color: var(--amber); }
+.battle-card.parked { border-left-color: var(--slate); }
+.battle-card.completed {
+    background: var(--green-tint);
+    border-color: var(--green-tint-border);
+    border-left-color: var(--green-bright);
 }
-.battle-card.warm { border-left-color: #FFD700; }
-.battle-card.parked { border-left-color: #4682B4; }
-.battle-card.completed { border-left-color: #2ecc71; opacity: 0.6; }
-
-.battle-card-info {
-    flex: 1;
-}
-.battle-card-info .contact-name {
-    font-family: 'Cinzel', serif;
-    font-size: 16px;
-    color: #FFD700;
-    font-weight: bold;
-}
-.battle-card-info .contact-detail {
-    color: #CD853F;
+.battle-card.completed::after {
+    content: "\2713";
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--green-bright);
+    color: #fff;
     font-size: 13px;
-    margin: 3px 0;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-.battle-card-info .contact-detail a {
-    color: #FF7F50;
-    text-decoration: none;
-}
+.battle-card-info { flex: 1; min-width: 0; }
+.battle-card-info .contact-name { font-size: 16px; font-weight: 700; color: var(--ink); }
+.battle-card-info .contact-detail { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.battle-card-info .contact-detail a { color: var(--green); text-decoration: none; }
 .battle-card-info .contact-detail a:hover { text-decoration: underline; }
-.battle-card-info .signal-badge {
+.signal-badge {
     display: inline-block;
-    background: rgba(255,69,0,0.3);
-    border: 1px solid #FF4500;
-    color: #FF4500;
-    padding: 2px 8px;
+    margin-top: 6px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: var(--orange);
+    border-radius: 999px;
+    padding: 2px 10px;
     font-size: 11px;
-    font-family: 'Courier New', monospace;
+    font-weight: 700;
     text-transform: uppercase;
-    margin-top: 5px;
+    letter-spacing: 0.04em;
 }
-.battle-card-info .signal-badge.warm { background: rgba(255,215,0,0.2); border-color: #FFD700; color: #FFD700; }
-.battle-card-info .signal-badge.parked { background: rgba(70,130,180,0.2); border-color: #4682B4; color: #4682B4; }
-
+.signal-badge.warm { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.signal-badge.parked { background: #f1f5f9; border-color: var(--border); color: var(--slate); }
 .battle-card-actions {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    min-width: 160px;
-}
-.battle-btn {
-    font-family: 'MedievalSharp', cursive;
-    font-size: 13px;
-    padding: 6px 14px;
-    border: 2px solid;
-    background: transparent;
-    cursor: pointer;
-    transition: all 0.3s;
-    text-align: center;
-}
-.battle-btn.prep {
-    border-color: #FFD700;
-    color: #FFD700;
-}
-.battle-btn.prep:hover {
-    background: rgba(255,215,0,0.2);
-    text-shadow: 0 0 5px #FFD700;
-}
-.battle-btn.complete {
-    border-color: #2ecc71;
-    color: #2ecc71;
-}
-.battle-btn.complete:hover {
-    background: rgba(46,204,113,0.2);
-    text-shadow: 0 0 5px #2ecc71;
+    flex: 0 0 auto;
 }
 
-/* Disposition modal */
+/* call prep script panel — dark trail-log card (JS injects gold/tan accents) */
+.call-prep-panel { display: none; }
+.call-prep-panel.show {
+    display: block;
+    margin-top: 12px;
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.65;
+    color: #e2e8f0;
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+/* ===== disposition modal ===== */
 .disposition-overlay {
-    display: none;
     position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.85);
-    z-index: 9999;
-    justify-content: center;
+    inset: 0;
+    background: rgba(15,23,42,0.5);
+    display: none;
     align-items: center;
+    justify-content: center;
+    z-index: 9000;
+    padding: 20px;
 }
 .disposition-overlay.show { display: flex; }
 .disposition-modal {
-    background: linear-gradient(135deg, rgba(20,0,0,0.98), rgba(60,10,0,0.98));
-    border: 3px ridge #FFD700;
-    padding: 30px;
-    max-width: 500px;
-    width: 90%;
-    box-shadow: 0 0 40px rgba(255,69,0,0.4);
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: var(--shadow-lift);
+    padding: 26px 28px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
 }
-.disposition-modal h3 {
-    font-family: 'Cinzel Decorative', serif;
-    color: #FFD700;
-    text-align: center;
-    margin: 0 0 20px;
-    text-shadow: 0 0 10px #FF4500;
-}
+.disposition-modal h3 { margin: 0 0 10px; text-align: center; font-size: 18px; }
 .disposition-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 15px;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+    margin: 14px 0;
 }
 .dispo-btn {
-    font-family: 'MedievalSharp', cursive;
-    font-size: 13px;
-    padding: 10px;
-    border: 2px solid rgba(255,215,0,0.4);
-    background: rgba(0,0,0,0.5);
-    color: #CD853F;
-    cursor: pointer;
-    transition: all 0.3s;
-    text-align: center;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    font-size: 12.5px;
+    font-weight: 600;
+    text-transform: capitalize;
 }
-.dispo-btn:hover {
-    border-color: #FFD700;
-    color: #FFD700;
-    background: rgba(139,0,0,0.3);
-}
-.dispo-btn.selected {
-    border-color: #FF4500;
-    color: #FFD700;
-    background: rgba(139,0,0,0.5);
-    text-shadow: 0 0 5px #FF4500;
-}
+.dispo-btn:hover { border-color: var(--green-bright); background: var(--green-tint); }
+.dispo-btn.selected { background: var(--green); border-color: var(--green); color: #fff; }
 .dispo-notes {
-    width: 100%;
-    background: rgba(0,0,0,0.6);
-    border: 1px solid rgba(255,215,0,0.3);
-    color: #FFD700;
-    padding: 10px;
-    font-family: 'MedievalSharp', cursive;
-    font-size: 14px;
+    min-height: 70px;
     resize: vertical;
-    min-height: 60px;
-    margin: 10px 0;
+    margin: 6px 0 14px;
 }
-.dispo-notes::placeholder { color: rgba(205,133,63,0.5); }
-.dispo-submit-row {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
+.dispo-submit-row { display: flex; gap: 10px; justify-content: center; }
+.dispo-submit-row .battle-btn { padding: 11px 24px; font-size: 14px; }
+
+/* =====================================================================
+   SUMMIT HERO — mountain progress scene
+   ===================================================================== */
+.summit-hero {
+    position: relative;
+    background: linear-gradient(180deg, #dbeafe 0%, #e0f2fe 45%, #f0f9ff 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin: 18px 0;
+    overflow: hidden;
+}
+.summit-hero svg { display: block; width: 100%; height: auto; }
+
+.summit-trail {
+    fill: none;
+    stroke: #8a6d54;
+    stroke-width: 3;
+    stroke-dasharray: 7 8;
+    stroke-linecap: round;
+}
+.waypoint {
+    fill: #fff;
+    stroke: #8a6d54;
+    stroke-width: 2.5;
+    transition: fill .3s, stroke .3s;
+}
+.waypoint.passed { fill: var(--green-bright); stroke: var(--green); }
+
+#sunRays { opacity: 0; transition: opacity .6s; }
+.summit-hero.summit #sunRays {
+    opacity: 1;
+    animation: ray-spin 14s linear infinite;
+    transform-origin: 880px 64px;
+}
+@keyframes ray-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
-/* Call prep panel */
-.call-prep-panel {
+.summit-progress-text {
+    text-align: center;
+    padding: 12px 16px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* summit banner + confetti (the "she won" moment) */
+.summit-banner {
     display: none;
-    background: rgba(0,0,0,0.6);
-    border: 1px solid rgba(255,215,0,0.3);
-    padding: 15px;
-    margin-top: 10px;
-    font-size: 14px;
-    line-height: 1.6;
-    color: #E8D5B0;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-}
-.call-prep-panel.show { display: block; }
-.battle-loading {
-    text-align: center;
-    color: #CD853F;
-    font-family: 'MedievalSharp', cursive;
-    padding: 40px;
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--green);
+    color: #fff;
     font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    padding: 12px 28px;
+    border-radius: 999px;
+    box-shadow: 0 6px 22px rgba(22,101,52,0.35);
+    z-index: 5;
+    white-space: nowrap;
 }
-.battle-empty {
+.summit-hero.summit .summit-banner {
+    display: block;
+    animation: banner-pop .5s cubic-bezier(.2,1.4,.4,1);
+}
+@keyframes banner-pop {
+    0% { transform: translateX(-50%) scale(0.6); opacity: 0; }
+    100% { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+.confetti-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 4; }
+.confetti-layer i {
+    position: absolute;
+    top: -12px;
+    width: 8px;
+    height: 12px;
+    border-radius: 2px;
+    opacity: 0;
+}
+.summit-hero.summit .confetti-layer i {
+    animation: confetti-fall 3.2s linear infinite;
+}
+.confetti-layer i:nth-child(1)  { left: 8%;  background: var(--orange);       animation-delay: 0s; }
+.confetti-layer i:nth-child(2)  { left: 18%; background: var(--green-bright); animation-delay: .5s; }
+.confetti-layer i:nth-child(3)  { left: 28%; background: #fbbf24;             animation-delay: 1.1s; }
+.confetti-layer i:nth-child(4)  { left: 38%; background: #38bdf8;             animation-delay: .3s; }
+.confetti-layer i:nth-child(5)  { left: 48%; background: var(--orange);       animation-delay: 1.6s; }
+.confetti-layer i:nth-child(6)  { left: 58%; background: var(--green-bright); animation-delay: .8s; }
+.confetti-layer i:nth-child(7)  { left: 68%; background: #fbbf24;             animation-delay: 1.9s; }
+.confetti-layer i:nth-child(8)  { left: 78%; background: #38bdf8;             animation-delay: .2s; }
+.confetti-layer i:nth-child(9)  { left: 88%; background: var(--orange);       animation-delay: 1.3s; }
+.confetti-layer i:nth-child(10) { left: 95%; background: var(--green-bright); animation-delay: .7s; }
+@keyframes confetti-fall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(380px) rotate(540deg); opacity: 0.2; }
+}
+
+/* ===== footer ===== */
+.footer {
     text-align: center;
-    color: #CD853F;
-    font-family: 'MedievalSharp', cursive;
-    padding: 30px;
-    font-style: italic;
+    padding: 26px 16px 42px;
+    color: var(--faint);
+    font-size: 12px;
+}
+.under-construction { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+.counter { margin: 6px 0; font-family: var(--mono); font-size: 11px; }
+.links { margin: 8px 0; display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
+.links a { color: var(--muted); font-size: 12px; }
+.links a:hover { color: var(--green); }
+.best-viewed { font-size: 11px; color: var(--faint); }
+
+/* ===== responsive ===== */
+@media (max-width: 720px) {
+    .header h1 { font-size: 26px; }
+    .oracle-form, .progress-section, .review-section, .approve-section,
+    .write-section, .cleanup-section { padding: 18px 16px; }
+    .contact-row { grid-template-columns: 28px 1fr auto; }
+    .contact-row .company, .contact-row .status-cell { display: none; }
+    .battle-card { flex-direction: column; }
+    .battle-card-actions { flex-direction: row; }
+    .summit-banner { font-size: 14px; padding: 10px 18px; }
 }
 </style>
 </head>
@@ -1737,40 +992,43 @@ body {
 
 <!-- ===== ERROR OVERLAY ===== -->
 <div class="error-overlay" id="errorOverlay">
-    <div class="crack-left"></div>
-    <div class="crack-right"></div>
-    <div class="error-icon">&#9889;</div>
-    <h1>ZEUS HURLS A THUNDERBOLT!</h1>
-    <div class="error-msg" id="errorMsg">An unknown force has disrupted the Oracle's vision.</div>
-    <div class="error-detail" id="errorDetail"></div>
-    <button class="dismiss-btn" onclick="dismissError()">&#128737; APPEASE THE GODS</button>
+    <div class="error-card">
+        <div class="error-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                 stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3.5 1.8 20.5h20.4L12 3.5Z"/>
+                <path d="M12 10v4"/>
+                <path d="M12 17.5h.01"/>
+            </svg>
+        </div>
+        <div class="error-msg" id="errorMsg">Something went wrong.</div>
+        <div class="error-detail" id="errorDetail"></div>
+        <button class="dismiss-btn" onclick="dismissError()">Got it</button>
+    </div>
 </div>
 
-<!-- ===== MARQUEE ===== -->
+<!-- ===== TOP RIBBON ===== -->
 <div class="marquee-bar">
     <div class="marquee-inner">
-        &#9876; WELCOME MORTAL TO THE FORGE &amp; THE ORACLE &#9876; &bull; POWERED BY THE GODS OF OLYMPUS &bull; &#9876; FORGED IN THE FIRES OF MOUNT ETNA &bull; WHERE HEPHAESTUS CRAFTS YOUR SALES WEAPONS &bull; &#9876; NO QUARTER SHALL BE GIVEN &bull; EVERY DIAL IS A BATTLE &bull; EVERY CONNECT IS A CONQUEST &#9876;
+        SUMMIT &bull; DAILY CLIMB &bull; ONE CALL AT A TIME &bull; EVERY DIAL IS A STEP UP THE MOUNTAIN
     </div>
 </div>
 
 <!-- ===== HEADER ===== -->
 <div class="header">
-    <img class="hero-img"
-         src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/John_William_Waterhouse_-_Consulting_the_Oracle_-_1884.jpg/1280px-John_William_Waterhouse_-_Consulting_the_Oracle_-_1884.jpg"
-         alt="Consulting the Oracle"
-         onerror="this.style.display='none'">
-    <h1>THE FORGE &amp; THE ORACLE</h1>
-    <div class="subtitle">Campaign Pipeline &bull; Cold Call Preparation</div>
-    <div class="torch-row">
-        <span class="torch">&#128293;</span>
-        <span class="torch">&#127942;</span>
-        <span class="torch">&#128293;</span>
-    </div>
+    <h1>
+        <svg width="44" height="44" viewBox="0 0 48 48" aria-hidden="true">
+            <polygon points="4,42 19,14 28,30 34,20 44,42" fill="#166534"/>
+            <polygon points="19,14 24,23 21.5,21 19,24 16.5,21 14,23" fill="#ffffff"/>
+            <circle cx="38" cy="10" r="5" fill="#ea580c"/>
+        </svg>
+        SUMMIT
+    </h1>
+    <div class="subtitle">Daily Climb &bull; Cold Call Basecamp</div>
     <!-- VIEW TOGGLE -->
     <div class="view-toggle">
-        <button class="view-toggle-btn" id="forgeToggle" onclick="switchView('forge')">&#128296; The Forge</button>
-        <button class="view-toggle-btn active" id="oracleToggle" onclick="switchView('oracle')">&#128064; The Oracle</button>
-        <button class="view-toggle-btn" id="battleToggle" onclick="switchView('battle')">&#9876; Battle Plan</button>
+        <button class="view-toggle-btn active" id="oracleToggle" onclick="switchView('oracle')">Route Plan</button>
+        <button class="view-toggle-btn" id="battleToggle" onclick="switchView('battle')">Today's Climb</button>
     </div>
 </div>
 
@@ -1781,70 +1039,83 @@ body {
     <!-- ===== ORACLE VIEW (existing) ===== -->
     <div id="oracleView">
 
+    <!-- Unwritten route plan. A successful write deletes the session file, so
+         a file that survives means the scripts exist but never reached HubSpot. -->
+    <div class="resume-banner" id="resumeBanner" style="display:none;">
+        <div class="resume-text">
+            <strong>You have a route plan that was never written to HubSpot.</strong>
+            <div id="resumeDetail"></div>
+        </div>
+        <div class="resume-actions">
+            <button class="oracle-btn" id="resumeOpenBtn">Open it</button>
+            <button class="battle-btn undo" id="resumeDiscardBtn">Discard</button>
+        </div>
+    </div>
+
     <!-- ===== FORM ===== -->
     <div class="oracle-form" id="formSection">
-        <h2>&#128293; Prepare for Battle &#128293;</h2>
-        <p class="form-subtitle">Speak thy commands, and the Oracle shall prepare thy warriors for conquest</p>
+        <h2>Plan the Route</h2>
+        <p class="form-subtitle">Pick the HubSpot list you are calling today. SUMMIT builds the route plan.</p>
 
         <div class="form-group">
             <label>
-                &#9876; Choose Thy Legion
-                <span class="label-desc">The HubSpot list containing thy warriors</span>
+                Call List
+                <span class="label-desc">The HubSpot list with the contacts to call</span>
             </label>
             <div class="search-dropdown" id="segmentDropdown">
-                <input type="text" id="segmentInput" placeholder="Search thy Legions..." autocomplete="off"
+                <input type="text" id="segmentInput" placeholder="Search lists..." autocomplete="off"
                        onfocus="openDropdown('segment')" oninput="filterDropdown('segment')">
                 <span class="dd-arrow">&#9660;</span>
                 <div class="dd-list" id="segmentList">
-                    <div class="dd-loading">&#128293; Summoning the list of Legions from HubSpot...</div>
+                    <div class="dd-loading">Loading lists from HubSpot...</div>
                 </div>
             </div>
         </div>
 
         <div class="form-group">
             <label>
-                &#9876; Current Campaign Enrollment
-                <span class="label-desc">The campaign under which thy warriors march</span>
+                How many calls today?
+                <span class="label-desc">SUMMIT stops once it has this many. A smaller number is much faster.</span>
             </label>
-            <div class="search-dropdown" id="campaignDropdown">
-                <input type="text" id="campaignInput" placeholder="Search or type a Crusade name..." autocomplete="off"
-                       onfocus="openDropdown('campaign')" oninput="filterDropdown('campaign')">
-                <span class="dd-arrow">&#9660;</span>
-                <div class="dd-list" id="campaignList">
-                    <div class="dd-loading">&#128293; Summoning campaign names...</div>
-                </div>
-            </div>
+            <input type="number" id="callTarget" value="50" min="1" max="500" step="10">
         </div>
 
         <div class="form-group">
             <label>
-                &#9876; Day of Battle
-                <span class="label-desc">The day thy warriors shall be summoned to the phones</span>
+                Call Day
+                <span class="label-desc">The day you make the calls</span>
             </label>
             <input type="date" id="callingDate">
         </div>
 
+        <div class="form-group">
+            <label>
+                Start Time
+                <span class="label-desc">The time you start dialling, in your own time zone</span>
+            </label>
+            <input type="time" id="callingTime">
+        </div>
+
         <div class="checkbox-group">
             <input type="checkbox" id="skipExisting" checked>
-            <label for="skipExisting">&#128737; Skip the already-anointed (contacts with existing COLD CALL PREP notes)</label>
+            <label for="skipExisting">Skip contacts that already have COLD CALL PREP notes</label>
         </div>
 
         <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
             <button class="oracle-btn" id="consultBtn" onclick="consultTheOracle()">
-                CONSULT THE ORACLE
+                BUILD TODAY'S LIST
             </button>
             <button class="oracle-btn battle-btn" id="battleBtn" onclick="prepareForBattle()">
-                ⚔️ PREPARE FOR BATTLE
+                QUICK LIST (EXISTING NOTES)
             </button>
         </div>
     </div>
 
     <!-- ===== PROGRESS ===== -->
     <div class="progress-section" id="progressSection">
-        <h2>&#128293; The Oracle Speaks &#128293;</h2>
+        <h2>Climb in Progress</h2>
         <div class="oracle-eye" id="oracleEye">&#128064;</div>
-        <div class="rune-ring">&Delta; &Omega; &Sigma; &Pi; &Lambda; &Phi; &Psi; &Xi;</div>
-        <div class="current-action" id="currentAction">Awakening the Oracle...</div>
+        <div class="current-action" id="currentAction">Getting ready...</div>
         <div class="current-action-sub" id="currentActionSub"></div>
         <div class="progress-bar-container">
             <div class="progress-bar-fill" id="progressBar"></div>
@@ -1852,16 +1123,17 @@ body {
         </div>
         <div class="live-stats" id="liveStats">
             <div class="live-stat"><div class="ls-num" id="lsProcessed">0</div><div class="ls-label">Processed</div></div>
-            <div class="live-stat"><div class="ls-num" id="lsPrepared" style="color:#00FF00">0</div><div class="ls-label">Prepared</div></div>
-            <div class="live-stat"><div class="ls-num" id="lsSkipped" style="color:#808080">0</div><div class="ls-label">Skipped</div></div>
+            <div class="live-stat"><div class="ls-num" id="lsPrepared" style="color:#16a34a">0</div><div class="ls-label">Prepared</div></div>
+            <div class="live-stat"><div class="ls-num" id="lsSkipped" style="color:#94a3b8">0</div><div class="ls-label">Skipped</div></div>
         </div>
         <div class="log-box" id="logBox"></div>
     </div>
 
     <!-- ===== REVIEW ===== -->
     <div class="review-section" id="reviewSection">
-        <h2>&#9876; THE BATTLE PLAN &#9876;</h2>
-        <div class="review-subtitle">Review thy warriors and their prophesied scripts before inscribing the sacred scrolls</div>
+        <h2>Route Plan</h2>
+        <div class="review-subtitle">Review the route and the call scripts before writing the prep notes to HubSpot</div>
+        <div class="review-subtitle" id="planStamp" style="display:none;"></div>
 
         <!-- Stats -->
         <div class="stats-box" id="statsBox"></div>
@@ -1877,30 +1149,34 @@ body {
         <!-- Refresh Battle Status -->
         <div style="text-align:center;margin:15px 0;">
             <button class="oracle-btn battle-btn" id="refreshBtn" onclick="refreshBattleStatus()" style="width:auto;display:inline-block;padding:10px 25px;font-size:14px;margin:0;">
-                🔄 REFRESH BATTLE STATUS
+                REFRESH DIAL STATUS
             </button>
-            <span id="refreshStatus" style="display:inline-block;margin-left:10px;color:#66BB6A;font-family:'MedievalSharp',cursive;font-size:13px;"></span>
+            <span id="refreshStatus" style="display:inline-block;margin-left:10px;color:#16a34a;font-size:13px;"></span>
         </div>
 
     </div>
 
     <!-- ===== APPROVE ===== -->
     <div class="approve-section" id="approveSection">
-        <h2>&#9889; The Moment of Truth &#9889;</h2>
-        <p>Do the prophecies please thee? Shall the sacred scrolls be inscribed into the annals of HubSpot?</p>
+        <h2>Nothing is in HubSpot yet</h2>
+        <p style="text-align:center;color:#64748b;">
+            The scripts above exist only here until you press the button.
+            <strong>START THE CLIMB</strong> writes a prep note onto every contact
+            record. Discarding writes nothing.
+        </p>
         <div class="btn-row">
             <button class="kraken-btn" id="krakenBtn" onclick="releaseTheKraken()">
-                &#128025; RELEASE THE KRAKEN &#128025;
+                START THE CLIMB
             </button>
             <button class="tartarus-btn" onclick="banishToTartarus()">
-                &#128128; Banish to Tartarus
+                Discard This Plan
             </button>
         </div>
-        <div style="margin-top:20px;border-top:1px solid #444;padding-top:15px;">
-            <button class="tartarus-btn" id="cleanupBtn" onclick="startCleanup()" style="border-color:#9370DB;color:#9370DB;">
-                &#9876;&#65039; Purge Old Notes from HubSpot
+        <div style="margin-top:20px;border-top:1px solid #e2e8f0;padding-top:15px;text-align:center;">
+            <button class="tartarus-btn" id="cleanupBtn" onclick="startCleanup()">
+                Clean Up Old Prep Notes
             </button>
-            <p style="color:#666;font-size:12px;font-style:italic;margin-top:8px;">
+            <p style="color:#94a3b8;font-size:12px;margin-top:8px;">
                 Scans for duplicate/old COLD CALL PREP notes and lets you remove them
             </p>
         </div>
@@ -1908,7 +1184,7 @@ body {
 
     <!-- ===== WRITE PROGRESS ===== -->
     <div class="write-section" id="writeSection">
-        <h2>&#128220; Inscribing the Sacred Scrolls &#128220;</h2>
+        <h2>Writing Prep Notes to HubSpot</h2>
         <div class="progress-bar-container">
             <div class="progress-bar-fill" id="writeProgressBar"></div>
             <div class="progress-text" id="writeProgressText">Preparing quill...</div>
@@ -1916,47 +1192,24 @@ body {
         <div class="log-box" id="writeLogBox"></div>
     </div>
 
-    <!-- ===== VM FOLLOW-UP DISPATCH ===== -->
-    <div class="approve-section" id="vmFollowupSection" style="display:none;">
-        <h2>&#9993; Hermes' VM Follow-Up Dispatch &#9993;</h2>
-        <p style="text-align:center;color:#CD853F;font-family:'MedievalSharp',cursive;margin-bottom:15px;">
-            Scan for voicemails left today, generate follow-up emails via Claude, and push to SuperSend.
-        </p>
-        <div class="btn-row">
-            <button class="kraken-btn" id="vmFollowupBtn" onclick="pushVmFollowups()"
-                    style="background:linear-gradient(180deg,#1565C0,#0D47A1);border-color:#42A5F5;text-shadow:0 0 10px #2196F3;">
-                &#9993; PUSH VM FOLLOW-UPS &#9993;
-            </button>
-        </div>
-    </div>
-
-    <div class="write-section" id="vmFollowupProgress" style="display:none;">
-        <h2>&#9993; Hermes Dispatches Follow-Ups &#9993;</h2>
-        <div class="progress-bar-container">
-            <div class="progress-bar-fill" id="vmProgressBar" style="background:linear-gradient(90deg,#0D47A1,#1565C0,#42A5F5);"></div>
-            <div class="progress-text" id="vmProgressText">Scanning calls...</div>
-        </div>
-        <div class="log-box" id="vmLogBox"></div>
-    </div>
-
     <!-- ===== CLEANUP SECTION ===== -->
     <div class="cleanup-section" id="cleanupSection">
-        <h2>&#9876;&#65039; Athena's Purge &#9876;&#65039;</h2>
-        <p style="text-align:center;color:#CD853F;font-family:'MedievalSharp',cursive;margin-bottom:15px;">
-            Scanning for false scrolls (old/duplicate COLD CALL PREP notes) to purge from HubSpot...
+        <h2>Prep Note Cleanup</h2>
+        <p style="text-align:center;color:#64748b;margin-bottom:15px;">
+            Scanning for old or duplicate COLD CALL PREP notes to remove from HubSpot...
         </p>
         <div class="progress-bar-container">
-            <div class="progress-bar-fill" id="cleanupProgressBar" style="background:linear-gradient(90deg,#4B0082,#9370DB);"></div>
+            <div class="progress-bar-fill" id="cleanupProgressBar"></div>
             <div class="progress-text" id="cleanupProgressText">Scanning...</div>
         </div>
         <div class="cleanup-manifest" id="cleanupManifest" style="display:none;"></div>
         <div class="cleanup-summary" id="cleanupSummary" style="display:none;"></div>
         <div class="btn-row" id="cleanupButtons" style="display:none;">
             <button class="smite-btn" id="smiteBtn" onclick="executeCleanup()">
-                &#9876;&#65039; SMITE THE IMPOSTERS &#9876;&#65039;
+                REMOVE OLD NOTES
             </button>
             <button class="cleanup-cancel-btn" onclick="cancelCleanup()">
-                &#128148; Spare Them
+                Keep Everything
             </button>
         </div>
         <div class="log-box" id="cleanupLogBox" style="display:none;"></div>
@@ -1964,259 +1217,137 @@ body {
 
     </div><!-- end oracleView -->
 
-    <!-- ===== THE FORGE VIEW ===== -->
-    <div id="forgeView" style="display:none;">
-
-        <!-- Stage Progress Bar -->
-        <div class="forge-stages-bar" id="forgeStagesBar">
-            <div class="forge-stage-indicator active" id="forgeStage1">
-                <span class="stage-num">I</span>
-                Campaign Intake
-            </div>
-            <div class="forge-stage-indicator" id="forgeStage2">
-                <span class="stage-num">II</span>
-                Prospecting
-            </div>
-            <div class="forge-stage-indicator" id="forgeStage3">
-                <span class="stage-num">III</span>
-                Company Enrichment
-            </div>
-            <div class="forge-stage-indicator" id="forgeStage4">
-                <span class="stage-num">IV</span>
-                People Discovery
-            </div>
-            <div class="forge-stage-indicator" id="forgeStage5">
-                <span class="stage-num">V</span>
-                Export
-            </div>
-        </div>
-
-        <!-- ===== STAGE 1: Campaign Intake ===== -->
-        <div class="forge-section" id="forgeStage1Section" style="display:block;">
-            <h2>&#128296; Select Thy Campaign &#128296;</h2>
-            <p style="text-align:center;color:#CD853F;font-family:'MedievalSharp',cursive;margin-bottom:15px;">
-                Choose a campaign, then tell Claude to forge it
-            </p>
-
-            <div class="form-group">
-                <label style="color:#FFD700;font-family:'Cinzel',serif;">
-                    &#9876; Campaign from Notion
-                    <span class="label-desc">Active campaigns from your Campaign Central</span>
-                </label>
-                <div class="search-dropdown" id="forgeCampaignDropdown">
-                    <input type="text" id="forgeCampaignInput" placeholder="Search campaigns..." autocomplete="off"
-                           onfocus="openForgeDropdown()" oninput="filterForgeDropdown()">
-                    <span class="dd-arrow">&#9660;</span>
-                    <div class="dd-list" id="forgeCampaignList">
-                        <div class="dd-loading">&#128296; Fetching campaigns from Notion...</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brief Preview -->
-            <div class="brief-preview" id="briefPreview" style="display:none;">
-                <h3>&#128220; Campaign Brief</h3>
-                <div id="briefContent">Loading brief...</div>
-            </div>
-
-            <!-- Awaiting Claude / Session Detector -->
-            <div class="forge-awaiting" id="forgeAwaiting" style="display:none;">
-                <div class="awaiting-icon">&#128220;</div>
-                <p class="awaiting-msg">Brief loaded. Tell Claude to forge this campaign<br>
-                   and the Oracle will discover worthy companies.</p>
-                <p class="awaiting-campaign" id="awaitingCampaignName"></p>
-                <div class="awaiting-spinner">
-                    <span class="awaiting-dot"></span>
-                    <span class="awaiting-dot"></span>
-                    <span class="awaiting-dot"></span>
-                </div>
-                <a href="#" class="manual-fallback-toggle" onclick="toggleManualDomains(event)">
-                    Or add domains manually &#9660;
-                </a>
-                <div class="manual-domains" id="manualDomainsSection" style="display:none;">
-                    <div class="domain-arsenal-add">
-                        <input type="text" id="domainInput" placeholder="Add domain (e.g. acme.com)"
-                               onkeydown="if(event.key==='Enter')addManualDomain()">
-                        <button onclick="addManualDomain()">+ Add</button>
-                    </div>
-                    <div class="domain-arsenal-tags" id="manualDomainTags"></div>
-                    <button class="forge-launch-btn" id="manualLaunchBtn" onclick="launchManualForge()" disabled>
-                        &#9889; LAUNCH MANUALLY &#9889;
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== STAGE 2: Prospecting (Prospector + Qualify) ===== -->
-        <div class="forge-section" id="forgeStage2Section">
-            <h2>&#9876; Prospecting &amp; Qualification &#9876;</h2>
-            <div class="forge-log" id="forgeProspectLog"></div>
-            <div id="forgeProspectResults" style="display:none;">
-                <div class="qa-controls">
-                    <button onclick="forgeSelectAll('prospectTable')">Select All Qualified</button>
-                    <button onclick="forgeDeselectAll('prospectTable')">Deselect All</button>
-                </div>
-                <table class="qa-table" id="prospectTable">
-                    <thead>
-                        <tr>
-                            <th style="width:30px;">&#10003;</th>
-                            <th>Company</th>
-                            <th>Domain</th>
-                            <th>Industry</th>
-                            <th>Employees</th>
-                            <th>Location</th>
-                            <th>Score</th>
-                            <th>Source</th>
-                        </tr>
-                    </thead>
-                    <tbody id="prospectTableBody"></tbody>
-                </table>
-                <button class="forge-btn" id="enrichCompaniesBtn" onclick="enrichCompanies()">
-                    &#128270; ENRICH APPROVED COMPANIES &#128270;
-                </button>
-            </div>
-        </div>
-
-        <!-- ===== STAGE 3: Company Enrichment + QA Gate ===== -->
-        <div class="forge-section" id="forgeStage3Section">
-            <h2>&#128270; Company Enrichment &#128270;</h2>
-            <div class="forge-log" id="forgeEnrichCompanyLog"></div>
-            <div id="forgeEnrichCompanyResults" style="display:none;">
-                <div class="qa-controls">
-                    <button onclick="forgeSelectAll('enrichCompanyTable')">Select All</button>
-                    <button onclick="forgeDeselectAll('enrichCompanyTable')">Deselect All</button>
-                </div>
-                <table class="qa-table" id="enrichCompanyTable">
-                    <thead>
-                        <tr>
-                            <th style="width:30px;">&#10003;</th>
-                            <th>Company</th>
-                            <th>Domain</th>
-                            <th>Industry</th>
-                            <th>Score</th>
-                            <th>Enrichment Summary</th>
-                        </tr>
-                    </thead>
-                    <tbody id="enrichCompanyTableBody"></tbody>
-                </table>
-                <button class="forge-btn" id="discoverPeopleBtn" onclick="discoverEnrichPeople()">
-                    &#128101; DISCOVER PEOPLE AT APPROVED COMPANIES &#128101;
-                </button>
-            </div>
-        </div>
-
-        <!-- ===== STAGE 4: People Discovery + Enrichment + QA Gate ===== -->
-        <div class="forge-section" id="forgeStage4Section">
-            <h2>&#128101; People Discovery &amp; Enrichment &#128101;</h2>
-            <div class="forge-log" id="forgeDiscoverPeopleLog"></div>
-            <div id="forgeDiscoverPeopleResults" style="display:none;">
-                <div class="qa-controls">
-                    <button onclick="forgeSelectAll('discoverPeopleTable')">Select All</button>
-                    <button onclick="forgeDeselectAll('discoverPeopleTable')">Deselect All</button>
-                </div>
-                <table class="qa-table" id="discoverPeopleTable">
-                    <thead>
-                        <tr>
-                            <th style="width:30px;">&#10003;</th>
-                            <th>Name</th>
-                            <th>Title</th>
-                            <th>Company</th>
-                            <th>Email</th>
-                            <th>Enrichment Summary</th>
-                        </tr>
-                    </thead>
-                    <tbody id="discoverPeopleTableBody"></tbody>
-                </table>
-                <button class="forge-btn" id="exportProspectsBtn" onclick="exportProspects()">
-                    &#128640; EXPORT APPROVED PROSPECTS &#128640;
-                </button>
-            </div>
-        </div>
-
-        <!-- ===== STAGE 5: Export & Handoff ===== -->
-        <div class="forge-section" id="forgeStage5Section">
-            <h2>&#128640; Export &amp; Handoff &#128640;</h2>
-            <div id="forgeExportSummary" style="text-align:center;padding:20px;">
-                <p style="color:#CD853F;font-family:'MedievalSharp',cursive;font-size:16px;">
-                    Your approved prospects are ready for battle.
-                </p>
-                <p style="color:#888;font-size:12px;margin-top:10px;font-style:italic;">
-                    HubSpot push and Oracle handoff coming in Sprint 2
-                </p>
-            </div>
-        </div>
-
-    </div><!-- end forgeView -->
 
     <!-- ===== BATTLE PLAN VIEW (Oracle v2) ===== -->
     <div id="battleView" style="display:none;">
 
         <div class="battle-header">
-            <h2>&#9876; The Battle Plan &#9876;</h2>
-            <p class="battle-subtitle">Warriors awaiting the Oracle's command &mdash; webhook-driven, Slack-free</p>
+            <h2>Today's Climb</h2>
+            <p class="battle-subtitle">Your calls for today. Every completed call moves you up the mountain.</p>
+        </div>
+
+        <!-- ===== MOUNTAIN PROGRESS HERO ===== -->
+        <div class="summit-hero" id="summitHero">
+            <div class="summit-banner" id="summitBanner">SUMMIT! You did it &#127956;&#65039;</div>
+            <div class="confetti-layer" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <svg id="mountainScene" viewBox="0 0 1000 360" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mountain climb progress">
+                <!-- sun -->
+                <g id="sunRays" stroke="#fbbf24" stroke-width="4" stroke-linecap="round">
+                    <line x1="880" y1="18" x2="880" y2="34"/>
+                    <line x1="880" y1="94" x2="880" y2="110"/>
+                    <line x1="834" y1="64" x2="850" y2="64"/>
+                    <line x1="910" y1="64" x2="926" y2="64"/>
+                    <line x1="848" y1="32" x2="859" y2="43"/>
+                    <line x1="901" y1="85" x2="912" y2="96"/>
+                    <line x1="912" y1="32" x2="901" y2="43"/>
+                    <line x1="859" y1="85" x2="848" y2="96"/>
+                </g>
+                <circle cx="880" cy="64" r="26" fill="#fbbf24"/>
+                <!-- far ridge -->
+                <polygon points="0,240 120,150 260,220 420,120 560,210 720,150 850,220 1000,160 1000,360 0,360" fill="#c4dbe9"/>
+                <!-- mid ridge -->
+                <polygon points="0,290 180,190 330,262 520,175 700,252 880,195 1000,255 1000,360 0,360" fill="#9dbfb2"/>
+                <!-- main peak -->
+                <polygon points="360,352 640,58 920,352" fill="#41695c"/>
+                <polygon points="640,58 700,122 678,131 655,114 632,129 610,111 585,121" fill="#ffffff"/>
+                <!-- summit flag -->
+                <line x1="640" y1="58" x2="640" y2="26" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
+                <polygon points="640,26 670,35 640,44" fill="#ea580c"/>
+                <!-- ground -->
+                <rect x="0" y="336" width="1000" height="24" fill="#dcedd5"/>
+                <!-- pine trees -->
+                <g fill="#2f5d43">
+                    <polygon points="150,336 162,306 174,336"/>
+                    <polygon points="152,320 162,296 172,320"/>
+                    <rect x="159" y="336" width="6" height="8" fill="#7c5c40"/>
+                    <polygon points="205,338 215,312 225,338"/>
+                    <polygon points="207,324 215,304 223,324"/>
+                    <rect x="212" y="338" width="5" height="7" fill="#7c5c40"/>
+                    <polygon points="935,338 947,306 959,338"/>
+                    <polygon points="937,322 947,296 957,322"/>
+                    <rect x="944" y="338" width="6" height="8" fill="#7c5c40"/>
+                </g>
+                <!-- base camp tent -->
+                <g>
+                    <polygon points="46,338 68,306 90,338" fill="#ea580c"/>
+                    <polygon points="60,338 68,322 76,338" fill="#c2410c"/>
+                    <text x="68" y="354" text-anchor="middle" font-size="11" font-weight="600" fill="#64748b">BASE CAMP</text>
+                </g>
+                <!-- switchback trail -->
+                <path id="trailPath" class="summit-trail"
+                      d="M 80 328 C 240 322, 380 310, 470 296 C 540 285, 560 272, 500 262 C 420 253, 380 250, 440 236 C 520 218, 600 214, 570 198 C 540 184, 480 180, 530 164 C 580 150, 640 148, 625 130 C 612 114, 618 96, 640 76"/>
+                <!-- waypoints (repositioned exactly by updateMountainProgress) -->
+                <circle class="waypoint" id="waypoint-0" cx="245" cy="319" r="7"/>
+                <circle class="waypoint" id="waypoint-1" cx="520" cy="270" r="7"/>
+                <circle class="waypoint" id="waypoint-2" cx="460" cy="232" r="7"/>
+                <circle class="waypoint" id="waypoint-3" cx="530" cy="177" r="7"/>
+                <circle class="waypoint" id="waypoint-4" cx="622" cy="127" r="7"/>
+                <!-- hiker: ponytail, backpack, trekking poles -->
+                <g id="hikerGroup" transform="translate(80,328)">
+                    <line x1="-9" y1="-18" x2="-13" y2="0" stroke="#7c5c40" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="9" y1="-18" x2="13" y2="0" stroke="#7c5c40" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="-1" y1="-13" x2="-5" y2="0" stroke="#334155" stroke-width="3.5" stroke-linecap="round"/>
+                    <line x1="1" y1="-13" x2="5" y2="0" stroke="#334155" stroke-width="3.5" stroke-linecap="round"/>
+                    <rect x="2" y="-29" width="9" height="14" rx="3.5" fill="#166534"/>
+                    <rect x="-6" y="-30" width="12" height="18" rx="5" fill="#ea580c"/>
+                    <line x1="-1" y1="-26" x2="-9" y2="-18" stroke="#ea580c" stroke-width="3" stroke-linecap="round"/>
+                    <line x1="1" y1="-26" x2="9" y2="-18" stroke="#ea580c" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="0" cy="-36" r="5.5" fill="#f5c6a0"/>
+                    <path d="M -5.5 -37 A 5.5 5.5 0 0 1 5.5 -37 Z" fill="#6b3f23"/>
+                    <path d="M 4 -40 Q 13 -37 10 -27" stroke="#6b3f23" stroke-width="3" fill="none" stroke-linecap="round"/>
+                </g>
+            </svg>
+            <div class="summit-progress-text" id="mountainProgressText">Load today's climb to start hiking.</div>
         </div>
 
         <div class="battle-stats-row">
             <div class="battle-stat-box hot">
-                <div class="stat-number" id="battleHotCount">-</div>
-                <div class="stat-label">&#128293; Hot</div>
+                <div class="stat-number" id="climbLeft">-</div>
+                <div class="stat-label">Left to call</div>
             </div>
             <div class="battle-stat-box warm">
-                <div class="stat-number" id="battleWarmCount">-</div>
-                <div class="stat-label">&#9888; Enriching</div>
+                <div class="stat-number" id="climbDone">-</div>
+                <div class="stat-label">Done</div>
             </div>
             <div class="battle-stat-box parked">
-                <div class="stat-number" id="battleParkedCount">-</div>
-                <div class="stat-label">&#9875; Parked</div>
+                <div class="stat-number" id="climbTotal">-</div>
+                <div class="stat-label">On the list</div>
             </div>
         </div>
 
         <div style="text-align:center; margin: 10px 0;">
             <button class="oracle-btn" onclick="loadBattlePlan()" style="font-size:14px; padding:8px 24px;">
-                &#128260; Refresh the List
+                Refresh the List
             </button>
         </div>
 
         <div id="battlePlanContent">
-            <div class="battle-loading">&#9876; The Battle Plan loads when thou switchest to this view...</div>
+            <div class="battle-loading">The climb loads when you switch to this view...</div>
         </div>
 
-        <!-- HOT section -->
-        <div class="battle-section" id="battleHotSection" style="display:none;">
-            <h3 class="hot">&#128293; HOT &mdash; Immediate Action Required</h3>
-            <div id="battleHotList"></div>
-        </div>
-
-        <!-- ENRICHING section -->
-        <div class="battle-section" id="battleWarmSection" style="display:none;">
-            <h3 class="warm">&#9888; ENRICHING &mdash; Awaiting Intelligence</h3>
-            <div id="battleWarmList"></div>
-        </div>
-
-        <!-- PARKED section -->
-        <div class="battle-section" id="battleParkedSection" style="display:none;">
-            <h3 class="parked">&#9875; PARKED &mdash; Batch Review Queue</h3>
-            <div id="battleParkedList"></div>
-        </div>
+        <!-- One section per time-zone block, rendered from the call sheet -->
+        <div id="climbBlocks"></div>
 
     </div><!-- end battleView -->
 
     <!-- Disposition Modal -->
     <div class="disposition-overlay" id="dispoOverlay">
         <div class="disposition-modal">
-            <h3>&#9876; Log Thy Disposition</h3>
-            <p style="color:#CD853F; text-align:center; font-family:'MedievalSharp',cursive; margin-bottom:15px;">
-                Contact: <strong id="dispoContactName" style="color:#FFD700;"></strong>
+            <h3>What happened on the call?</h3>
+            <p style="color:#64748b; text-align:center; margin-bottom:15px;">
+                Contact: <strong id="dispoContactName" style="color:#166534;"></strong>
             </p>
             <input type="hidden" id="dispoContactId">
             <div class="disposition-grid" id="dispoGrid"></div>
             <textarea class="dispo-notes" id="dispoNotes" placeholder="Notes (optional)..."></textarea>
             <div class="dispo-submit-row">
                 <button class="battle-btn complete" onclick="submitDisposition()" id="dispoSubmitBtn">
-                    &#9989; Inscribe
+                    Save the outcome
                 </button>
-                <button class="battle-btn prep" onclick="closeDisposition()" style="border-color:#CD853F; color:#CD853F;">
-                    &#10060; Cancel
+                <button class="battle-btn prep" onclick="closeDisposition()">
+                    Cancel
                 </button>
             </div>
         </div>
@@ -2227,20 +1358,20 @@ body {
 <!-- ===== FOOTER ===== -->
 <div class="footer">
     <div class="fire-divider-css"></div>
-    <div class="under-construction">&#128679; This site is always under construction &#128679;</div>
+    <div class="under-construction">Trail conditions: clear. Pack water and a headset.</div>
     <div class="counter">
-        Visitors: <span id="hitCounter">000<span id="hitNum"></span></span>
+        Climbers on the trail: <span id="hitCounter">000<span id="hitNum"></span></span>
     </div>
     <div class="links">
-        <a href="#" onclick="alert('The guestbook is in another castle!');return false;">&#128214; Sign My Guestbook</a>
-        <a href="#" onclick="alert('You have been webmaster\'d!');return false;">&#128231; Email the Webmaster</a>
-        <a href="#" onclick="alert('Webrings are peak internet.');return false;">&#128279; Oracle WebRing</a>
+        <a href="#" onclick="alert('The summit register is at the top. Keep climbing.');return false;">Sign the Summit Register</a>
+        <a href="#" onclick="alert('The ranger station is closed. Leave a note.');return false;">Contact the Ranger</a>
+        <a href="#" onclick="alert('Take only meetings, leave only voicemails.');return false;">Trail Rules</a>
     </div>
     <div class="best-viewed">
-        Best viewed in Netscape Navigator 4.0 at 800x600 resolution
+        Best climbed before 11 AM with fresh coffee
     </div>
-    <div style="margin-top:10px;font-family:'Comic Sans MS',cursive;font-size:10px;color:#555;">
-        &copy; MCMXCVIII The Oracle of Cold Calls. All Rights Reserved. Forged by Hephaestus.
+    <div style="margin-top:10px;font-size:10px;color:#94a3b8;">
+        &copy; SUMMIT · Daily Climb. One call at a time.
     </div>
 </div>
 
@@ -2287,21 +1418,39 @@ function zeusFlash() {
 // ===================================================================
 // DATE + HIT COUNTER INIT
 // ===================================================================
+const DEFAULT_START_TIME = '09:00';
 document.getElementById('callingDate').valueAsDate = new Date();
+// A start time is always set, so a plan can never be stamped with a blank
+// one. 9:00 AM is the first hour of the prime calling window.
+document.getElementById('callingTime').value = DEFAULT_START_TIME;
 document.getElementById('hitNum').textContent = Math.floor(Math.random() * 9000 + 1000);
 
 // ===================================================================
 // DROPDOWN DATA STORES
 // ===================================================================
 let allLists = [];
-let allCampaigns = [];
 let listsLoaded = false;
-let campaignsLoaded = false;
 let currentSessionId = null;
 const HUBSPOT_PORTAL_ID = '{{ hubspot_portal_id }}';
 
 // Live stats tracking
 let liveProcessed = 0, livePrepared = 0, liveSkipped = 0;
+
+// Whether the run reached a terminal event. A stream that dies part way
+// through ends exactly like one that finished, so without this the page keeps
+// the progress bar up forever and says nothing. That is what a server-side
+// crash looked like from the BDR's chair.
+let streamSettled = false;
+
+function reportUnfinishedStream() {
+    if (streamSettled) return;
+    streamSettled = true;
+    showError('The run stopped before the route was ready.',
+        'The connection closed with no result. The work up to that point is saved. '
+        + 'Run it again to pick up where it stopped.');
+    document.getElementById('consultBtn').disabled = false;
+    document.getElementById('battleBtn').disabled = false;
+}
 
 // ===================================================================
 // FETCH LISTS ON PAGE LOAD
@@ -2321,25 +1470,7 @@ fetch('/api/lists')
     })
     .catch(err => {
         document.getElementById('segmentList').innerHTML =
-            '<div class="dd-empty">\u26A1 Failed to summon Legions: ' + err.message + '</div>';
-    });
-
-// Fetch campaigns (HubSpot current_campaign_enrollment property options)
-fetch('/api/campaigns')
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) {
-            document.getElementById('campaignList').innerHTML =
-                '<div class="dd-empty">\u26A1 ' + data.error + '</div>';
-            return;
-        }
-        allCampaigns = (data.campaigns || []).map(c => c.label);
-        campaignsLoaded = true;
-        renderDropdown('campaign');
-    })
-    .catch(err => {
-        document.getElementById('campaignList').innerHTML =
-            '<div class="dd-empty">\u26A1 Failed to summon Crusades: ' + err.message + '</div>';
+            '<div class="dd-empty">Could not load your lists: ' + err.message + '</div>';
     });
 
 // ===================================================================
@@ -2354,25 +1485,16 @@ function renderDropdown(which) {
         if (!listsLoaded) return;
         const filtered = allLists.filter(l => l.name.toLowerCase().includes(filter));
         if (filtered.length === 0) {
-            listEl.innerHTML = '<div class="dd-empty">No Legions match thy search</div>';
+            listEl.innerHTML = '<div class="dd-empty">No lists match that search</div>';
             return;
         }
+        // List names come from HubSpot and land in an attribute. Same class of
+        // bug as the card buttons: escape the value, and read it back from the
+        // dataset rather than interpolating it into executable markup.
         listEl.innerHTML = filtered.map(l =>
-            `<div class="dd-item" onclick="selectDropdown('segment','${l.name.replace(/'/g,"\\'")}')">
-                <span>${l.name}</span>
-                <span class="dd-size">${l.size} warriors &bull; ${l.type}</span>
-            </div>`
-        ).join('');
-    } else if (which === 'campaign') {
-        if (!campaignsLoaded) return;
-        const filtered = allCampaigns.filter(c => c.toLowerCase().includes(filter));
-        if (filtered.length === 0) {
-            listEl.innerHTML = '<div class="dd-empty">No Crusades match. Thou may type a new name.</div>';
-            return;
-        }
-        listEl.innerHTML = filtered.map(c =>
-            `<div class="dd-item" onclick="selectDropdown('campaign','${c.replace(/'/g,"\\'")}')">
-                <span>${c}</span>
+            `<div class="dd-item" data-pick="segment" data-value="${escapeHtml(l.name)}">
+                <span>${escapeHtml(l.name)}</span>
+                <span class="dd-size">${escapeHtml(String(l.size))} contacts &bull; ${escapeHtml(l.type)}</span>
             </div>`
         ).join('');
     }
@@ -2402,7 +1524,7 @@ function selectDropdown(which, value) {
 
 // Close dropdowns when clicking outside
 document.addEventListener('click', function(e) {
-    ['segment', 'campaign'].forEach(which => {
+    ['segment'].forEach(which => {
         const dd = document.getElementById(which + 'Dropdown');
         if (dd && !dd.contains(e.target)) {
             dd.classList.remove('open');
@@ -2412,14 +1534,12 @@ document.addEventListener('click', function(e) {
 
 // Close on blur (with delay for click to register)
 document.getElementById('segmentInput').addEventListener('blur', () => closeDropdown('segment'));
-document.getElementById('campaignInput').addEventListener('blur', () => closeDropdown('campaign'));
 
 // ===================================================================
 // ERROR OVERLAY
 // ===================================================================
 function showError(msg, detail) {
-    zeusFlash();
-    document.getElementById('errorMsg').textContent = msg || 'An unknown force has disrupted the Oracle\'s vision.';
+    document.getElementById('errorMsg').textContent = msg || 'Something went wrong.';
     document.getElementById('errorDetail').textContent = detail || '';
     document.getElementById('errorDetail').style.display = detail ? 'block' : 'none';
     document.getElementById('errorOverlay').classList.add('visible');
@@ -2438,13 +1558,14 @@ function log(box, cls, msg) {
     const el = document.getElementById(box);
     const entry = document.createElement('div');
     entry.className = 'log-entry ' + cls;
+    // Climbing theme, matching the mountain hero.
     const icons = {
-        status: '\u2604\uFE0F',
-        skip: '\u274C',
-        generating: '\uD83D\uDD2E',
-        done: '\u2694\uFE0F',
-        error: '\u26A1',
-        warn: '\u26A0\uFE0F',
+        status: '\uD83E\uDDED',      // compass: routing the day
+        skip: '\u21AA\uFE0F',        // arrow: stepped past this one
+        generating: '\uD83D\uDDFA\uFE0F', // map: drawing the script
+        done: '\uD83E\uDD7E',        // boot: another step taken
+        error: '\u26D4',              // no entry
+        warn: '\u26A0\uFE0F',        // warning
     };
     entry.textContent = (icons[cls] || '\u25B6') + ' ' + msg;
     el.appendChild(entry);
@@ -2452,21 +1573,22 @@ function log(box, cls, msg) {
 }
 
 // ===================================================================
-// CONSULT THE ORACLE (generate)
+// BUILD TODAY'S LIST (generate)
 // ===================================================================
 function consultTheOracle() {
     const segment = document.getElementById('segmentInput').value.trim();
-    const campaign = document.getElementById('campaignInput').value.trim();
     const callingDate = document.getElementById('callingDate').value;
+    const callingTime = document.getElementById('callingTime').value || DEFAULT_START_TIME;
     const skipExisting = document.getElementById('skipExisting').checked;
 
-    if (!segment || !campaign) {
-        showError('The Oracle demands both a Legion and a Crusade name!', 'Fill in all required fields before consulting the Oracle.');
+    if (!segment) {
+        showError('Pick a call list first.', 'The call list is the only required field.');
         return;
     }
 
     // Reset live stats
     liveProcessed = 0; livePrepared = 0; liveSkipped = 0;
+    streamSettled = false;
     document.getElementById('lsProcessed').textContent = '0';
     document.getElementById('lsPrepared').textContent = '0';
     document.getElementById('lsSkipped').textContent = '0';
@@ -2480,7 +1602,7 @@ function consultTheOracle() {
     document.getElementById('logBox').innerHTML = '';
     document.getElementById('progressBar').style.width = '0%';
     document.getElementById('progressText').textContent = '0%';
-    document.getElementById('currentAction').textContent = 'Awakening the Oracle...';
+    document.getElementById('currentAction').textContent = 'Starting up...';
     document.getElementById('currentActionSub').textContent = '';
 
     // Scroll to progress
@@ -2494,14 +1616,15 @@ function consultTheOracle() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             segment: segment,
-            campaign: campaign,
+            target: parseInt(document.getElementById('callTarget').value) || 50,
             calling_date: callingDate,
+            calling_time: callingTime,
             skip_existing: skipExisting,
         }),
     }).then(response => {
         if (!response.ok) {
             return response.json().then(d => {
-                showError(d.error || 'The Oracle refuses to speak.', 'HTTP ' + response.status);
+                showError(d.error || 'Could not build the route plan.', 'HTTP ' + response.status);
                 throw new Error('stop');
             });
         }
@@ -2519,6 +1642,7 @@ function consultTheOracle() {
                             handleMessage(msg);
                         } catch(e) {}
                     }
+                    reportUnfinishedStream();
                     return;
                 }
                 buffer += decoder.decode(value, {stream: true});
@@ -2545,7 +1669,7 @@ function consultTheOracle() {
         read();
     }).catch(err => {
         if (err.message !== 'stop') {
-            showError('A catastrophic disturbance in the ether!', err.message);
+            showError('The connection dropped.', err.message);
         }
     });
 }
@@ -2555,16 +1679,17 @@ function consultTheOracle() {
 // ===================================================================
 function prepareForBattle() {
     const segment = document.getElementById('segmentInput').value.trim();
-    const campaign = document.getElementById('campaignInput').value.trim();
     const callingDate = document.getElementById('callingDate').value;
+    const callingTime = document.getElementById('callingTime').value || DEFAULT_START_TIME;
 
-    if (!segment || !campaign) {
-        showError('The battle requires both a Legion and a Crusade name!', 'Fill in all required fields.');
+    if (!segment) {
+        showError('Pick a call list first.', 'The call list is the only required field.');
         return;
     }
 
     // Reset live stats
     liveProcessed = 0; livePrepared = 0; liveSkipped = 0;
+    streamSettled = false;
     document.getElementById('lsProcessed').textContent = '0';
     document.getElementById('lsPrepared').textContent = '0';
     document.getElementById('lsSkipped').textContent = '0';
@@ -2589,13 +1714,14 @@ function prepareForBattle() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             segment: segment,
-            campaign: campaign,
+            target: parseInt(document.getElementById('callTarget').value) || 50,
             calling_date: callingDate,
+            calling_time: callingTime,
         }),
     }).then(response => {
         if (!response.ok) {
             return response.json().then(d => {
-                showError(d.error || 'The battle cannot begin.', 'HTTP ' + response.status);
+                showError(d.error || "Could not load today's climb.", 'HTTP ' + response.status);
                 throw new Error('stop');
             });
         }
@@ -2612,6 +1738,7 @@ function prepareForBattle() {
                             handleMessage(msg);
                         } catch(e) {}
                     }
+                    reportUnfinishedStream();
                     return;
                 }
                 buffer += decoder.decode(value, {stream: true});
@@ -2634,7 +1761,7 @@ function prepareForBattle() {
         read();
     }).catch(err => {
         if (err.message !== 'stop') {
-            showError('A catastrophic disturbance in the ether!', err.message);
+            showError('The connection dropped.', err.message);
         }
     });
 }
@@ -2645,6 +1772,11 @@ function prepareForBattle() {
 function handleMessage(msg) {
     const t = msg.type;
 
+    // The three types that end a run. Anything else is progress.
+    if (t === 'complete' || t === 'error' || t === 'done') {
+        streamSettled = true;
+    }
+
     if (t === 'status') {
         log('logBox', 'status', msg.msg);
         document.getElementById('currentAction').textContent = msg.msg;
@@ -2654,25 +1786,29 @@ function handleMessage(msg) {
         const pct = Math.round((msg.current / msg.total) * 100);
         document.getElementById('progressBar').style.width = pct + '%';
         document.getElementById('progressText').textContent = pct + '%';
-        document.getElementById('currentAction').textContent = 'Evaluating ' + msg.name;
-        document.getElementById('currentActionSub').textContent = 'Warrior ' + msg.current + ' of ' + msg.total;
+        document.getElementById('currentAction').textContent = 'Checking ' + msg.name;
+        // Two numbers, because they answer different questions: how close am I
+        // to the target, and how far through the list did that take.
+        document.getElementById('currentActionSub').textContent =
+            msg.current + ' of ' + msg.total + ' calls'
+            + (msg.scanned ? '  \u00b7  scanned ' + msg.scanned + ' of ' + msg.scanned_total : '');
     } else if (t === 'skip') {
         liveSkipped++;
         document.getElementById('lsSkipped').textContent = liveSkipped;
-        log('logBox', 'skip', msg.name + ' \u2014 ' + msg.reason);
+        log('logBox', 'skip', msg.name + ': ' + msg.reason);
     } else if (t === 'generating') {
-        document.getElementById('currentAction').textContent = '\uD83D\uDD2E The Oracle speaks prophecy for ' + msg.name + '...';
+        document.getElementById('currentAction').textContent = 'Writing the script for ' + msg.name + '...';
         document.getElementById('currentActionSub').textContent = msg.company;
         document.getElementById('oracleEye').textContent = '\uD83D\uDD2E';
-        log('logBox', 'generating', 'The Oracle speaks prophecy for ' + msg.name + ' at ' + msg.company + '...');
+        log('logBox', 'generating', 'Writing the script for ' + msg.name + ' at ' + msg.company + '...');
     } else if (t === 'done_contact') {
         livePrepared++;
         document.getElementById('lsPrepared').textContent = livePrepared;
         document.getElementById('oracleEye').textContent = '\uD83D\uDC40';
         if (msg.cached) {
-            log('logBox', 'done', msg.name + ' at ' + msg.company + ' [' + msg.tz + '] \u2014 RECALLED FROM MEMORY \uD83E\udDE0');
+            log('logBox', 'done', msg.name + ' at ' + msg.company + ' [' + msg.tz + '] script reused');
         } else {
-            log('logBox', 'done', msg.name + ' at ' + msg.company + ' [' + msg.tz + '] \u2014 PROPHECY RECEIVED');
+            log('logBox', 'done', msg.name + ' at ' + msg.company + ' [' + msg.tz + '] script ready');
             zeusFlash(); // Mini flash per completed contact (only for fresh ones)
         }
     } else if (t === 'error_contact') {
@@ -2693,7 +1829,7 @@ function handleMessage(msg) {
         if (msg.session_id && msg.stats.prepped > 0) {
             zeusFlash();
             // Fetch full session data from API (too large for SSE)
-            document.getElementById('currentAction').textContent = 'Loading battle plan...';
+            document.getElementById('currentAction').textContent = 'Loading the call list...';
             fetch('/api/session/' + msg.session_id)
                 .then(r => r.json())
                 .then(sessionData => {
@@ -2703,13 +1839,13 @@ function handleMessage(msg) {
                     renderReview(sessionData);
                 })
                 .catch(err => {
-                    showError('Failed to load the battle plan!', err.message);
+                    showError("Could not load today's climb.", err.message);
                     document.getElementById('consultBtn').disabled = false;
                     document.getElementById('battleBtn').disabled = false;
                 });
         } else {
-            showError('No warriors qualified for battle.',
-                'Check your Legion and filters. Make sure contacts have outbound emails.');
+            showError('No contacts are ready to call.',
+                'Everyone on the list was filtered out. Check the skip reasons above.');
             document.getElementById('consultBtn').disabled = false;
             document.getElementById('battleBtn').disabled = false;
         }
@@ -2720,22 +1856,46 @@ function handleMessage(msg) {
 // RENDER REVIEW
 // ===================================================================
 function renderReview(data) {
+    // The day and start time this plan is for. It goes onto every prep note,
+    // so the BDR sees it before pressing START THE CLIMB.
+    const stampEl = document.getElementById('planStamp');
+    if (data.plan_stamp) {
+        stampEl.innerHTML = 'Planned for <strong>' + escapeHtml(data.plan_stamp) + '</strong>';
+        stampEl.style.display = 'block';
+    } else {
+        stampEl.style.display = 'none';
+    }
+
     // Stats
     const stats = data.stats;
     const cachedCount = stats.skipped_cached || 0;
-    const noEmail = stats.skipped_no_email || 0;
+    const noSource = stats.no_source_email || 0;
+    const recentCall = stats.skipped_recent_call || 0;
+    const accountCap = stats.skipped_account_cap || 0;
     const subscribers = stats.skipped_subscriber || 0;
     const existing = stats.skipped_existing || 0;
+    const leftCompany = stats.skipped_left_company || 0;
+    const international = stats.skipped_international || 0;
     const errors = stats.errors || 0;
     let statsHtml = `
-        <div class="stat-item"><div class="stat-num">${stats.total || 0}</div><div class="stat-label">In the Legion</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#00FF00">${stats.prepped || 0}</div><div class="stat-label">Prepared for Battle</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#808080">${noEmail}</div><div class="stat-label">No Herald Sent</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#FF6B6B">${subscribers}</div><div class="stat-label">Already Conquered</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#666">${existing}</div><div class="stat-label">Already Anointed</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#FF0000">${errors}</div><div class="stat-label">Thunderbolts</div></div>`;
+        <div class="stat-item"><div class="stat-num">${stats.total || 0}</div><div class="stat-label">In the list</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--green-bright)">${stats.prepped || 0}</div><div class="stat-label">On today's climb</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--amber)">${recentCall}</div><div class="stat-label">Called too recently</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--amber)">${accountCap}</div><div class="stat-label">Account already covered</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--muted)">${subscribers}</div><div class="stat-label">Already a customer</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--muted)">${existing}</div><div class="stat-label">Already prepped</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--slate)">${leftCompany}</div><div class="stat-label">Left the company</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--slate)">${international}</div><div class="stat-label">Not a US number</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--orange)">${errors}</div><div class="stat-label">Errors</div></div>`;
+    const notReached = stats.not_reached || 0;
+    if (notReached > 0) {
+        statsHtml += `<div class="stat-item"><div class="stat-num" style="color:var(--slate)">${notReached}</div><div class="stat-label">Left for another day</div></div>`;
+    }
+    if (noSource > 0) {
+        statsHtml += `<div class="stat-item"><div class="stat-num" style="color:var(--muted)">${noSource}</div><div class="stat-label">Script from profile only</div></div>`;
+    }
     if (cachedCount > 0) {
-        statsHtml += `<div class="stat-item"><div class="stat-num" style="color:#00BFFF">${cachedCount}</div><div class="stat-label">\uD83E\udDE0 Recalled from Memory</div></div>`;
+        statsHtml += `<div class="stat-item"><div class="stat-num" style="color:var(--slate)">${cachedCount}</div><div class="stat-label">Reused from earlier</div></div>`;
     }
     document.getElementById('statsBox').innerHTML = statsHtml;
 
@@ -2762,7 +1922,7 @@ function renderReview(data) {
                 'Descend not into Hades\' domain. Use this time for: voicemail follow-ups, email responses, admin tasks, sharpening thy sword for the afternoon assault.' +
                 '</div>';
         } else if (block.contacts.length === 0) {
-            sheetHtml += '<div class="empty-block">No warriors stationed in this realm</div>';
+            sheetHtml += '<div class="empty-block">Nobody in this time zone</div>';
         } else {
             sheetHtml += '<div class="time-block-body">';
             for (const c of block.contacts) {
@@ -2785,7 +1945,7 @@ function renderReview(data) {
     // Unknown TZ
     if (data.unknown_tz && data.unknown_tz.length > 0) {
         let unknownHtml = '<div class="unknown-tz-block">' +
-            '<div class="time-block-header">\u26A0\uFE0F LOST IN THE LABYRINTH - Unknown Time Zone (verify manually before calling)</div>' +
+            '<div class="time-block-header">\uD83E\uDDED Unknown time zone (verify manually before calling)</div>' +
             '<div class="time-block-body">';
         for (const c of data.unknown_tz) {
             const unkHsUrl = 'https://app.hubspot.com/contacts/' + HUBSPOT_PORTAL_ID + '/record/0-1/' + encodeURIComponent(c.contact_id);
@@ -2804,7 +1964,7 @@ function renderReview(data) {
 
     // Show sections
     document.getElementById('reviewSection').style.display = 'block';
-    // Quick mode: no approve/Kraken step (call sheet only, no HubSpot writes)
+    // Quick mode: no approve step (call sheet only, no HubSpot writes)
     if (data.quick_mode) {
         document.getElementById('approveSection').style.display = 'none';
         document.getElementById('consultBtn').disabled = false;
@@ -2812,9 +1972,6 @@ function renderReview(data) {
     } else {
         document.getElementById('approveSection').style.display = 'block';
     }
-
-    // Always show VM follow-up button when call sheet is rendered
-    document.getElementById('vmFollowupSection').style.display = 'block';
 
     // Scroll to review
     document.getElementById('reviewSection').scrollIntoView({behavior: 'smooth'});
@@ -2824,11 +1981,11 @@ function renderReview(data) {
 }
 
 // ===================================================================
-// RELEASE THE KRAKEN (approve)
+// START THE CLIMB (write prep notes)
 // ===================================================================
 function releaseTheKraken() {
     if (!currentSessionId) {
-        showError('No session to approve!', 'Generate a battle plan first.');
+        showError('Nothing to approve yet.', 'Build a route plan first.');
         return;
     }
 
@@ -2846,7 +2003,7 @@ function releaseTheKraken() {
         .then(response => {
             if (!response.ok) {
                 return response.json().then(d => {
-                    showError(d.error || 'The Kraken refuses to write.', 'HTTP ' + response.status);
+                    showError(d.error || 'Could not write the prep notes to HubSpot.', 'HTTP ' + response.status);
                     throw new Error('stop');
                 });
             }
@@ -2898,16 +2055,16 @@ function handleWriteMessage(msg) {
         const pct = Math.round((msg.current / msg.total) * 100);
         document.getElementById('writeProgressBar').style.width = pct + '%';
         document.getElementById('writeProgressText').textContent =
-            'Inscribing scroll ' + msg.current + ' of ' + msg.total;
-        log('writeLogBox', 'done', 'Sacred scroll inscribed for ' + msg.name + '!');
+            'Writing note ' + msg.current + ' of ' + msg.total;
+        log('writeLogBox', 'done', 'Prep note written for ' + msg.name);
     } else if (msg.type === 'error_contact') {
         log('writeLogBox', 'error', msg.name + ' \u2014 ' + msg.msg);
     } else if (msg.type === 'approved_complete') {
         zeusFlash();
         document.getElementById('writeProgressBar').style.width = '100%';
-        document.getElementById('writeProgressText').textContent = 'ALL SCROLLS INSCRIBED!';
+        document.getElementById('writeProgressText').textContent = 'ALL PREP NOTES WRITTEN';
         log('writeLogBox', 'status', msg.msg);
-        log('writeLogBox', 'status', '\uD83C\uDFC6 THE ORACLE HAS SPOKEN. GO FORTH AND CONQUER! \uD83C\uDFC6');
+        log('writeLogBox', 'done', 'Prep notes are in HubSpot. Head to Today\'s Climb.');
 
         // Reset form
         document.getElementById('consultBtn').disabled = false;
@@ -2917,119 +2074,16 @@ function handleWriteMessage(msg) {
 }
 
 // ===================================================================
-// PUSH VM FOLLOW-UPS (Hermes dispatch)
-// ===================================================================
-function pushVmFollowups() {
-    if (!currentSessionId) {
-        showError('No session!', 'Generate a call sheet first.');
-        return;
-    }
-
-    if (!confirm('Push VM follow-up emails for all voicemails left today? This will generate emails via Claude and push them to SuperSend.')) {
-        return;
-    }
-
-    zeusFlash();
-    document.getElementById('vmFollowupBtn').disabled = true;
-    document.getElementById('vmFollowupProgress').style.display = 'block';
-    document.getElementById('vmLogBox').innerHTML = '';
-    document.getElementById('vmProgressBar').style.width = '0%';
-    document.getElementById('vmProgressText').textContent = 'Scanning calls...';
-
-    document.getElementById('vmFollowupProgress').scrollIntoView({behavior: 'smooth'});
-
-    fetch('/api/vm-followup/' + currentSessionId, {method: 'POST'})
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(d => {
-                    showError(d.error || 'VM follow-up failed.', 'HTTP ' + response.status);
-                    document.getElementById('vmFollowupBtn').disabled = false;
-                    throw new Error('stop');
-                });
-            }
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            function read() {
-                reader.read().then(({done, value}) => {
-                    if (done) {
-                        if (buffer.startsWith('data: ')) {
-                            try {
-                                const msg = JSON.parse(buffer.substring(6));
-                                handleVmMessage(msg);
-                            } catch(e) {}
-                        }
-                        return;
-                    }
-                    buffer += decoder.decode(value, {stream: true});
-                    const events = buffer.split('\n\n');
-                    buffer = events.pop() || '';
-                    for (const event of events) {
-                        const trimmed = event.trim();
-                        if (trimmed.startsWith('data: ')) {
-                            try {
-                                const msg = JSON.parse(trimmed.substring(6));
-                                handleVmMessage(msg);
-                            } catch(e) {
-                                console.warn('SSE parse error:', e.message);
-                            }
-                        }
-                    }
-                    read();
-                });
-            }
-            read();
-        }).catch(err => {
-            if (err.message !== 'stop') {
-                showError('VM follow-up dispatch failed!', err.message);
-                document.getElementById('vmFollowupBtn').disabled = false;
-            }
-        });
-}
-
-function handleVmMessage(msg) {
-    if (msg.type === 'status') {
-        log('vmLogBox', 'status', msg.msg);
-    } else if (msg.type === 'progress') {
-        const pct = Math.round((msg.current / msg.total) * 100);
-        document.getElementById('vmProgressBar').style.width = pct + '%';
-        document.getElementById('vmProgressText').textContent =
-            'Processing ' + msg.current + ' of ' + msg.total + ' \u2014 ' + msg.name;
-    } else if (msg.type === 'generating') {
-        log('vmLogBox', 'status', 'Claude generates follow-up for ' + msg.name + ' at ' + msg.company + '...');
-    } else if (msg.type === 'done_contact') {
-        log('vmLogBox', 'done', msg.name + ' (' + msg.disposition + ') \u2014 follow-up pushed! (' + msg.email_length + ' chars)');
-        zeusFlash();
-    } else if (msg.type === 'skip') {
-        log('vmLogBox', 'status', '\u23E9 ' + msg.name + ' \u2014 ' + msg.reason);
-    } else if (msg.type === 'error_contact') {
-        log('vmLogBox', 'error', msg.name + ' \u2014 ' + msg.msg);
-    } else if (msg.type === 'warn') {
-        log('vmLogBox', 'status', '\u26A0\uFE0F ' + msg.name + ' \u2014 ' + msg.msg);
-    } else if (msg.type === 'error') {
-        log('vmLogBox', 'error', msg.msg);
-    } else if (msg.type === 'vm_followup_complete') {
-        zeusFlash();
-        document.getElementById('vmProgressBar').style.width = '100%';
-        document.getElementById('vmProgressText').textContent = 'DISPATCH COMPLETE';
-        log('vmLogBox', 'status', msg.msg);
-        log('vmLogBox', 'done', '\uD83C\uDFC6 Hermes has delivered! Go forth and conquer! \uD83C\uDFC6');
-        document.getElementById('vmFollowupBtn').disabled = false;
-    }
-}
-
-// ===================================================================
 // BANISH TO TARTARUS (discard)
 // ===================================================================
 function banishToTartarus() {
     if (!currentSessionId) return;
-    if (!confirm('Art thou certain? The scrolls shall be destroyed and the prophecies lost forever!')) return;
+    if (!confirm('Discard this route plan? The generated scripts will be lost.')) return;
 
     fetch('/discard/' + currentSessionId, {method: 'POST'})
         .then(r => r.json())
         .then(data => {
-            showError('Banished to Tartarus!', data.msg || 'The scrolls have been destroyed.');
+            showError('Discarded.', data.msg || 'The prep notes were removed.');
             document.getElementById('reviewSection').style.display = 'none';
             document.getElementById('approveSection').style.display = 'none';
             document.getElementById('consultBtn').disabled = false;
@@ -3060,7 +2114,7 @@ function refreshBattleStatus() {
     });
 
     if (contactIds.length === 0) {
-        refreshStatus.textContent = 'No warriors to check.';
+        refreshStatus.textContent = 'Nobody to check.';
         refreshBtn.disabled = false;
         return;
     }
@@ -3206,19 +2260,19 @@ function handleCleanupMsg(msg) {
         if (msg.remove > 0) {
             manifest.innerHTML += '<div class="cleanup-row">' +
                 '<span class="cname">' + escapeHtml(msg.name) + '</span>' +
-                '<span>' + msg.found + ' notes found — ' +
+                '<span>' + msg.found + ' notes found · ' +
                 '<span class="ckeep">' + msg.keep + ' keep</span>, ' +
                 '<span class="cremove">' + msg.remove + ' remove</span></span></div>';
         } else if (msg.found > 1) {
             manifest.innerHTML += '<div class="cleanup-row">' +
                 '<span class="cname">' + escapeHtml(msg.name) + '</span>' +
-                '<span>' + msg.found + ' notes — <span class="ckeep">all match</span></span></div>';
+                '<span>' + msg.found + ' notes · <span class="ckeep">all match</span></span></div>';
         }
         // Skip contacts with 0-1 notes (nothing to clean)
     } else if (t === 'error_contact') {
         const lb = document.getElementById('cleanupLogBox');
         lb.style.display = 'block';
-        log('cleanupLogBox', 'error', msg.name + ' — ' + msg.msg);
+        log('cleanupLogBox', 'error', msg.name + ' · ' + msg.msg);
     } else if (t === 'scan_complete') {
         document.getElementById('cleanupProgressBar').style.width = '100%';
         document.getElementById('cleanupProgressText').textContent = 'Scan complete!';
@@ -3227,11 +2281,11 @@ function handleCleanupMsg(msg) {
         summary.style.display = 'block';
 
         if (msg.removing === 0) {
-            summary.innerHTML = '&#9989; <strong>No false scrolls found!</strong> All notes are clean. Athena approves.';
+            summary.innerHTML = '&#9989; <strong>Nothing to clean up.</strong> No stale prep notes found.';
             document.getElementById('cleanupBtn').disabled = false;
         } else {
-            summary.innerHTML = '&#9876;&#65039; Found <strong style="color:#FF6B6B">' + msg.removing + '</strong> false scrolls to purge. ' +
-                '<strong style="color:#00FF00">' + msg.keeping + '</strong> true scrolls will be preserved.';
+            summary.innerHTML = 'Found <strong style="color:var(--orange)">' + msg.removing + '</strong> stale prep notes to remove. ' +
+                '<strong style="color:#00FF00">' + msg.keeping + '</strong> current notes will be kept.';
             document.getElementById('cleanupButtons').style.display = 'flex';
         }
     }
@@ -3302,9 +2356,9 @@ function handleSmiteMsg(msg) {
         const pct = Math.round((msg.current / msg.total) * 100);
         document.getElementById('cleanupProgressBar').style.width = pct + '%';
         document.getElementById('cleanupProgressText').textContent = 'Smiting... (' + msg.current + '/' + msg.total + ')';
-        log('cleanupLogBox', 'done', msg.name + ' — note ' + msg.note_id + ' archived');
+        log('cleanupLogBox', 'done', msg.name + ' · note ' + msg.note_id + ' archived');
     } else if (t === 'error_contact') {
-        log('cleanupLogBox', 'error', msg.name + ' — ' + msg.msg);
+        log('cleanupLogBox', 'error', msg.name + ' · ' + msg.msg);
     } else if (t === 'cleanup_complete') {
         document.getElementById('cleanupProgressBar').style.width = '100%';
         document.getElementById('cleanupProgressText').textContent = msg.msg;
@@ -3321,730 +2375,118 @@ function cancelCleanup() {
     cleanupSessionId = null;
 }
 
-// ===================================================================
-// THE FORGE — Campaign Pipeline JavaScript
-// ===================================================================
-let forgeSessionId = null;
-let forgeCampaigns = [];
-let forgeCampaignsLoaded = false;
-let selectedForgeCampaign = null;
-let forgeBriefData = null;
-let forgeCurrentStage = 1;
-let forgePollingInterval = null;
-let manualDomains = [];
 let battlePlanLoaded = false;
 let battleData = null;
 
 // ===== VIEW TOGGLE =====
 function switchView(view) {
     const oracleView = document.getElementById('oracleView');
-    const forgeView = document.getElementById('forgeView');
     const battleView = document.getElementById('battleView');
     const oracleBtn = document.getElementById('oracleToggle');
-    const forgeBtn = document.getElementById('forgeToggle');
     const battleBtn = document.getElementById('battleToggle');
 
-    // Hide all + stop forge polling
     oracleView.style.display = 'none';
-    forgeView.style.display = 'none';
     battleView.style.display = 'none';
     oracleBtn.classList.remove('active');
-    forgeBtn.classList.remove('active');
     battleBtn.classList.remove('active');
-    stopForgePolling();
 
-    if (view === 'oracle') {
-        oracleView.style.display = 'block';
-        oracleBtn.classList.add('active');
-    } else if (view === 'forge') {
-        forgeView.style.display = 'block';
-        forgeBtn.classList.add('active');
-        if (!forgeCampaignsLoaded) loadForgeCampaigns();
-    } else if (view === 'battle') {
+    if (view === 'battle') {
         battleView.style.display = 'block';
         battleBtn.classList.add('active');
-        if (!battlePlanLoaded) loadBattlePlan();
+        loadBattlePlan();
+    } else {
+        oracleView.style.display = 'block';
+        oracleBtn.classList.add('active');
+        view = 'oracle';
     }
     localStorage.setItem('activeView', view);
 }
 
-// Restore view from localStorage
-(function() {
-    const saved = localStorage.getItem('activeView');
-    if (saved === 'forge') switchView('forge');
-    else if (saved === 'battle') switchView('battle');
-})();
-
-// ===== FORGE CAMPAIGN DROPDOWN =====
-function loadForgeCampaigns() {
-    const listEl = document.getElementById('forgeCampaignList');
-    listEl.innerHTML = '<div class="dd-loading">&#128296; Fetching campaigns from Notion...</div>';
-
-    fetch('/api/forge/campaigns')
+// ===================================================================
+// UNWRITTEN ROUTE PLAN
+// ===================================================================
+// Generating and writing are two steps, and the write button only ever
+// appeared at the end of a generate stream. currentSessionId lived in memory,
+// so a reload, a tab switch, or a closed laptop lost the only route to it:
+// the scripts sat on disk, finished, and could never reach HubSpot without
+// regenerating from scratch. /api/recoverable-sessions already existed and
+// nothing called it.
+function checkForUnwrittenPlan() {
+    fetch('/api/recoverable-sessions')
         .then(r => r.json())
         .then(data => {
-            if (data.error) {
-                listEl.innerHTML = '<div class="dd-empty">\u26A1 ' + data.error + '</div>';
-                return;
-            }
-            forgeCampaigns = data.campaigns || [];
-            forgeCampaignsLoaded = true;
-            renderForgeDropdown();
+            // A successful write deletes the session file. A complete file
+            // that is still here means the notes never landed.
+            const pending = (data.sessions || [])
+                .filter(x => x.is_complete && x.prepped_count > 0)[0];
+            if (!pending) return;
+
+            document.getElementById('resumeDetail').textContent =
+                pending.segment + ' \u00b7 ' + pending.prepped_count + ' contacts \u00b7 built ' + pending.modified;
+            document.getElementById('resumeBanner').style.display = 'flex';
+
+            document.getElementById('resumeOpenBtn').onclick = function() {
+                document.getElementById('resumeBanner').style.display = 'none';
+                fetch('/api/session/' + pending.session_id)
+                    .then(r => r.json())
+                    .then(sessionData => {
+                        currentSessionId = pending.session_id;
+                        renderReview(sessionData);
+                    })
+                    .catch(err => showError('Could not reopen that route plan.', err.message));
+            };
+
+            document.getElementById('resumeDiscardBtn').onclick = function() {
+                if (!confirm('Discard this route plan? The generated scripts will be lost.')) return;
+                fetch('/discard/' + pending.session_id, {method: 'POST'})
+                    .then(() => { document.getElementById('resumeBanner').style.display = 'none'; })
+                    .catch(err => showError('Could not discard it.', err.message));
+            };
         })
-        .catch(err => {
-            listEl.innerHTML = '<div class="dd-empty">\u26A1 Failed: ' + err.message + '</div>';
-        });
+        .catch(() => {});
 }
 
-function renderForgeDropdown() {
-    const listEl = document.getElementById('forgeCampaignList');
-    const filter = document.getElementById('forgeCampaignInput').value.toLowerCase();
-    const filtered = forgeCampaigns.filter(c => c.title.toLowerCase().includes(filter));
-
-    if (!forgeCampaignsLoaded) return;
-    if (filtered.length === 0) {
-        listEl.innerHTML = '<div class="dd-empty">No campaigns found in Notion</div>';
-        return;
-    }
-    listEl.innerHTML = filtered.map(c =>
-        '<div class="dd-item" onclick="selectForgeCampaign(\'' + c.id.replace(/'/g, "\\'") + '\',\'' + c.title.replace(/'/g, "\\'") + '\')">' +
-        '<span>' + c.title + '</span>' +
-        '</div>'
-    ).join('');
-}
-
-function openForgeDropdown() {
-    document.getElementById('forgeCampaignDropdown').classList.add('open');
-    if (!forgeCampaignsLoaded) loadForgeCampaigns();
-    else renderForgeDropdown();
-}
-
-function filterForgeDropdown() {
-    openForgeDropdown();
-    renderForgeDropdown();
-}
-
-function selectForgeCampaign(id, title) {
-    document.getElementById('forgeCampaignInput').value = title;
-    document.getElementById('forgeCampaignDropdown').classList.remove('open');
-    selectedForgeCampaign = {id: id, title: title};
-
-    // Reset polling and manual domains on campaign change
-    stopForgePolling();
-    manualDomains = [];
-    document.getElementById('forgeAwaiting').style.display = 'none';
-    const manualSec = document.getElementById('manualDomainsSection');
-    if (manualSec) manualSec.style.display = 'none';
-
-    // Fetch the brief
-    const preview = document.getElementById('briefPreview');
-    preview.style.display = 'block';
-    document.getElementById('briefContent').innerHTML = '<span style="color:#666;">Loading campaign brief...</span>';
-
-    fetch('/api/forge/campaign-brief/' + id)
-        .then(r => r.json())
-        .then(data => {
-            if (data.error) {
-                document.getElementById('briefContent').innerHTML = '<span style="color:#FF4444;">' + data.error + '</span>';
-                return;
-            }
-            forgeBriefData = data.brief;
-            renderBriefPreview(data.brief);
-        })
-        .catch(err => {
-            document.getElementById('briefContent').innerHTML = '<span style="color:#FF4444;">Failed: ' + escapeHtml(err.message) + '</span>';
-        });
-}
-
-function renderBriefPreview(brief) {
-    let html = '';
-
-    if (brief.icp) {
-        html += '<h3>&#127919; ICP (Ideal Customer Profile)</h3><p>' + escapeHtml(brief.icp).replace(/\n/g, '<br>') + '</p>';
-    }
-
-    if (brief.personas && brief.personas.length > 0) {
-        html += '<h3>&#128101; Target Personas</h3>';
-        brief.personas.forEach(p => { html += '<p>\u2022 ' + escapeHtml(p) + '</p>'; });
-    }
-
-    if (brief.target_titles && brief.target_titles.length > 0) {
-        html += '<h3>&#127919; Extracted Target Titles</h3>';
-        brief.target_titles.forEach(t => { html += '<span class="brief-tag">' + escapeHtml(t) + '</span>'; });
-    }
-
-    if (brief.company_characteristics) {
-        html += '<h3>&#127970; Company Characteristics</h3><p>' + escapeHtml(brief.company_characteristics).replace(/\n/g, '<br>') + '</p>';
-    }
-
-    if (brief.keywords && brief.keywords.length > 0) {
-        html += '<h3>&#128273; Search Keywords</h3>';
-        brief.keywords.forEach(k => { html += '<span class="brief-tag">' + escapeHtml(k) + '</span>'; });
-    }
-
-    if (brief.value_proposition) {
-        html += '<h3>&#128161; Value Proposition</h3><p>' + escapeHtml(brief.value_proposition).replace(/\n/g, '<br>') + '</p>';
-    }
-
-    // Show all sections
-    const sectionNames = Object.keys(brief.sections || {});
-    const shown = new Set();
-    if (brief.icp) shown.add('icp');
-    sectionNames.forEach(name => {
-        const upper = name.toUpperCase();
-        if (shown.has(name)) return;
-        if (upper.includes('ICP') || upper.includes('PERSONA') || upper.includes('COMPANY CHAR') || upper.includes('VALUE PROP') || upper.includes('MESSAGING')) return;
-        html += '<h3>' + escapeHtml(name) + '</h3><p>' + escapeHtml(brief.sections[name]).replace(/\n/g, '<br>') + '</p>';
-    });
-
-    if (!html) html = '<p style="color:#666;">No structured brief data found. The campaign page may use a different format.</p>';
-
-    document.getElementById('briefContent').innerHTML = html;
-
-    // Populate Domain Arsenal with extracted domains
-    showAwaitingClaude();
-}
-
-// Close forge dropdown on click outside
-document.addEventListener('click', function(e) {
-    const dd = document.getElementById('forgeCampaignDropdown');
-    if (dd && !dd.contains(e.target)) dd.classList.remove('open');
+// Restore view from localStorage.
+// Deferred to DOMContentLoaded on purpose: switchView('battle') calls
+// loadBattlePlan(), which touches `let` bindings declared further down this
+// script. Running it inline hits the temporal dead zone and throws, which
+// left anyone who reloaded straight into Today's Climb with a dead page.
+document.addEventListener('DOMContentLoaded', function() {
+    if (localStorage.getItem('activeView') === 'battle') switchView('battle');
+    checkForUnwrittenPlan();
 });
 
-// ===== STAGE PROGRESSION =====
-function setForgeStage(stage) {
-    forgeCurrentStage = stage;
-    for (let i = 1; i <= 5; i++) {
-        const el = document.getElementById('forgeStage' + i);
-        el.classList.remove('active', 'completed');
-        if (i < stage) el.classList.add('completed');
-        else if (i === stage) el.classList.add('active');
-    }
-}
-
-// ===== FORGE LOG HELPER =====
-function forgeLog(logId, cls, msg) {
-    const el = document.getElementById(logId);
-    const entry = document.createElement('div');
-    entry.className = 'log-entry ' + cls;
-    const icons = {
-        status: '\u2604\uFE0F', skip: '\u274C', generating: '\uD83D\uDD2E',
-        done: '\u2694\uFE0F', error: '\u26A1', qualifying: '\uD83D\uDD0D',
-        found: '\u2705', warn: '\u26A0\uFE0F',
-    };
-    entry.textContent = (icons[cls] || '\u25B6') + ' ' + msg;
-    el.appendChild(entry);
-    el.scrollTop = el.scrollHeight;
-}
-
-// ===== SSE READER HELPER =====
-function readSSE(response, handler) {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    function read() {
-        reader.read().then(({done, value}) => {
-            if (done) {
-                if (buffer.trim().startsWith('data: ')) {
-                    try { handler(JSON.parse(buffer.trim().substring(6))); } catch(e) { console.warn('SSE parse error (final):', e, buffer.trim()); }
-                }
-                return;
-            }
-            buffer += decoder.decode(value, {stream: true});
-            const events = buffer.split('\n\n');
-            buffer = events.pop() || '';
-            for (const event of events) {
-                const trimmed = event.trim();
-                if (trimmed.startsWith('data: ')) {
-                    try { handler(JSON.parse(trimmed.substring(6))); } catch(e) { console.warn('SSE parse error:', e, trimmed); }
-                }
-            }
-            read();
-        });
-    }
-    read();
-}
-
-// ===== QA GATE: Select / Deselect All =====
-function forgeSelectAll(tableId) {
-    document.querySelectorAll('#' + tableId + ' tbody input[type="checkbox"]').forEach(cb => {
-        if (!cb.disabled) cb.checked = true;
-    });
-}
-function forgeDeselectAll(tableId) {
-    document.querySelectorAll('#' + tableId + ' tbody input[type="checkbox"]').forEach(cb => cb.checked = false);
-}
-
-// ===== SCORE BADGE HELPER =====
-function scoreBadge(score) {
-    const cls = score >= 8 ? 'high' : score >= 6 ? 'mid' : 'low';
-    return '<span class="score-badge ' + cls + '">' + score + '/10</span>';
-}
-
-// ===== AWAITING CLAUDE + SESSION POLLING =====
-function showAwaitingClaude() {
-    const panel = document.getElementById('forgeAwaiting');
-    panel.style.display = 'block';
-    document.getElementById('awaitingCampaignName').textContent =
-        selectedForgeCampaign ? '\u2694 ' + selectedForgeCampaign.title : '';
-    panel.scrollIntoView({behavior: 'smooth'});
-    startForgePolling();
-}
-
-function startForgePolling() {
-    stopForgePolling();
-    if (!selectedForgeCampaign) return;
-    checkForForgeSession();   // immediate first check
-    forgePollingInterval = setInterval(checkForForgeSession, 3000);
-}
-
-function stopForgePolling() {
-    if (forgePollingInterval) {
-        clearInterval(forgePollingInterval);
-        forgePollingInterval = null;
-    }
-}
-
-function checkForForgeSession() {
-    if (!selectedForgeCampaign) return;
-    fetch('/api/forge/sessions')
-        .then(r => r.json())
-        .then(data => {
-            const sessions = data.sessions || [];
-            const now = new Date();
-            const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000);
-
-            const match = sessions.find(s =>
-                s.campaign_id === selectedForgeCampaign.id &&
-                s.status === 'domains_ready' &&
-                new Date(s.modified.replace(' ', 'T')) > tenMinAgo
-            );
-            if (match) {
-                stopForgePolling();
-                onSessionDetected(match);
-            }
-        })
-        .catch(err => console.warn('Forge poll error:', err));
-}
-
-function onSessionDetected(session) {
-    forgeSessionId = session.session_id;
-    zeusFlash();
-    const panel = document.getElementById('forgeAwaiting');
-    panel.innerHTML =
-        '<h3 style="color:#00FF00;font-family:\'Cinzel\',serif;">&#9989; ' +
-        session.discovered_domains_count +
-        ' domains discovered by the Oracle. Forging now...</h3>';
-    startProspecting(session.session_id, session.discovered_domains_count);
-}
-
-// ===== MANUAL DOMAIN FALLBACK =====
-function toggleManualDomains(e) {
-    e.preventDefault();
-    const sec = document.getElementById('manualDomainsSection');
-    sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
-}
-
-function addManualDomain() {
-    const input = document.getElementById('domainInput');
-    const val = input.value.trim().toLowerCase()
-        .replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
-    if (!val || manualDomains.includes(val)) { input.value = ''; return; }
-    manualDomains.push(val);
-    input.value = '';
-    renderManualDomainTags();
-}
-
-function removeManualDomain(index) {
-    manualDomains.splice(index, 1);
-    renderManualDomainTags();
-}
-
-function renderManualDomainTags() {
-    const container = document.getElementById('manualDomainTags');
-    if (manualDomains.length === 0) {
-        container.innerHTML = '<span class="domain-arsenal-empty">No domains yet.</span>';
-    } else {
-        container.innerHTML = manualDomains.map((d, i) =>
-            '<span class="domain-tag">' + escapeHtml(d) +
-            ' <span class="domain-remove" onclick="removeManualDomain(' + i + ')">&times;</span></span>'
-        ).join('');
-    }
-    document.getElementById('manualLaunchBtn').disabled = manualDomains.length === 0;
-}
-
-function launchManualForge() {
-    if (manualDomains.length === 0) return;
-    const btn = document.getElementById('manualLaunchBtn');
-    btn.disabled = true;
-    btn.textContent = '\u26A1 Forging...';
-    stopForgePolling();
-
-    const payload = {
-        campaign_id: selectedForgeCampaign ? selectedForgeCampaign.id : 'manual',
-        campaign_name: selectedForgeCampaign ? selectedForgeCampaign.title : 'Manual Forge',
-        domains: manualDomains,
-        brief_summary: forgeBriefData ? (forgeBriefData.icp || '') : '',
-    };
-
-    fetch('/api/forge/start', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload),
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) {
-            showError(data.error);
-            btn.disabled = false;
-            btn.innerHTML = '&#9889; LAUNCH MANUALLY &#9889;';
-            return;
-        }
-        forgeSessionId = data.session_id;
-        startProspecting(data.session_id, manualDomains.length);
-    })
-    .catch(err => {
-        showError('Launch failed: ' + err.message);
-        btn.disabled = false;
-        btn.innerHTML = '&#9889; LAUNCH MANUALLY &#9889;';
-    });
-}
-
-// ===== STAGE 1 → 2: START PROSPECTING =====
-function startProspecting(sessionId, domainCount) {
-    zeusFlash();
-    setForgeStage(2);
-
-    // Update awaiting panel to show transition
-    const awaitPanel = document.getElementById('forgeAwaiting');
-    if (awaitPanel) {
-        awaitPanel.innerHTML = '<h3 style="color:#00FF00;font-family:\'Cinzel\',serif;">&#9989; ' + domainCount + ' domains locked in. Qualifying now...</h3>';
-    }
-
-    // Show Stage 2 section
-    const sec = document.getElementById('forgeStage2Section');
-    sec.style.display = 'block';
-    document.getElementById('forgeProspectLog').innerHTML = '';
-    document.getElementById('forgeProspectResults').style.display = 'none';
-    sec.scrollIntoView({behavior: 'smooth'});
-
-    fetch('/forge/prospect', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            session_id: sessionId,
-        }),
-    }).then(response => {
-        if (!response.ok) {
-            return response.json().then(d => { showError(d.error || 'Qualification failed'); throw new Error('stop'); });
-        }
-        readSSE(response, handleProspectMsg);
-    }).catch(err => {
-        if (err.message !== 'stop') showError('Qualification error', err.message);
-    });
-}
-
-function handleProspectMsg(msg) {
-    const t = msg.type;
-    if (t === 'status') {
-        forgeLog('forgeProspectLog', 'status', msg.msg);
-    } else if (t === 'warn') {
-        forgeLog('forgeProspectLog', 'warn', msg.msg);
-    } else if (t === 'progress') {
-        forgeLog('forgeProspectLog', 'status', 'Researching ' + msg.name + ' (' + msg.current + '/' + msg.total + ')');
-    } else if (t === 'skip') {
-        forgeLog('forgeProspectLog', 'skip', msg.name + ' \u2014 ' + msg.reason);
-    } else if (t === 'company_found') {
-        const icon = msg.qualified ? '\u2705' : '\u26A0\uFE0F';
-        const src = msg.source ? ' [' + msg.source + ']' : '';
-        forgeLog('forgeProspectLog', msg.qualified ? 'done' : 'found',
-            icon + ' ' + msg.name + ' (' + msg.domain + ') \u2014 Score: ' + msg.score + '/10 \u2014 ' + (msg.industry || '') + ' \u2014 ' + (msg.location || '') + src);
-    } else if (t === 'error_contact') {
-        forgeLog('forgeProspectLog', 'error', msg.name + ' \u2014 ' + msg.msg);
-    } else if (t === 'error') {
-        forgeLog('forgeProspectLog', 'error', msg.msg);
-    } else if (t === 'prospect_complete') {
-        forgeSessionId = msg.session_id;
-        forgeLog('forgeProspectLog', 'status', msg.msg);
-        zeusFlash();
-
-        // Populate QA table with company data + scores + source column
-        const tbody = document.getElementById('prospectTableBody');
-        tbody.innerHTML = '';
-        const companies = msg.companies || [];
-        companies.forEach(c => {
-            const checked = c.qualified ? 'checked' : '';
-            tbody.innerHTML += '<tr>' +
-                '<td><input type="checkbox" ' + checked + ' value="' + escapeHtml(c.domain || '') + '"></td>' +
-                '<td>' + escapeHtml(c.name) + '</td>' +
-                '<td>' + escapeHtml(c.domain || '') + '</td>' +
-                '<td>' + escapeHtml(c.industry || '-') + '</td>' +
-                '<td>' + escapeHtml(c.employees || '-') + '</td>' +
-                '<td>' + escapeHtml(c.location || '') + ' <span class="us-badge">US</span></td>' +
-                '<td>' + scoreBadge(c.score || 0) + '</td>' +
-                '<td>' + escapeHtml(c.source || 'qualify') + '</td>' +
-                '</tr>';
-        });
-
-        document.getElementById('forgeProspectResults').style.display = 'block';
-        document.getElementById('forgeProspectResults').scrollIntoView({behavior: 'smooth'});
-    }
-}
-
-// ===== STAGE 2 → 3: ENRICH APPROVED COMPANIES =====
-function enrichCompanies() {
-    if (!forgeSessionId) { showError('No forge session!'); return; }
-
-    const checkboxes = document.querySelectorAll('#prospectTable tbody input[type="checkbox"]:checked');
-    const approvedDomains = Array.from(checkboxes).map(cb => cb.value).filter(v => v);
-
-    if (approvedDomains.length === 0) {
-        showError('Select at least one company!');
-        return;
-    }
-
-    // First, POST approval to backend to save approved domains
-    fetch('/api/forge/approve-stage', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            session_id: forgeSessionId,
-            stage: 2,
-            approved_domains: approvedDomains,
-        }),
-    }).then(r => r.json()).then(data => {
-        if (data.error) { showError(data.error); return; }
-
-        zeusFlash();
-        document.getElementById('enrichCompaniesBtn').disabled = true;
-        setForgeStage(3);
-
-        const sec = document.getElementById('forgeStage3Section');
-        sec.style.display = 'block';
-        document.getElementById('forgeEnrichCompanyLog').innerHTML = '';
-        document.getElementById('forgeEnrichCompanyResults').style.display = 'none';
-        sec.scrollIntoView({behavior: 'smooth'});
-
-        fetch('/forge/enrich-companies', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                session_id: forgeSessionId,
-                approved_domains: approvedDomains,
-            }),
-        }).then(response => {
-            if (!response.ok) {
-                return response.json().then(d => { showError(d.error || 'Enrichment failed'); throw new Error('stop'); });
-            }
-            readSSE(response, handleEnrichCompanyMsg);
-        }).catch(err => {
-            if (err.message !== 'stop') showError('Enrichment error', err.message);
-        });
-    }).catch(err => showError('Approval error', err.message));
-}
-
-function handleEnrichCompanyMsg(msg) {
-    const t = msg.type;
-    if (t === 'status') {
-        forgeLog('forgeEnrichCompanyLog', 'status', msg.msg);
-    } else if (t === 'progress') {
-        forgeLog('forgeEnrichCompanyLog', 'qualifying', 'Enriching ' + msg.name + ' (' + msg.current + '/' + msg.total + ')...');
-    } else if (t === 'company_enriched') {
-        forgeLog('forgeEnrichCompanyLog', 'done',
-            '\u2705 ' + msg.name + ' (' + msg.domain + ') \u2014 ' + (msg.industry || '') + ' \u2014 enriched');
-    } else if (t === 'error_contact') {
-        forgeLog('forgeEnrichCompanyLog', 'error', msg.name + ' \u2014 ' + msg.msg);
-    } else if (t === 'error') {
-        forgeLog('forgeEnrichCompanyLog', 'error', msg.msg);
-    } else if (t === 'enrich_companies_complete') {
-        forgeLog('forgeEnrichCompanyLog', 'status', msg.msg);
-        zeusFlash();
-
-        const tbody = document.getElementById('enrichCompanyTableBody');
-        tbody.innerHTML = '';
-        const companies = msg.companies || [];
-        companies.forEach(c => {
-            const summary = (c.enrichment_summary || c.summary || c.description || '').substring(0, 200);
-            tbody.innerHTML += '<tr>' +
-                '<td><input type="checkbox" checked value="' + escapeHtml(c.domain || '') + '"></td>' +
-                '<td>' + escapeHtml(c.name || '') + '</td>' +
-                '<td>' + escapeHtml(c.domain || '') + '</td>' +
-                '<td>' + escapeHtml(c.industry || '-') + '</td>' +
-                '<td>' + scoreBadge(c.score || 0) + '</td>' +
-                '<td><span class="reasoning-text">' + escapeHtml(summary) + '</span></td>' +
-                '</tr>';
-        });
-
-        document.getElementById('forgeEnrichCompanyResults').style.display = 'block';
-        document.getElementById('forgeEnrichCompanyResults').scrollIntoView({behavior: 'smooth'});
-    }
-}
-
-// ===== STAGE 3 → 4: DISCOVER & ENRICH PEOPLE =====
-function discoverEnrichPeople() {
-    if (!forgeSessionId) { showError('No forge session!'); return; }
-
-    const checkboxes = document.querySelectorAll('#enrichCompanyTable tbody input[type="checkbox"]:checked');
-    const approvedDomains = Array.from(checkboxes).map(cb => cb.value).filter(v => v);
-
-    if (approvedDomains.length === 0) {
-        showError('Select at least one enriched company!');
-        return;
-    }
-
-    // POST approval for stage 3
-    fetch('/api/forge/approve-stage', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            session_id: forgeSessionId,
-            stage: 3,
-            approved_enriched_domains: approvedDomains,
-        }),
-    }).then(r => r.json()).then(data => {
-        if (data.error) { showError(data.error); return; }
-
-        zeusFlash();
-        document.getElementById('discoverPeopleBtn').disabled = true;
-        setForgeStage(4);
-
-        const sec = document.getElementById('forgeStage4Section');
-        sec.style.display = 'block';
-        document.getElementById('forgeDiscoverPeopleLog').innerHTML = '';
-        document.getElementById('forgeDiscoverPeopleResults').style.display = 'none';
-        sec.scrollIntoView({behavior: 'smooth'});
-
-        fetch('/forge/discover-enrich-people', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                session_id: forgeSessionId,
-                approved_enriched_domains: approvedDomains,
-            }),
-        }).then(response => {
-            if (!response.ok) {
-                return response.json().then(d => { showError(d.error || 'People discovery failed'); throw new Error('stop'); });
-            }
-            readSSE(response, handleDiscoverPeopleMsg);
-        }).catch(err => {
-            if (err.message !== 'stop') showError('People discovery error', err.message);
-        });
-    }).catch(err => showError('Approval error', err.message));
-}
-
-function handleDiscoverPeopleMsg(msg) {
-    const t = msg.type;
-    if (t === 'status') {
-        forgeLog('forgeDiscoverPeopleLog', 'status', msg.msg);
-    } else if (t === 'progress') {
-        forgeLog('forgeDiscoverPeopleLog', 'qualifying', msg.msg || ('Processing ' + (msg.name || '') + '...'));
-    } else if (t === 'person_found') {
-        forgeLog('forgeDiscoverPeopleLog', 'found',
-            '\uD83D\uDC64 ' + msg.name + ' (' + (msg.title || '') + ') at ' + (msg.company || ''));
-    } else if (t === 'person_enriched') {
-        forgeLog('forgeDiscoverPeopleLog', 'done',
-            '\u2705 ' + msg.name + ' \u2014 enriched');
-    } else if (t === 'skip') {
-        forgeLog('forgeDiscoverPeopleLog', 'skip', (msg.name || '') + ' \u2014 ' + (msg.reason || ''));
-    } else if (t === 'error_contact') {
-        forgeLog('forgeDiscoverPeopleLog', 'error', (msg.name || '') + ' \u2014 ' + msg.msg);
-    } else if (t === 'error') {
-        forgeLog('forgeDiscoverPeopleLog', 'error', msg.msg);
-    } else if (t === 'people_complete') {
-        forgeLog('forgeDiscoverPeopleLog', 'status', msg.msg);
-        zeusFlash();
-
-        const tbody = document.getElementById('discoverPeopleTableBody');
-        tbody.innerHTML = '';
-        const people = msg.people || [];
-        people.forEach(p => {
-            const summary = (p.summary || p.enrichment_summary || '').substring(0, 200);
-            const identifier = p.email || p.linkedin || p.name;
-            const personData = encodeURIComponent(JSON.stringify({name: p.name, email: p.email, company: p.company, title: p.title, linkedin: p.linkedin}));
-            tbody.innerHTML += '<tr>' +
-                '<td><input type="checkbox" checked value="' + escapeHtml(identifier) + '" data-person="' + personData + '"></td>' +
-                '<td>' + escapeHtml(p.name || '') + '</td>' +
-                '<td>' + escapeHtml(p.title || '-') + '</td>' +
-                '<td>' + escapeHtml(p.company || '-') + '</td>' +
-                '<td>' + escapeHtml(p.email || '-') + '</td>' +
-                '<td><span class="reasoning-text">' + escapeHtml(summary) + '</span></td>' +
-                '</tr>';
-        });
-
-        document.getElementById('forgeDiscoverPeopleResults').style.display = 'block';
-        document.getElementById('forgeDiscoverPeopleResults').scrollIntoView({behavior: 'smooth'});
-    }
-}
-
-// ===== STAGE 4 → 5: EXPORT APPROVED PROSPECTS =====
-function exportProspects() {
-    if (!forgeSessionId) { showError('No forge session!'); return; }
-
-    const checkboxes = document.querySelectorAll('#discoverPeopleTable tbody input[type="checkbox"]:checked');
-    const approvedPeople = Array.from(checkboxes).map(cb => cb.value).filter(v => v);
-
-    if (approvedPeople.length === 0) {
-        showError('Select at least one prospect!');
-        return;
-    }
-
-    // POST approval for stage 4
-    fetch('/api/forge/approve-stage', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            session_id: forgeSessionId,
-            stage: 4,
-            approved_people: approvedPeople,
-        }),
-    }).then(r => r.json()).then(data => {
-        if (data.error) { showError(data.error); return; }
-
-        zeusFlash();
-        document.getElementById('exportProspectsBtn').disabled = true;
-        setForgeStage(5);
-
-        const sec = document.getElementById('forgeStage5Section');
-        sec.style.display = 'block';
-        document.getElementById('forgeExportSummary').innerHTML =
-            '<p style="color:#00FF00;font-family:\'MedievalSharp\',cursive;font-size:18px;">' +
-            '\u2694\uFE0F ' + approvedPeople.length + ' prospects approved and ready for battle! \u2694\uFE0F</p>' +
-            '<p style="color:#CD853F;font-family:\'MedievalSharp\',cursive;font-size:14px;margin-top:10px;">' +
-            'HubSpot push and Oracle handoff coming in Sprint 2</p>';
-        sec.scrollIntoView({behavior: 'smooth'});
-    }).catch(err => showError('Export error', err.message));
-}
-
-// ===== BATTLE PLAN (Oracle v2) =====
+// ===== TODAY'S CLIMB =====
+// The list comes from the session the BDR just generated. Completion is
+// recorded server-side in that session, so a refresh never loses the place.
 let dispositions = [];
 let selectedDispo = null;
+let climbSessionId = null;
 
 function loadBattlePlan() {
     const content = document.getElementById('battlePlanContent');
-    content.innerHTML = '<div class="battle-loading">&#9876; The Oracle surveys the battlefield...</div>';
+    content.innerHTML = '<div class="battle-loading">Loading today\'s climb...</div>';
+    document.getElementById('climbBlocks').innerHTML = '';
 
-    // Hide sections while loading
-    document.getElementById('battleHotSection').style.display = 'none';
-    document.getElementById('battleWarmSection').style.display = 'none';
-    document.getElementById('battleParkedSection').style.display = 'none';
-
-    fetch('/api/battle-plan?all=true')
+    // Pass the session the BDR just built. Without it the server falls back to
+    // the newest file on disk, which is a guess when two lists exist.
+    const wanted = currentSessionId || climbSessionId || '';
+    fetch('/api/climb' + (wanted ? '?session_id=' + encodeURIComponent(wanted) : ''))
         .then(r => r.json())
         .then(data => {
             if (data.error) {
-                content.innerHTML = '<div class="battle-empty">\u26A1 ' + escapeHtml(data.error) + '</div>';
+                content.innerHTML = '<div class="battle-empty">' + escapeHtml(data.error) + '</div>';
                 return;
             }
             battleData = data;
+            climbSessionId = data.session_id;
             battlePlanLoaded = true;
             renderBattlePlan();
         })
         .catch(err => {
-            content.innerHTML = '<div class="battle-empty">\u26A1 Failed to summon the list: ' + escapeHtml(err.message) + '</div>';
+            content.innerHTML = '<div class="battle-empty">Could not load the list: ' + escapeHtml(err.message) + '</div>';
         });
 
-    // Load dispositions for the modal
     if (!dispositions.length) {
         fetch('/api/dispositions')
             .then(r => r.json())
@@ -4053,118 +2495,210 @@ function loadBattlePlan() {
     }
 }
 
+// ===== MOUNTAIN PROGRESS HERO =====
+// Positions the hiker along the trail based on completed battle cards.
+function updateMountainProgress() {
+    const hero = document.getElementById('summitHero');
+    const path = document.getElementById('trailPath');
+    const hiker = document.getElementById('hikerGroup');
+    const textEl = document.getElementById('mountainProgressText');
+    if (!hero || !path || !hiker || !textEl) return;
+
+    const total = document.querySelectorAll('.battle-card').length;
+    const completed = document.querySelectorAll('.battle-card.completed').length;
+    const progress = total > 0 ? Math.min(completed / total, 1) : 0;
+
+    const len = path.getTotalLength();
+    const pt = path.getPointAtLength(len * progress);
+    hiker.setAttribute('transform', 'translate(' + pt.x.toFixed(1) + ',' + pt.y.toFixed(1) + ')');
+
+    // 5 waypoints evenly spaced along the trail
+    const fractions = [0.1, 0.3, 0.5, 0.7, 0.9];
+    fractions.forEach(function(f, i) {
+        const wp = document.getElementById('waypoint-' + i);
+        if (!wp) return;
+        const wpt = path.getPointAtLength(len * f);
+        wp.setAttribute('cx', wpt.x.toFixed(1));
+        wp.setAttribute('cy', wpt.y.toFixed(1));
+        if (total > 0 && progress >= f) wp.classList.add('passed');
+        else wp.classList.remove('passed');
+    });
+
+    if (total === 0) {
+        hero.classList.remove('summit');
+        textEl.textContent = 'Load today\'s climb to start hiking.';
+        return;
+    }
+
+    const SUMMIT_ALTITUDE = 2847;
+    const climbed = Math.round(progress * SUMMIT_ALTITUDE);
+    if (progress >= 1) {
+        hero.classList.add('summit');
+        textEl.textContent = completed + ' of ' + total + ' calls · 2,847 m · you reached the summit!';
+    } else {
+        hero.classList.remove('summit');
+        const remaining = SUMMIT_ALTITUDE - climbed;
+        textEl.textContent = completed + ' of ' + total + ' calls · ' + remaining.toLocaleString('en-US') + ' m to the summit';
+    }
+}
+
 function renderBattlePlan() {
     if (!battleData) return;
     const content = document.getElementById('battlePlanContent');
+    const host = document.getElementById('climbBlocks');
+    const t = battleData.totals || {total: 0, completed: 0, remaining: 0};
 
-    // Update stats
-    document.getElementById('battleHotCount').textContent = battleData.total_pending || 0;
-    document.getElementById('battleWarmCount').textContent = battleData.total_enriching || 0;
-    document.getElementById('battleParkedCount').textContent = battleData.total_parked || 0;
+    document.getElementById('climbTotal').textContent = t.total;
+    document.getElementById('climbDone').textContent = t.completed;
+    document.getElementById('climbLeft').textContent = t.remaining;
 
-    const total = (battleData.total_pending || 0) + (battleData.total_enriching || 0) + (battleData.total_parked || 0);
-    if (total === 0) {
-        content.innerHTML = '<div class="battle-empty">&#127942; All quiet on the battlefield. No warriors await thy command.</div>';
+    if (t.total === 0) {
+        content.innerHTML = '<div class="battle-empty">' +
+            escapeHtml(battleData.msg || 'No call list yet. Build one on Route Plan.') + '</div>';
+        host.innerHTML = '';
+        updateMountainProgress();
         return;
     }
-    content.innerHTML = '';
 
-    // Render HOT
-    const hotSection = document.getElementById('battleHotSection');
-    const hotList = document.getElementById('battleHotList');
-    if (battleData.pending && battleData.pending.length > 0) {
-        hotSection.style.display = 'block';
-        hotList.innerHTML = battleData.pending.map(c => renderBattleCard(c, 'hot')).join('');
+    // The list this came from, and the day and start time it was planned for.
+    const parts = [];
+    if (battleData.segment) {
+        parts.push('From <strong>' + escapeHtml(battleData.segment) + '</strong>');
     }
+    if (battleData.plan_stamp) {
+        parts.push(escapeHtml(battleData.plan_stamp));
+    }
+    content.innerHTML = parts.length
+        ? '<div class="climb-source">' + parts.join(' &middot; ') + '</div>'
+        : '';
 
-    // Render WARM
-    const warmSection = document.getElementById('battleWarmSection');
-    const warmList = document.getElementById('battleWarmList');
-    if (battleData.enriching && battleData.enriching.length > 0) {
-        warmSection.style.display = 'block';
-        warmList.innerHTML = battleData.enriching.map(c => renderBattleCard(c, 'warm')).join('');
+    // One section per time block. Blocks the BDR has cleared collapse to a
+    // single done line so the next live call is always the first thing on screen.
+    const sections = [];
+    (battleData.blocks || []).forEach(block => {
+        if (!block.contacts || !block.contacts.length) return;
+        sections.push(renderClimbBlock(block.label, block.local_time, block.description, block.contacts));
+    });
+    if (battleData.unknown_tz && battleData.unknown_tz.length) {
+        sections.push(renderClimbBlock(
+            'Time zone unknown', '', 'Call these when you have a gap.', battleData.unknown_tz));
     }
-
-    // Render PARKED
-    const parkedSection = document.getElementById('battleParkedSection');
-    const parkedList = document.getElementById('battleParkedList');
-    if (battleData.parked && battleData.parked.length > 0) {
-        parkedSection.style.display = 'block';
-        parkedList.innerHTML = battleData.parked.map(c => renderBattleCard(c, 'parked')).join('');
-    }
+    host.innerHTML = sections.join('');
+    updateMountainProgress();
 }
 
-function renderBattleCard(contact, tier) {
-    const tierClass = tier === 'hot' ? '' : tier;
-    const badgeClass = tier === 'hot' ? '' : ' ' + tier;
-    const signal = escapeHtml((contact.action_type || '').replace('signal_', ''));
-    const cid = escapeHtml(contact.contact_id);
-    const hubspotUrl = 'https://app.hubspot.com/contacts/{{ hubspot_portal_id }}/contact/' + encodeURIComponent(contact.contact_id);
-    const phone = escapeHtml(contact.phone || '');
-    const phoneLink = phone ? '<a href="tel:' + phone + '">' + phone + '</a>' : 'No phone';
-    const name = escapeHtml(contact.name || 'Unknown');
-    const email = escapeHtml(contact.email || '');
-    const safeName = (contact.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
-
-    return '<div class="battle-card ' + tierClass + '" data-tier="' + escapeHtml(tier) + '" id="battle-card-' + cid + '">' +
-        '<div class="battle-card-info">' +
-            '<div class="contact-name">' + name + '</div>' +
-            '<div class="contact-detail">' + escapeHtml(contact.title || '') + (contact.title && contact.company ? ' @ ' : '') + escapeHtml(contact.company || '') + '</div>' +
-            '<div class="contact-detail">&#9742; ' + phoneLink + ' &bull; <a href="mailto:' + email + '">' + email + '</a></div>' +
-            '<div class="contact-detail"><a href="' + hubspotUrl + '" target="_blank">View in HubSpot &#8599;</a>' +
-            (contact.step_number ? ' &bull; Step ' + escapeHtml(contact.step_number) : '') + '</div>' +
-            (signal ? '<span class="signal-badge' + badgeClass + '">' + signal + '</span>' : '') +
-            '<div class="call-prep-panel" id="prep-' + cid + '"></div>' +
-        '</div>' +
-        '<div class="battle-card-actions">' +
-            '<button class="battle-btn prep" onclick="runCallPrep(\'' + cid + '\')">&#128220; Call Prep</button>' +
-            '<button class="battle-btn complete" onclick="openDisposition(\'' + cid + '\', \'' + safeName + '\')">&#9989; Complete</button>' +
-        '</div>' +
+function renderClimbBlock(label, localTime, description, contacts) {
+    const done = contacts.filter(c => c.completed).length;
+    const allDone = done === contacts.length;
+    const meta = [localTime, description].filter(Boolean).map(escapeHtml).join(' &bull; ');
+    return '<div class="battle-section' + (allDone ? ' block-done' : '') + '">' +
+        '<h3>' + escapeHtml(label) +
+            '<span class="block-count">' + done + ' of ' + contacts.length + '</span>' +
+        '</h3>' +
+        (meta ? '<div class="block-meta">' + meta + '</div>' : '') +
+        '<div>' + contacts.map(renderBattleCard).join('') + '</div>' +
     '</div>';
 }
 
-function runCallPrep(contactId) {
+function renderBattleCard(contact) {
+    const cid = escapeHtml(String(contact.contact_id));
+    const name = escapeHtml(contact.name || 'Unknown');
+    const phone = escapeHtml(contact.phone || '');
+    const email = escapeHtml(contact.email || '');
+    const hubspotUrl = 'https://app.hubspot.com/contacts/{{ hubspot_portal_id }}/contact/' + encodeURIComponent(contact.contact_id);
+    const phoneLink = phone ? '<a href="tel:' + phone + '">' + phone + '</a>' : 'No phone';
+    const done = !!contact.completed;
+
+    // Buttons carry data attributes and are wired by one delegated listener.
+    // The old form interpolated the contact name into an onclick attribute.
+    // Escaping it for a JavaScript string still left a literal quote in the
+    // HTML, so a prospect whose CRM name contained a double quote could close
+    // the attribute and inject markup. Contact names are prospect-controlled,
+    // so this was reachable by anyone in the list.
+    const actions = done
+        ? '<span class="dispo-done">Done: ' + escapeHtml((contact.disposition || '').replace(/_/g, ' ')) + '</span>' +
+          '<button class="battle-btn undo" data-act="undo" data-cid="' + cid + '">Undo</button>'
+        : '<button class="battle-btn prep" data-act="script" data-cid="' + cid + '">Script</button>' +
+          '<button class="battle-btn complete" data-act="log" data-cid="' + cid + '">Log the call</button>';
+
+    return '<div class="battle-card' + (done ? ' completed' : '') + '" id="battle-card-' + cid + '">' +
+        '<div class="battle-card-info">' +
+            '<div class="contact-name">' + name +
+                (contact.tz ? '<span class="tz-chip">' + escapeHtml(contact.tz) + '</span>' : '') +
+            '</div>' +
+            '<div class="contact-detail">' + escapeHtml(contact.title || '') +
+                (contact.title && contact.company ? ' @ ' : '') + escapeHtml(contact.company || '') + '</div>' +
+            '<div class="contact-detail">' + phoneLink +
+                (email ? ' &bull; <a href="mailto:' + email + '">' + email + '</a>' : '') + '</div>' +
+            '<div class="contact-detail"><a href="' + hubspotUrl + '" target="_blank">View in HubSpot &#8599;</a></div>' +
+            '<div class="call-prep-panel" id="prep-' + cid + '"></div>' +
+        '</div>' +
+        '<div class="battle-card-actions">' + actions + '</div>' +
+    '</div>';
+}
+
+// The script already came down with the list, so opening it is instant and
+// costs no request. No second Octave call per contact.
+function toggleScript(contactId) {
     const panel = document.getElementById('prep-' + contactId);
     if (!panel) return;
+    if (panel.classList.contains('show')) {
+        panel.classList.remove('show');
+        return;
+    }
+    const contact = findClimbContact(contactId);
+    const script = contact && contact.script ? contact.script : '';
+    panel.innerHTML = script
+        ? formatScript(script)
+        : '<em>No script was generated for this contact.</em>';
     panel.classList.add('show');
-    panel.innerHTML = '<em style="color:#CD853F;">&#128293; Consulting the Oracle...</em>';
+}
 
-    fetch('/api/battle-plan/call-prep', {
+document.addEventListener('click', function(ev) {
+    const item = ev.target.closest('.dd-item[data-pick]');
+    if (!item) return;
+    selectDropdown(item.getAttribute('data-pick'), item.getAttribute('data-value'));
+});
+
+// One listener for every card button, present and future. Nothing about a
+// contact is ever interpolated into markup that the browser executes.
+document.addEventListener('click', function(ev) {
+    const btn = ev.target.closest('#climbBlocks .battle-btn[data-act]');
+    if (!btn) return;
+    const cid = btn.getAttribute('data-cid');
+    const act = btn.getAttribute('data-act');
+    if (act === 'script') return toggleScript(cid);
+    if (act === 'undo') return undoDisposition(cid);
+    if (act === 'log') {
+        const c = findClimbContact(cid);
+        openDisposition(cid, (c && c.name) || 'this contact');
+    }
+});
+
+function findClimbContact(contactId) {
+    const id = String(contactId);
+    const pools = (battleData.blocks || []).map(b => b.contacts || []);
+    pools.push(battleData.unknown_tz || []);
+    for (const pool of pools) {
+        for (const c of pool) {
+            if (String(c.contact_id) === id) return c;
+        }
+    }
+    return null;
+}
+
+function undoDisposition(contactId) {
+    fetch('/api/climb/undo', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({contact_id: contactId}),
-    }).then(response => {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        function read() {
-            reader.read().then(({done, value}) => {
-                if (done) return;
-                buffer += decoder.decode(value, {stream: true});
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
-                    try {
-                        const evt = JSON.parse(line.slice(6));
-                        if (evt.type === 'call_prep_ready') {
-                            panel.innerHTML = '<strong style="color:#FFD700;">&#128220; Call Prep for ' +
-                                escapeHtml(evt.name) + '</strong><br><br>' + formatScript(evt.script);
-                        } else if (evt.type === 'error') {
-                            panel.innerHTML = '<em style="color:#FF4500;">\u26A1 ' + escapeHtml(evt.msg) + '</em>';
-                        } else if (evt.type === 'status') {
-                            panel.innerHTML = '<em style="color:#CD853F;">' + escapeHtml(evt.msg) + '</em>';
-                        }
-                    } catch(e) {}
-                }
-                read();
-            });
-        }
-        read();
-    }).catch(err => {
-        panel.innerHTML = '<em style="color:#FF4500;">\u26A1 Call prep failed: ' + escapeHtml(err.message) + '</em>';
-    });
+        body: JSON.stringify({session_id: climbSessionId, contact_id: contactId}),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showError('Could not undo that.', data.error); return; }
+        loadBattlePlan();
+    })
+    .catch(err => showError('Could not undo that.', err.message));
 }
 
 function formatScript(text) {
@@ -4207,19 +2741,20 @@ function closeDisposition() {
 
 function submitDisposition() {
     if (!selectedDispo) {
-        alert('Select a disposition first!');
+        showError('Pick an outcome first.', 'Choose what happened on the call.');
         return;
     }
     const contactId = document.getElementById('dispoContactId').value;
     const notes = document.getElementById('dispoNotes').value;
     const btn = document.getElementById('dispoSubmitBtn');
-    btn.textContent = '⏳ Inscribing...';
+    btn.textContent = 'Saving...';
     btn.disabled = true;
 
-    fetch('/api/action/complete', {
+    fetch('/api/climb/complete', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
+            session_id: climbSessionId,
             contact_id: contactId,
             disposition: selectedDispo,
             notes: notes,
@@ -4227,34 +2762,58 @@ function submitDisposition() {
     })
     .then(r => r.json())
     .then(data => {
-        btn.textContent = '\u2705 Inscribe';
+        btn.textContent = 'Save the outcome';
         btn.disabled = false;
         if (data.error) {
-            alert('Error: ' + data.error);
+            showError('Could not save that outcome.', data.error);
             return;
         }
         closeDisposition();
-        // Mark card as completed visually
-        const card = document.getElementById('battle-card-' + contactId);
-        if (card) {
-            card.classList.add('completed');
-            const actionsDiv = card.querySelector('.battle-card-actions');
-            if (actionsDiv) {
-                actionsDiv.innerHTML = '<span style="color:#2ecc71; font-family:\'MedievalSharp\',cursive;">\u2705 ' +
-                    escapeHtml(selectedDispo.replace(/_/g, ' ')) + '</span>';
-            }
+
+        // Update the local copy so the card, the counters, and the mountain
+        // all move together without a round trip.
+        const contact = findClimbContact(contactId);
+        if (contact) {
+            contact.completed = true;
+            contact.disposition = data.disposition;
+            contact.notes = notes;
         }
-        // Update count — decrement the correct tier counter
-        const tier = card ? card.getAttribute('data-tier') : 'hot';
-        const counterIds = {hot: 'battleHotCount', warm: 'battleWarmCount', parked: 'battleParkedCount'};
-        const countEl = document.getElementById(counterIds[tier] || 'battleHotCount');
-        const current = parseInt(countEl.textContent) || 0;
-        if (current > 0) countEl.textContent = current - 1;
+        if (battleData.totals) {
+            battleData.totals.completed = data.completed;
+            battleData.totals.remaining = battleData.totals.total - data.completed;
+        }
+        renderBattlePlan();
+
+        // A failed Do Not Call is a failed legal request. It gets its own
+        // message, and the card is left visibly unfinished, because a routine
+        // "saved anyway" notice is exactly what someone learns to click past.
+        if (data.compliance_failure) {
+            const c = findClimbContact(contactId);
+            if (c) { c.completed = false; c.disposition = ''; }
+            if (battleData.totals) {
+                battleData.totals.completed = Math.max(0, data.completed - 1);
+                battleData.totals.remaining = battleData.totals.total - battleData.totals.completed;
+            }
+            renderBattlePlan();
+            showError(
+                'DO NOT CALL WAS NOT SAVED IN HUBSPOT.',
+                'This is a legal request and it did not reach the contact record. '
+                + 'Tell Antonio now, before you call anyone else. '
+                + (data.hubspot_error || '')
+            );
+            return;
+        }
+
+        // Everything else: the card is checked off either way.
+        if (data.hubspot_note_written === false) {
+            showError('Saved here, but HubSpot did not take the note.',
+                      (data.hubspot_error || '') + ' The call is still marked done on your list.');
+        }
     })
     .catch(err => {
-        btn.textContent = '\u2705 Inscribe';
+        btn.textContent = 'Save the outcome';
         btn.disabled = false;
-        alert('Failed: ' + err.message);
+        showError('Could not save that outcome.', err.message);
     });
 }
 </script>
