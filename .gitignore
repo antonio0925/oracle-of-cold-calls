@@ -28,5 +28,4 @@ server.log
 .claude/
 
 .venv/
-.agent_state/
 agent.log
