@@ -1685,6 +1685,9 @@ def forge_approve_stage():
 
 def _verify_webhook_secret(req):
     """Verify the webhook secret from the Authorization header (timing-safe)."""
+    # An unset secret must fail closed — otherwise "Bearer " would authenticate.
+    if not config.ORACLE_WEBHOOK_SECRET:
+        return False
     auth = req.headers.get("Authorization", "")
     expected = f"Bearer {config.ORACLE_WEBHOOK_SECRET}"
     return hmac.compare_digest(auth, expected)
@@ -1692,6 +1695,9 @@ def _verify_webhook_secret(req):
 
 def _verify_signal_api_key(req):
     """Verify the signal webhook API key from X-API-Key header (timing-safe)."""
+    # An unset key must fail closed — otherwise a request with no header would authenticate.
+    if not config.SIGNAL_WEBHOOK_API_KEY:
+        return False
     key = req.headers.get("X-API-Key", "")
     return hmac.compare_digest(key, config.SIGNAL_WEBHOOK_API_KEY)
 
@@ -2051,7 +2057,7 @@ def api_action_complete():
 
         # Execute Supersend action if configured
         supersend_result = None
-        if config.SUPERSEND_API_KEY and route["action"] in ("advance", "transfer", "finish"):
+        if config.SUPERSEND_API_KEY and route["action"] in ("advance", "transfer", "finish", "remove"):
             try:
                 ss = SupersendClient(config.SUPERSEND_API_KEY)
                 # Get the Supersend contact ID from HubSpot
@@ -2068,11 +2074,18 @@ def api_action_complete():
                         if route["action"] == "advance":
                             next_step = route.get("next_step") or step + 1
                             supersend_result = ss.assign_step(ss_contact_id, campaign_id, next_step)
-                        elif route["action"] == "transfer" and route.get("transfer_to"):
-                            supersend_result = ss.transfer_contact(
-                                ss_contact_id, campaign_id, route["transfer_to"]
-                            )
-                        elif route["action"] == "finish":
+                        elif route["action"] == "transfer":
+                            if route.get("transfer_to"):
+                                supersend_result = ss.transfer_contact(
+                                    ss_contact_id, campaign_id, route["transfer_to"]
+                                )
+                            else:
+                                # No destination configured: end the cold sequence
+                                # so a booked meeting never keeps getting cold emails.
+                                supersend_result = ss.finish_contact(ss_contact_id, campaign_id)
+                        elif route["action"] in ("finish", "remove"):
+                            # "remove" (do_not_call) must end the sequence — the
+                            # journey log already promises the contact is removed.
                             supersend_result = ss.finish_contact(ss_contact_id, campaign_id)
             except Exception as e:
                 log.warning("Supersend action failed for contact %s: %s", contact_id, e)
