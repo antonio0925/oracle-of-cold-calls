@@ -18,29 +18,43 @@ Open the link. Type the password. Press "Start the climb".
 
 **2. Plan the route**
 
-You land on **Route Plan**. Pick two things:
+You land on **Route Plan**. Pick one thing: the **Call List**, meaning the
+HubSpot list you are calling today. The list picker takes a few seconds to
+fill, because it loads every list in the portal.
 
-- **Call List** is the HubSpot list you are calling today.
-- **Campaign** is the campaign those contacts belong to.
+Press **BUILD TODAY'S LIST**. SUMMIT reads the contacts, works out each
+person's time zone, writes a call script and a voicemail script for each one,
+and saves a prep note on their HubSpot contact record. This takes a few
+minutes for a large list. Leave the tab open while it runs.
 
-Press the button to build the plan. SUMMIT reads the contacts, works out each
-person's time zone, and writes a prep note on every HubSpot contact record. This
-takes a few minutes for a large list. Leave the tab open while it runs.
+SUMMIT also drops people it should not call today. It tells you why:
+
+- **Called too recently.** Anyone called yesterday or today rests. Two days
+  between calls is fine.
+- **Account already covered.** Two people per company per day, maximum. This
+  stops you burning a whole account in one morning.
+- **Already a customer**, or **already prepped**.
 
 **3. Make the calls**
 
-Go to **Today's Climb**. Your contacts are grouped by how warm they are, and
-ordered so you call people during their working hours, not yours.
+Go to **Today's Climb**. Your contacts are grouped by time zone, so you call
+people during their working hours, not yours. Work top to bottom.
 
-Each card shows the person, their company, and the script.
+Each card shows the person, their title, their company, and their phone
+number. Press **Script** to open their call script and voicemail script. It
+opens instantly, because it was written when you built the list.
 
 **4. Log every call**
 
-On the card, pick what happened from the dropdown. Add a note if you want.
-Press the button to save.
+Press **Log the call**. Pick what happened. Add a note if you want. Press
+**Save the outcome**.
 
-This writes back to HubSpot immediately. That is the whole point. If you do not
-log the call, it did not happen as far as the rest of the business is concerned.
+The card ticks off straight away and the outcome is written to the contact in
+HubSpot as a note. If you log the wrong thing, press **Undo** on the card.
+
+If HubSpot is down, SUMMIT tells you and still ticks the card off, so you never
+lose your place. Tell Antonio if you see that message, because the note did not
+reach HubSpot.
 
 **5. Watch the mountain**
 
@@ -66,10 +80,18 @@ Pick the one that matches what actually happened.
 | Meeting booked | You booked a meeting. Best outcome. |
 | Do not call | They asked never to be called again |
 
-**Do not call is special.** It ticks the official "Do Not Call" box on the
-HubSpot contact record. That is a legal request, and it stops everyone at the
-company from calling that person, not only you. Use it when they ask, and do not
-use it for anything else.
+**Do not call needs one extra step from you right now.**
+
+When someone asks never to be called again, that is a legal request. Pick
+**Do not call** so it is recorded on their contact record.
+
+Then tell Antonio the same day. SUMMIT cannot tick the official "Do Not Call"
+box in HubSpot yet, because that field does not exist in this portal. Until
+Antonio adds it, the outcome is recorded as a note on the contact, and a note
+does not stop anyone else from calling that person. Antonio sets the official
+flag by hand.
+
+Do not use this outcome for anything else.
 
 ---
 
@@ -77,9 +99,10 @@ use it for anything else.
 
 - **A big list takes a while to prepare.** Keep the tab open.
 - **You get signed out.** Sign in again with the same password.
-- **The Trailhead Scout tab does not load campaigns.** That part is not switched
-  on. You do not need it. Stay on Route Plan and Today's Climb.
-- **Nothing posts to Slack.** Also not switched on. Not a fault.
+- **The list picker takes a few seconds.** It loads every list in the portal.
+- **Some people get dropped from the list.** That is the pacing rules doing
+  their job. The reasons are shown on the Route Plan screen.
+- **Nothing posts to Slack.** Not switched on. Not a fault.
 
 ## Things that are not normal
 
