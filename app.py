@@ -120,8 +120,24 @@ def logout():
 
 @app.route("/healthz")
 def healthz():
-    """Unauthenticated liveness probe for the deploy platform."""
-    return jsonify({"ok": True})
+    """Unauthenticated liveness probe for the deploy platform.
+
+    Reports the resolved work day alongside the UTC day. Call pacing counts
+    the BDR's calendar days, and zoneinfo falls back to UTC when the platform
+    image ships without a timezone database. That failure is invisible in the
+    app and only misfires near local midnight, so it is surfaced here rather
+    than discovered by a contact being called a day early.
+    """
+    from services.timezone import today_work_day, work_timezone_resolves
+    work = today_work_day()
+    utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return jsonify({
+        "ok": True,
+        "work_timezone": config.USER_TIMEZONE,
+        "work_day": work,
+        "utc_day": utc,
+        "timezone_resolved": work_timezone_resolves(),
+    })
 
 
 # ---------------------------------------------------------------------------

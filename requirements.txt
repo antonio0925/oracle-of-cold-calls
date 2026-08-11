@@ -3,3 +3,6 @@ requests
 python-dotenv
 python-dateutil
 gunicorn
+# zoneinfo has no bundled database on slim Linux images. Without this the
+# call cooldown silently falls back to UTC days in production only.
+tzdata

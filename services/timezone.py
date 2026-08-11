@@ -222,6 +222,24 @@ def _work_tzinfo():
         return _tz.utc
 
 
+def work_timezone_resolves():
+    """True when the configured zone really loaded.
+
+    Comparing the local date to the UTC date cannot answer this: the two are
+    equal for most of the day even when everything works. Ask the tz database
+    directly instead.
+    """
+    import config
+    if config.USER_TIMEZONE == "UTC":
+        return True
+    try:
+        from zoneinfo import ZoneInfo
+        ZoneInfo(config.USER_TIMEZONE)
+        return True
+    except Exception:
+        return False
+
+
 def work_day(dt):
     """Return dt as a YYYY-MM-DD date in the configured work timezone."""
     if dt is None:
