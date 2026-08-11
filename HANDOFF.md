@@ -1,144 +1,173 @@
-# HANDOFF: SUMMIT ship-out (strip Supersend, add auth, deploy)
+# HANDOFF: SUMMIT, for a fresh session doing bug fixes
 
-Executor: this document is your work order. Read it fully before editing.
-Written by a prior Claude session that reviewed, hardened, and reskinned this app.
-Antonio communicates in ASD-STE100 register: short literal sentences, no idioms,
-no em dashes anywhere, including UI copy and commit messages.
+Antonio writes in ASD-STE100 register: short literal sentences, one idea each,
+no idioms, **no em dashes anywhere**, including UI copy and commit messages.
+Match it.
 
-## Current state
+This file replaces an earlier handoff that described Supersend, campaigns, and
+the Forge. None of that exists. If you find writing that references them, it is
+stale and you should fix it.
 
-- Repo: /Users/antoniogarcia/oracle-of-cold-calls, branch `fix/review-top-three`,
-  open PR #11. Work on this branch; push updates to the same PR.
-- Flask app (app.py, ~2100 lines) + services/ modules + one template
-  (templates/index.html, "SUMMIT" alpine theme with a mountain-progress
-  gamification hero). 33-test pytest suite in tests/.
-- Setup: `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt pytest`
-- Verify before you start: `.venv/bin/python -m pytest tests/ -q` (33 pass) and
-  `.venv/bin/python -c "import app"` (30 routes).
-- A prior instance may still be serving on port 5001 from a scratchpad clone.
-  Kill it before running yours: `pkill -f "python app.py"`.
+---
 
-## Rules
+## What the app is
 
-1. Do not rename or remove any HTML element id or class that the template's
-   `<script>` block references. The mountain component depends on `.battle-card`,
-   `.completed`, `#trailPath`, and the battle counter ids.
-2. Run the pytest suite after every task. Add tests for what you change.
-3. Conventional commits. End commit messages with the Claude Code co-author line.
-4. No em dashes in any user-visible string.
-5. Do not touch the four already-landed commits. Additive commits only.
-6. `op` (1Password CLI) works in this environment, service account, read-only,
-   vault `sales-brain`. Never print full secret values to the terminal or logs.
+One job: **a HubSpot contact list goes in, a worked call list comes out.**
 
-## Task 1: Strip Supersend campaign enrollment
+1. Antonio picks a HubSpot contact list and a daily call target (default 50).
+2. `/generate` walks the list, applies filters, and asks one Octave agent for a
+   voicemail script, a live call script, and objection handling per contact. It
+   stops at the target.
+3. He reviews, then presses START THE CLIMB, which writes a prep note onto each
+   HubSpot contact record. **`/generate` writes nothing to HubSpot.** Only the
+   approve step does.
+4. On **Today's Climb** the BDR (Theresa) works the list, logs each outcome, and
+   the card ticks off. The outcome becomes a HubSpot note. `do_not_call` also
+   sets the standard `donotcall` property.
 
-Antonio's direction: campaign enrollment does not matter. Remove the Supersend
-choreography. The tool's job is: HubSpot list in, call sheet + scripts out,
-dispositions logged back to HubSpot.
+Two views: **Route Plan** builds the list, **Today's Climb** works it.
 
-1. In `api_action_complete` (app.py, route `/api/action/complete`): delete the
-   entire Supersend execution block (the `if config.SUPERSEND_API_KEY and
-   route["action"] in (...)` block, the supersend_error handling, and the 502
-   branch). Dispositions now only: update oracle_ properties, append the journey
-   log, return ok.
-2. do_not_call replacement (compliance, do not skip): when disposition is
-   `do_not_call`, also set the standard HubSpot property `donotcall` to `true`
-   in the same `update_contact_properties` call. Change the route's log_entry in
-   services/routing_config.py from "Do Not Call — permanently removed" to
-   "Do Not Call: marked donotcall in HubSpot". Note the em dash in the old
-   string; it must not survive.
-3. services/routing_config.py: keep the dispositions and log entries (the UI
-   dropdown uses them). The `action`, `next_step`, `transfer_to`, `delay_hours`
-   keys become inert metadata; leave them, they are harmless, but update the
-   module docstring to say routing is log-only now.
-4. Remove the VM follow-up flow (it exists only to push Supersend emails):
-   the `/api/vm-followup` route(s) in app.py, its UI section in the template
-   (find the panel and its toggle; delete both), and
-   services/anthropic.py's usage if nothing else imports it. If removing it
-   orphans ANTHROPIC_API_KEY, drop it from the config warn-list and .env.example.
-5. Remove the `/api/webhook/supersend-task` route. Keep `/api/webhook/signal`
-   (that is HubSpot-side signal ingestion, not campaign enrollment) and keep its
-   fail-closed auth.
-6. Keep services/supersend.py on disk (the refactor may revive it) but nothing
-   may import it after this task. Delete tests/test_supersend.py and the
-   routing test assertions about EXECUTED_ACTIONS; replace with a test that
-   do_not_call sets donotcall=true (mock HubSpotClient).
-7. Grep-verify: `grep -rn "SupersendClient\|SUPERSEND" app.py` returns nothing
-   (config.py entries may stay; remove them from .env.example).
+## Live
 
-## Task 2: Password gate (required before any public deploy)
+- **URL:** https://summit-production-a582.up.railway.app
+- **Password:** not in this file on purpose. Get it with
+  `railway variables --service summit --kv | grep SUMMIT_PASSWORD`, or ask Antonio.
+- **Railway project:** `summit`, service `summit`, volume `summit-volume`
+  mounted at `/app/sessions`. One gunicorn worker, 8 threads, `--timeout 0`.
+- **Branch:** `fix/review-top-three`, PR #11. Work here and push to the same PR.
 
-The UI routes are unauthenticated. A public URL without a gate exposes
-production HubSpot writes to the internet.
+## Run and verify
 
-1. Add `SUMMIT_PASSWORD` to config.py (no default; empty means the gate
-   rejects everything except /login with a clear message) and .env.example.
-2. Flask session cookie auth: a minimal `/login` page (style it with the
-   existing alpine CSS variables; it is the first thing the BDR sees, so make
-   it a small centered card with the SUMMIT logo), a `before_request` guard
-   exempting `/login` and `/static/*`, and `app.secret_key` from a new
-   `FLASK_SECRET_KEY` env var (no hardcoded fallback; generate the value at
-   deploy time).
-3. The two webhook routes must stay reachable without the cookie; they have
-   their own header auth. Exempt paths starting with `/api/webhook/`.
-4. Constant-time compare for the password (hmac.compare_digest). Add a test:
-   unauthenticated request to `/` redirects to /login; wrong password 401;
-   right password sets the session and reaches `/`.
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt pytest
+./verify.sh                 # pytest -> compileall -> Flask boot probe
+.venv/bin/python app.py     # http://localhost:5001
+```
 
-## Task 3: Deploy for the BDR
+`.env` is gitignored and already holds a local `SUMMIT_PASSWORD=climb`. Without
+it the gate rejects every login, which is correct behaviour and looks like a bug.
 
-Recommendation to present to Antonio before executing: Render or Railway, not
-Vercel. Reasons: sessions/ is a local-disk JSON store (Vercel functions have an
-ephemeral filesystem, resume and retry would silently break) and /generate
-holds a single SSE response through many 30-60s Octave calls (function duration
-limits kill it). On Render/Railway the app runs unmodified with a persistent
-disk. If Antonio still chooses Vercel, stop and tell him the sessions store
-must first move to a hosted KV and generation must move to polling; that is
-refactor-sized, not tonight-sized.
+**Deploy:** `railway up --service summit --ci`. Then check
+`/healthz`, which reports `timezone_resolved`, `work_day`, and `utc_day`.
 
-Primary path: Railway via its CLI. Antonio installs it with `brew install
-railway` and pre-authenticates with `railway login` before your session. Verify
-auth with `railway whoami` first; if it fails, stop and ask him to run
-`! railway login`. Use `railway init` (project name: summit), `railway up` or
-GitHub-connected deploy, `railway variables set` for the env vars, and attach a
-volume for `sessions/`. The CLI also bundles an MCP server (`railway mcp`) if
-tool-based control is easier. Render is the fallback; steps below map 1:1:
-1. Add `gunicorn` to requirements.txt and a `Procfile`:
-   `web: gunicorn app:app --workers 1 --threads 8 --timeout 0`
-   (threads + no timeout because of the long SSE streams; one worker because
-   sessions and dedup state are in-process).
-2. Create the service with a persistent disk mounted where the app runs so
-   `sessions/` survives restarts.
-3. Environment variables, sourced from 1Password vault `sales-brain`
-   (`op item list --vault sales-brain` to find items; pipe values directly into
-   the platform CLI, never echo them): HUBSPOT_ACCESS_TOKEN, OCTAVE_API_KEY,
-   NOTION_API_KEY, SLACK_WEBHOOK_URL, SIGNAL_WEBHOOK_API_KEY,
-   ORACLE_WEBHOOK_SECRET (generate fresh: `openssl rand -hex 32`),
-   SUMMIT_PASSWORD (generate, give to Antonio to pass to the BDR),
-   FLASK_SECRET_KEY (generate). FLASK_DEBUG=false.
-4. Smoke test the deployed URL: /login gate works, wrong password rejected,
-   after login the three views render, the mountain hero renders.
-5. Give Antonio: the URL, the SUMMIT_PASSWORD value location (write it to a new
-   item in the sales-brain vault if op is writable; it is read-only, so
-   instead print instructions for Antonio to store it), and one paragraph of
-   BDR instructions in plain language.
+101 tests pass. 18 routes.
 
-## Task 4: Close out
+---
 
-1. Push the branch, confirm PR #11 updated, comment on the PR with what changed.
-2. Run the full pytest suite and a Playwright click-through (base camp, mid,
-   summit states; pattern for simulating progress is in the git history of the
-   prior session; simplest: inject hidden `.battle-card completed` divs and
-   call `updateMountainProgress()`).
-3. Report to Antonio in ASD-STE100: what shipped, the URL, what the BDR does
-   on day one, what was removed, what is deferred.
+## Traps that already cost time
 
-## Deferred (do not do tonight)
+Read these before you debug anything. Each one cost a real detour.
 
-- App-wide refactor (strangler plan: routes/workflows/integrations/policies/
-  state/auth, disposition slice first). Hermes/Nous agent surface goes on top
-  of the refactored API later, never underneath.
-- Backend SSE flavor text still speaks Greek mythology inside the log panels.
-  Harmless; the refactor owns copy.
-- timezone.py state-level ambiguity (KY spans two zones; state-level mapping
-  picks Central). Area-code layer already corrected.
+**1. `/generate` writes nothing.** If someone says "the notes are not on the
+contact", the usual cause is that START THE CLIMB was never pressed, not a
+broken write. Check the server log for `POST /approve`. There is now a banner on
+load that offers any unwritten plan back, because the write step used to be
+unreachable after a reload.
+
+**2. The Octave agent has a second, hidden set of instructions.** The agent
+`ca_DLoI5XBlw9qGNEDBiV1a2` has `data.tools.crmActivity.customInstructions`,
+which silently overrides the main prompt. Editing only `data.instructions`
+changes nothing. The reviewable copy of the prompt is
+`docs/octave-agent-instructions.md`; the live copy is in Octave and is the one
+that runs. Read and write it with:
+
+```
+GET  https://app.octavehq.com/api/v2/agents/get?oId=<oid>     header: api_key
+POST https://app.octavehq.com/api/v2/agents/update            body: {oId, data:{...}}
+```
+
+Partial updates work. `examples` is a list of strings.
+
+**3. HubSpot lists are not all contact lists.** `objectTypeId` `0-1` is contacts,
+`0-2` companies, `0-3` deals. A company list resolves to zero contacts and used
+to produce a silent empty route. `/api/lists` now filters to `0-1`.
+
+**4. No `oracle_*` custom property exists in this portal.** All nine are absent.
+Anything that reads or writes them returns 400. That is why completion state
+lives in the session file, not the CRM. `donotcall` did not exist either; it was
+created on 2026-08-10 and is now written on `do_not_call`.
+
+**5. `hs_timestamp` comes back as ISO on some endpoints and epoch millis on
+others.** A raw string compare across the two silently never matches. See
+`HubSpotClient._call_date`.
+
+**6. Call pacing counts Antonio's calendar days, not UTC.** `services/timezone.
+work_day` and `tzdata` in requirements.txt both matter. Without `tzdata` the
+zone silently falls back to UTC on Linux only, and the cooldown misfires near
+local midnight.
+
+**7. Do not run two agent sessions against this working tree.** It happened on
+2026-08-10 and one session swept the other's uncommitted files into its commit.
+Check `git log` and `ps aux | grep claude` before assuming a change is yours.
+
+**8. The Octave output format changes shape.** The agent now emits `#### Opener`
+sub-headings. The section splitter used to match a bare `###` anywhere, so it
+shredded those and dropped the entire live call script from the note with no
+error. If a note looks short, run the raw script through
+`services.formatting._split_octave_sections` before suspecting Octave.
+
+---
+
+## Where things live
+
+```
+app.py                     18 routes + SSE generators
+config.py                  every env var, read once
+services/
+  hubspot.py               HubSpot client. Call pacing helpers live here.
+  octave.py                One agent: OCTAVE_CONTENT_AGENT.
+  sessions.py              Session store AND the completion record.
+                           record_disposition / clear_disposition are locked.
+  formatting.py            Octave markdown -> escaped HubSpot note HTML
+  timezone.py              Zone resolution + work_day for pacing
+  call_sheet.py            Time-zone bucketing, seniority ordering
+  routing_config.py        Disposition -> journey log text (log only)
+  filters.py, retry.py, slack.py
+templates/
+  index.html               The whole UI. One file.
+  login.html               Password gate
+docs/octave-agent-instructions.md   Reviewable copy of the agent prompt
+CODEX_REVIEW.md            Adversarial review brief + what the last pass found
+BDR_DAY_ONE.md             Plain-language instructions for Theresa
+```
+
+## Design decisions worth not re-litigating
+
+- **Completion lives in the session file**, not HubSpot, because the `oracle_*`
+  properties do not exist. The file sits on the Railway volume, so it survives a
+  restart.
+- **The outcome is recorded before the HubSpot write.** A HubSpot outage must not
+  make the BDR lose their place in the list.
+- **A failed `do_not_call` is its own UI state.** It un-ticks the card and shows a
+  distinct message. It deliberately does not share a path with a failed note,
+  because a routine "saved anyway" notice is what people learn to click past.
+- **Railway, not Vercel.** `sessions/` is local disk and `/generate` holds one SSE
+  response open across many 30 to 60 second Octave calls.
+
+## Open items
+
+Both are planned hardening, not blockers. Triggers, not dates. Full reasoning is
+in `CODEX_REVIEW.md`.
+
+- **CSRF on write routes.** Do it before multi-user auth, wider URL
+  distribution, or any embedded context. `SameSite=Lax` is the only defence now,
+  and it holds only because there is one shared password and no cross-site form
+  target.
+- **Filter ordering.** The subscriber check runs before the cheap cooldown and
+  account-cap checks and costs 2+ HubSpot requests per contact. Pure speed.
+
+## Recently verified, do not re-test blind
+
+- The agent rewrite fixes the empty-script case. A contact with no logged email
+  went from a 147-character script to 5,055, and the note from 99 bytes to 2,097.
+- Hostile contact names cannot inject: `Ann" onmouseover="..."` renders as text.
+- 40 concurrent completions lose none. That test fails against the pre-lock code.
+- Notes reach HubSpot with only structural tags: `p`, `strong`, `br`, `ul`, `li`.
+
+## Working agreements Antonio has enforced
+
+- Verify against the real system, not just local output. Several bugs were only
+  visible in what HubSpot actually stored or what the deployed box actually ran.
+- Regression tests must fail against the old code. A test that never saw the bug
+  it describes is a restatement of the implementation.
+- Say plainly what was not done and why. Do not narrow scope silently.
