@@ -1061,10 +1061,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
             <button class="oracle-btn" id="consultBtn" onclick="consultTheOracle()">
-                GENERATE CALL PREP
+                BUILD TODAY'S LIST
             </button>
             <button class="oracle-btn battle-btn" id="battleBtn" onclick="prepareForBattle()">
-                QUICK ROUTE (EXISTING NOTES)
+                QUICK LIST (EXISTING NOTES)
             </button>
         </div>
     </div>
@@ -1403,7 +1403,7 @@ fetch('/api/lists')
     })
     .catch(err => {
         document.getElementById('segmentList').innerHTML =
-            '<div class="dd-empty">\u26A1 Failed to summon Legions: ' + err.message + '</div>';
+            '<div class="dd-empty">Could not load your lists: ' + err.message + '</div>';
     });
 
 // ===================================================================
@@ -1418,13 +1418,13 @@ function renderDropdown(which) {
         if (!listsLoaded) return;
         const filtered = allLists.filter(l => l.name.toLowerCase().includes(filter));
         if (filtered.length === 0) {
-            listEl.innerHTML = '<div class="dd-empty">No Legions match thy search</div>';
+            listEl.innerHTML = '<div class="dd-empty">No lists match that search</div>';
             return;
         }
         listEl.innerHTML = filtered.map(l =>
             `<div class="dd-item" onclick="selectDropdown('segment','${l.name.replace(/'/g,"\\'")}')">
                 <span>${l.name}</span>
-                <span class="dd-size">${l.size} warriors &bull; ${l.type}</span>
+                <span class="dd-size">${l.size} contacts &bull; ${l.type}</span>
             </div>`
         ).join('');
     }
@@ -1529,7 +1529,7 @@ function consultTheOracle() {
     document.getElementById('logBox').innerHTML = '';
     document.getElementById('progressBar').style.width = '0%';
     document.getElementById('progressText').textContent = '0%';
-    document.getElementById('currentAction').textContent = 'Awakening the Oracle...';
+    document.getElementById('currentAction').textContent = 'Starting up...';
     document.getElementById('currentActionSub').textContent = '';
 
     // Scroll to progress
@@ -1707,10 +1707,10 @@ function handleMessage(msg) {
         document.getElementById('lsSkipped').textContent = liveSkipped;
         log('logBox', 'skip', msg.name + ' \u2014 ' + msg.reason);
     } else if (t === 'generating') {
-        document.getElementById('currentAction').textContent = '\uD83D\uDD2E The Oracle speaks prophecy for ' + msg.name + '...';
+        document.getElementById('currentAction').textContent = 'Writing the script for ' + msg.name + '...';
         document.getElementById('currentActionSub').textContent = msg.company;
         document.getElementById('oracleEye').textContent = '\uD83D\uDD2E';
-        log('logBox', 'generating', 'The Oracle speaks prophecy for ' + msg.name + ' at ' + msg.company + '...');
+        log('logBox', 'generating', 'Writing the script for ' + msg.name + ' at ' + msg.company + '...');
     } else if (t === 'done_contact') {
         livePrepared++;
         document.getElementById('lsPrepared').textContent = livePrepared;
@@ -1739,7 +1739,7 @@ function handleMessage(msg) {
         if (msg.session_id && msg.stats.prepped > 0) {
             zeusFlash();
             // Fetch full session data from API (too large for SSE)
-            document.getElementById('currentAction').textContent = 'Loading battle plan...';
+            document.getElementById('currentAction').textContent = 'Loading the call list...';
             fetch('/api/session/' + msg.session_id)
                 .then(r => r.json())
                 .then(sessionData => {
@@ -1755,7 +1755,7 @@ function handleMessage(msg) {
                 });
         } else {
             showError('No contacts are ready to call.',
-                'Check your Legion and filters. Make sure contacts have outbound emails.');
+                'Everyone on the list was filtered out. Check the skip reasons above.');
             document.getElementById('consultBtn').disabled = false;
             document.getElementById('battleBtn').disabled = false;
         }
@@ -1814,7 +1814,7 @@ function renderReview(data) {
                 'Descend not into Hades\' domain. Use this time for: voicemail follow-ups, email responses, admin tasks, sharpening thy sword for the afternoon assault.' +
                 '</div>';
         } else if (block.contacts.length === 0) {
-            sheetHtml += '<div class="empty-block">No warriors stationed in this realm</div>';
+            sheetHtml += '<div class="empty-block">Nobody in this time zone</div>';
         } else {
             sheetHtml += '<div class="time-block-body">';
             for (const c of block.contacts) {
@@ -1947,8 +1947,8 @@ function handleWriteMessage(msg) {
         const pct = Math.round((msg.current / msg.total) * 100);
         document.getElementById('writeProgressBar').style.width = pct + '%';
         document.getElementById('writeProgressText').textContent =
-            'Inscribing scroll ' + msg.current + ' of ' + msg.total;
-        log('writeLogBox', 'done', 'Sacred scroll inscribed for ' + msg.name + '!');
+            'Writing note ' + msg.current + ' of ' + msg.total;
+        log('writeLogBox', 'done', 'Prep note written for ' + msg.name);
     } else if (msg.type === 'error_contact') {
         log('writeLogBox', 'error', msg.name + ' \u2014 ' + msg.msg);
     } else if (msg.type === 'approved_complete') {
@@ -1970,7 +1970,7 @@ function handleWriteMessage(msg) {
 // ===================================================================
 function banishToTartarus() {
     if (!currentSessionId) return;
-    if (!confirm('Art thou certain? The scrolls shall be destroyed and the prophecies lost forever!')) return;
+    if (!confirm('Discard this route plan? The generated scripts will be lost.')) return;
 
     fetch('/discard/' + currentSessionId, {method: 'POST'})
         .then(r => r.json())
