@@ -1,9 +1,24 @@
 """
 Octave API client — cold call scripts, qualification, prospecting, enrichment.
 """
+import json
+
 import requests as http_requests
 import config
 from services.retry import retry_request
+
+
+def script_text(script_data):
+    """Normalize a generate_call_script() response into formatter-ready text.
+
+    Octave returns a dict; format_note_html() needs the string body out of it.
+    Single source of truth — app.py and the agent both call this.
+    """
+    if isinstance(script_data, str):
+        return script_data
+    if isinstance(script_data, dict):
+        return script_data.get("content") or script_data.get("text") or json.dumps(script_data)
+    return ""
 
 
 class OctaveClient:

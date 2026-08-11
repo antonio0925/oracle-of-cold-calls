@@ -26,7 +26,7 @@ from services.filters import is_us_company, is_us_person
 from services.formatting import format_note_html, normalize_html_for_compare
 from services.call_sheet import title_seniority, TIME_BLOCKS, TZ_TO_BLOCKS, build_call_sheet
 from services.hubspot import HubSpotClient
-from services.octave import OctaveClient
+from services.octave import OctaveClient, script_text as octave_script_text
 from services.notion import NotionClient
 from services.slack import post_to_slack
 from services.supersend import SupersendClient
@@ -342,11 +342,7 @@ def generate():
                     email_data["subject"],
                     email_data.get("body_html") or email_data.get("body_text", ""),
                 )
-                script_content = ""
-                if isinstance(script_data, dict):
-                    script_content = script_data.get("content", "") or script_data.get("text", "") or json.dumps(script_data)
-                elif isinstance(script_data, str):
-                    script_content = script_data
+                script_content = octave_script_text(script_data)
 
                 tz = resolve_timezone(props)
                 tz_lbl = tz_label(tz)
@@ -2032,11 +2028,7 @@ def api_battle_plan_call_prep():
                 email_data.get("subject", ""),
                 email_data.get("body_html") or email_data.get("body_text", ""),
             )
-            script_content = ""
-            if isinstance(script_data, dict):
-                script_content = script_data.get("content", "") or script_data.get("text", "") or json.dumps(script_data)
-            elif isinstance(script_data, str):
-                script_content = script_data
+            script_content = octave_script_text(script_data)
 
             yield emit("call_prep_ready", {
                 "contact_id": contact_id,

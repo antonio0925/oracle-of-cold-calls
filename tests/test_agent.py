@@ -133,6 +133,24 @@ def test_plan_adds_call_sheet_only_when_work_happened():
     assert "post_call_sheet" not in plan_counts(empty)
 
 
+# --- shared octave script extraction ------------------------------------
+
+@pytest.mark.parametrize("payload,expected", [
+    ({"content": "body"}, "body"),
+    ({"text": "body"}, "body"),
+    ("raw string", "raw string"),
+    (None, ""),
+])
+def test_script_text_normalizes_octave_payloads(payload, expected):
+    from services.octave import script_text
+    assert script_text(payload) == expected
+
+
+def test_script_text_falls_back_to_json_for_unknown_shape():
+    from services.octave import script_text
+    assert script_text({"weird": 1}) == '{"weird": 1}'
+
+
 # --- full loop against fakes ---------------------------------------------
 
 class FakeHubSpot(object):

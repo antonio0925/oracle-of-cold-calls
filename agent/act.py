@@ -4,28 +4,12 @@ ACT — the only module allowed to cause side effects.
 Every executor takes a decision dict and returns (ok, detail). Nothing here
 raises into the loop: a failed contact is logged and the run continues.
 """
-import json
 import logging
 
 from services import formatting, call_sheet as call_sheet_service, slack
+from services.octave import script_text
 
 _log = logging.getLogger(__name__)
-
-
-def _script_text(script_data):
-    """Normalize Octave's response into the plain text the formatter expects.
-
-    Mirrors app.py: the agent returns a dict, and the note formatter needs the
-    string body out of it.
-    """
-    if isinstance(script_data, str):
-        return script_data
-    if isinstance(script_data, dict):
-        text = script_data.get("content") or script_data.get("text")
-        if text:
-            return text
-        return json.dumps(script_data)
-    return ""
 
 
 def act_prep_contact(ctx, decision):
@@ -39,7 +23,7 @@ def act_prep_contact(ctx, decision):
         email_data.get("subject", ""),
         email_data.get("body_text") or email_data.get("body_html") or "",
     )
-    script = _script_text(script_data)
+    script = script_text(script_data)
     if not script.strip():
         return False, "Octave returned empty content"
 
