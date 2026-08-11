@@ -27,7 +27,7 @@ def act_prep_contact(ctx, decision):
     if not script.strip():
         return False, "Octave returned empty content"
 
-    html = formatting.format_note_html(props, ctx.campaign, script)
+    html = formatting.format_note_html(props, script)
     ctx.hubspot.create_note_for_contact(obs["contact_id"], html)
 
     ctx.prepped.append({
@@ -79,7 +79,6 @@ def act_post_call_sheet(ctx, decision):
 
     blocks, unknowns = call_sheet_service.build_call_sheet(ctx.prepped)
     session_data = {
-        "campaign": ctx.campaign,
         "segment": ctx.list_name,
         "calling_date": ctx.calling_date,
         "blocks": blocks,

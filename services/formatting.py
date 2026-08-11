@@ -174,12 +174,12 @@ def _format_objections_html(obj_text):
     return "".join(html_parts)
 
 
-def format_note_html(contact_props, campaign, script_content):
+def format_note_html(contact_props, script_content):
     """Transform Octave markdown output into a structured HubSpot note.
 
     Format:
       🔥 COLD CALL PREP - First Last | Company
-      Campaign | Generated YYYY-MM-DD
+      Generated YYYY-MM-DD
       📞 VOICEMAIL SCRIPT  ...
       🎯 LIVE CALL SCRIPT  ... (with OPENER/HOOK/ASK/ENGAGE/SHUT IT DOWN)
       🛡️ OBJECTION HANDLING ... (with category + quote + bullet responses)
@@ -194,12 +194,9 @@ def format_note_html(contact_props, campaign, script_content):
     parts = []
 
     # ── Header ──
-    # Campaign is optional. When it is blank the byline is just the date,
-    # and the title line must still be there.
-    byline = f"{campaign} | Generated {today_str}" if campaign else f"Generated {today_str}"
     parts.append(
         f"<p><strong>\U0001f525 COLD CALL PREP - {first} {last} | {company}</strong></p>"
-        f"<p>{byline}</p>"
+        f"<p>Generated {today_str}</p>"
     )
 
     # ── Voicemail ──

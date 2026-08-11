@@ -23,8 +23,7 @@ _log = logging.getLogger(__name__)
 class RunContext(object):
     """Everything an executor needs, assembled once per run."""
 
-    def __init__(self, campaign, list_name, calling_date=None, dry_run=False):
-        self.campaign = campaign
+    def __init__(self, list_name, calling_date=None, dry_run=False):
         self.list_name = list_name
         self.calling_date = calling_date or datetime.now().strftime("%Y-%m-%d")
         self.dry_run = dry_run
@@ -33,12 +32,12 @@ class RunContext(object):
         self.prepped = []
 
 
-def run_once(campaign, list_name=None, max_preps=None, dry_run=False,
+def run_once(list_name=None, max_preps=None, dry_run=False,
              allow_escalated=False, post_sheet=True, limit=None):
     """Execute one full agent cycle. Returns a report dict."""
-    ctx = RunContext(campaign, list_name, dry_run=dry_run)
+    ctx = RunContext(list_name, dry_run=dry_run)
 
-    state.record("run_started", campaign=campaign, list_name=list_name,
+    state.record("run_started", list_name=list_name,
                  dry_run=dry_run, max_preps=max_preps)
 
     # --- PERCEIVE ---
@@ -61,7 +60,6 @@ def run_once(campaign, list_name=None, max_preps=None, dry_run=False,
                      action=step["action"], reason=step.get("reason"))
 
     report = {
-        "campaign": campaign,
         "list_name": list_name,
         "dry_run": dry_run,
         "observed": len(dial_obs) + len(routing_obs),
@@ -101,8 +99,8 @@ def format_report(report):
     """Human-readable run report for the terminal or a Slack post."""
     lines = []
     mode = "DRY RUN" if report["dry_run"] else "LIVE"
-    lines.append("Oracle agent run [{}] campaign={} list={}".format(
-        mode, report["campaign"], report["list_name"]))
+    lines.append("SUMMIT agent run [{}] list={}".format(
+        mode, report["list_name"]))
     lines.append("Observed {} contacts".format(report["observed"]))
     lines.append("Plan: " + (", ".join(
         "{}={}".format(k, v) for k, v in sorted(report["plan"].items())) or "nothing to do"))

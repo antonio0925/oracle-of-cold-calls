@@ -2,8 +2,8 @@
 """
 Oracle agent CLI.
 
-  python -m agent.cli run --campaign "Q3 Outbound" --list "Dial List" --dry-run
-  python -m agent.cli run --campaign "Q3 Outbound" --list "Dial List" --max-preps 25
+  python -m agent.cli run --list "Dial List" --dry-run
+  python -m agent.cli run --list "Dial List" --max-preps 25
   python -m agent.cli report
   python -m agent.cli serve --interval 3600
 """
@@ -20,7 +20,6 @@ from agent import loop, state
 
 def _cmd_run(args):
     report = loop.run_once(
-        campaign=args.campaign,
         list_name=args.list,
         max_preps=args.max_preps,
         dry_run=args.dry_run,
@@ -47,8 +46,7 @@ def _cmd_serve(args):
     while True:
         try:
             report = loop.run_once(
-                campaign=args.campaign,
-                list_name=args.list,
+                        list_name=args.list,
                 max_preps=args.max_preps,
                 dry_run=args.dry_run,
                 allow_escalated=args.allow_escalated,
@@ -69,7 +67,6 @@ def build_parser():
     sub = p.add_subparsers(dest="command")
 
     def add_run_args(sp):
-        sp.add_argument("--campaign", required=True, help="Campaign name for note headers")
         sp.add_argument("--list", help="HubSpot list name to dial from")
         sp.add_argument("--max-preps", type=int, default=50, help="Budget of prep notes per run")
         sp.add_argument("--limit", type=int, help="Only observe the first N contacts (testing)")

@@ -1012,7 +1012,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     <!-- ===== FORM ===== -->
     <div class="oracle-form" id="formSection">
         <h2>Plan the Route</h2>
-        <p class="form-subtitle">Pick a call list and a campaign. SUMMIT builds today's route plan.</p>
+        <p class="form-subtitle">Pick the HubSpot list you are calling today. SUMMIT builds the route plan.</p>
 
         <div class="form-group">
             <label>
@@ -1025,21 +1025,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
                 <span class="dd-arrow">&#9660;</span>
                 <div class="dd-list" id="segmentList">
                     <div class="dd-loading">Loading lists from HubSpot...</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label>
-                Campaign Enrollment <span class="label-opt">optional</span>
-                <span class="label-desc">Only a label on the prep note. Leave it blank if you do not need it.</span>
-            </label>
-            <div class="search-dropdown" id="campaignDropdown">
-                <input type="text" id="campaignInput" placeholder="Optional" autocomplete="off"
-                       onfocus="openDropdown('campaign')" oninput="filterDropdown('campaign')">
-                <span class="dd-arrow">&#9660;</span>
-                <div class="dd-list" id="campaignList">
-                    <div class="dd-loading">Loading campaign names...</div>
                 </div>
             </div>
         </div>
@@ -1391,9 +1376,7 @@ document.getElementById('hitNum').textContent = Math.floor(Math.random() * 9000 
 // DROPDOWN DATA STORES
 // ===================================================================
 let allLists = [];
-let allCampaigns = [];
 let listsLoaded = false;
-let campaignsLoaded = false;
 let currentSessionId = null;
 const HUBSPOT_PORTAL_ID = '{{ hubspot_portal_id }}';
 
@@ -1421,24 +1404,6 @@ fetch('/api/lists')
             '<div class="dd-empty">\u26A1 Failed to summon Legions: ' + err.message + '</div>';
     });
 
-// Fetch campaigns (HubSpot current_campaign_enrollment property options)
-fetch('/api/campaigns')
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) {
-            document.getElementById('campaignList').innerHTML =
-                '<div class="dd-empty">\u26A1 ' + data.error + '</div>';
-            return;
-        }
-        allCampaigns = (data.campaigns || []).map(c => c.label);
-        campaignsLoaded = true;
-        renderDropdown('campaign');
-    })
-    .catch(err => {
-        document.getElementById('campaignList').innerHTML =
-            '<div class="dd-empty">\u26A1 Failed to summon Crusades: ' + err.message + '</div>';
-    });
-
 // ===================================================================
 // DROPDOWN LOGIC
 // ===================================================================
@@ -1458,18 +1423,6 @@ function renderDropdown(which) {
             `<div class="dd-item" onclick="selectDropdown('segment','${l.name.replace(/'/g,"\\'")}')">
                 <span>${l.name}</span>
                 <span class="dd-size">${l.size} warriors &bull; ${l.type}</span>
-            </div>`
-        ).join('');
-    } else if (which === 'campaign') {
-        if (!campaignsLoaded) return;
-        const filtered = allCampaigns.filter(c => c.toLowerCase().includes(filter));
-        if (filtered.length === 0) {
-            listEl.innerHTML = '<div class="dd-empty">No Crusades match. Thou may type a new name.</div>';
-            return;
-        }
-        listEl.innerHTML = filtered.map(c =>
-            `<div class="dd-item" onclick="selectDropdown('campaign','${c.replace(/'/g,"\\'")}')">
-                <span>${c}</span>
             </div>`
         ).join('');
     }
@@ -1499,7 +1452,7 @@ function selectDropdown(which, value) {
 
 // Close dropdowns when clicking outside
 document.addEventListener('click', function(e) {
-    ['segment', 'campaign'].forEach(which => {
+    ['segment'].forEach(which => {
         const dd = document.getElementById(which + 'Dropdown');
         if (dd && !dd.contains(e.target)) {
             dd.classList.remove('open');
@@ -1509,7 +1462,6 @@ document.addEventListener('click', function(e) {
 
 // Close on blur (with delay for click to register)
 document.getElementById('segmentInput').addEventListener('blur', () => closeDropdown('segment'));
-document.getElementById('campaignInput').addEventListener('blur', () => closeDropdown('campaign'));
 
 // ===================================================================
 // ERROR OVERLAY
@@ -1552,7 +1504,6 @@ function log(box, cls, msg) {
 // ===================================================================
 function consultTheOracle() {
     const segment = document.getElementById('segmentInput').value.trim();
-    const campaign = document.getElementById('campaignInput').value.trim();
     const callingDate = document.getElementById('callingDate').value;
     const skipExisting = document.getElementById('skipExisting').checked;
 
@@ -1590,7 +1541,6 @@ function consultTheOracle() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             segment: segment,
-            campaign: campaign,
             calling_date: callingDate,
             skip_existing: skipExisting,
         }),
@@ -1651,7 +1601,6 @@ function consultTheOracle() {
 // ===================================================================
 function prepareForBattle() {
     const segment = document.getElementById('segmentInput').value.trim();
-    const campaign = document.getElementById('campaignInput').value.trim();
     const callingDate = document.getElementById('callingDate').value;
 
     if (!segment) {
@@ -1685,7 +1634,6 @@ function prepareForBattle() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             segment: segment,
-            campaign: campaign,
             calling_date: callingDate,
         }),
     }).then(response => {

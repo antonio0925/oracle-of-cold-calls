@@ -160,23 +160,6 @@ def api_lists():
     return jsonify({"lists": all_lists})
 
 
-@app.route("/api/campaigns")
-def api_campaigns():
-    """Return campaign enrollment options from the HubSpot contact property."""
-    if not config.HUBSPOT_ACCESS_TOKEN:
-        return jsonify({"error": "Missing HubSpot token"}), 500
-    try:
-        hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
-        prop = hs._get("/crm/v3/properties/contacts/current_campaign_enrollment")
-        options = [
-            {"value": opt["value"], "label": opt.get("label", opt["value"])}
-            for opt in prop.get("options", [])
-        ]
-        return jsonify({"campaigns": options})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
 @app.route("/api/session/<session_id>")
 def api_session(session_id):
     """Fetch full session data for review."""
@@ -205,7 +188,6 @@ def api_recoverable_sessions():
                 results.append({
                     "session_id": data.get("session_id", ""),
                     "segment": data.get("segment", ""),
-                    "campaign": data.get("campaign", ""),
                     "calling_date": data.get("calling_date", ""),
                     "prepped_count": len(data.get("contacts", [])),
                     "is_complete": data.get("generation_complete", False),
@@ -221,7 +203,6 @@ def generate():
     """SSE endpoint: runs Oracle Phases 1-2, streams progress, stores results."""
     data = request.json
     segment_name = data.get("segment", "").strip()
-    campaign = data.get("campaign", "").strip()
     calling_date = data.get("calling_date", "").strip()
     skip_existing = data.get("skip_existing", False)
 
@@ -235,7 +216,7 @@ def generate():
     octave = OctaveClient(config.OCTAVE_API_KEY)
 
     # Check for a resumable session
-    prev_session_id, prev_session = find_resumable_session(segment_name, campaign, calling_date)
+    prev_session_id, prev_session = find_resumable_session(segment_name, calling_date)
     if prev_session:
         session_id = prev_session_id or str(uuid.uuid4())[:8]
     else:
@@ -278,7 +259,6 @@ def generate():
             partial_data = {
                 "session_id": session_id,
                 "segment": segment_name,
-                "campaign": campaign,
                 "calling_date": calling_date,
                 "stats": stats,
                 "generation_complete": False,
@@ -391,7 +371,7 @@ def generate():
                 stats["tz_breakdown"][tz_lbl] = stats["tz_breakdown"].get(tz_lbl, 0) + 1
                 stats["skipped_cached"] += 1
                 stats["prepped"] += 1
-                fresh_html = format_note_html(props, campaign, cached["script_content"])
+                fresh_html = format_note_html(props, cached["script_content"])
                 prepped_contacts.append({
                     "contact": contact,
                     "tz": tz,
@@ -427,7 +407,7 @@ def generate():
                     "tz_label": tz_lbl,
                     "script_content": script_content,
                     "email_data": email_data,
-                    "note_html": format_note_html(props, campaign, script_content),
+                    "note_html": format_note_html(props, script_content),
                 })
                 stats["prepped"] += 1
                 yield emit("done_contact", {"name": name, "company": company_name, "tz": tz_lbl})
@@ -497,7 +477,6 @@ def generate():
         session_data = {
             "session_id": session_id,
             "segment": segment_name,
-            "campaign": campaign,
             "calling_date": calling_date,
             "generation_complete": True,
             "stats": stats,
@@ -543,7 +522,6 @@ def quick_generate():
     """
     data = request.json
     segment_name = data.get("segment", "").strip()
-    campaign = data.get("campaign", "").strip()
     calling_date = data.get("calling_date", "").strip()
 
     if not segment_name:
@@ -686,7 +664,6 @@ def quick_generate():
         session_data = {
             "session_id": session_id,
             "segment": segment_name,
-            "campaign": campaign,
             "calling_date": calling_date,
             "generation_complete": True,
             "quick_mode": True,

@@ -249,7 +249,7 @@ def test_dry_run_writes_nothing(monkeypatch):
     hs, posted = FakeHubSpot(), []
     _patch_clients(monkeypatch, hs, FakeOctave(), posted)
 
-    report = run_once(campaign="Q3", list_name="Dial", dry_run=True)
+    report = run_once(list_name="Dial", dry_run=True)
     assert report["dry_run"] is True
     assert report["plan"]["prep_contact"] == 1   # Ann only; Bob has no phone
     assert hs.notes == [] and posted == []
@@ -260,7 +260,7 @@ def test_live_run_writes_note_and_posts_sheet(monkeypatch):
     hs, posted = FakeHubSpot(), []
     _patch_clients(monkeypatch, hs, FakeOctave(), posted)
 
-    report = run_once(campaign="Q3", list_name="Dial")
+    report = run_once(list_name="Dial")
     assert [r["ok"] for r in report["results"]] == [True, True]
     assert len(hs.notes) == 1 and hs.notes[0][0] == "1"
     assert len(posted) == 1
@@ -271,8 +271,8 @@ def test_rerun_is_idempotent(monkeypatch):
     hs, posted = FakeHubSpot(), []
     _patch_clients(monkeypatch, hs, FakeOctave(), posted)
 
-    run_once(campaign="Q3", list_name="Dial")
-    run_once(campaign="Q3", list_name="Dial")
+    run_once(list_name="Dial")
+    run_once(list_name="Dial")
     assert len(hs.notes) == 1, "second run must not re-write the prep note"
 
 
@@ -286,7 +286,7 @@ def test_octave_failure_does_not_kill_the_run(monkeypatch):
     hs, posted = FakeHubSpot(), []
     _patch_clients(monkeypatch, hs, Boom(), posted)
 
-    report = run_once(campaign="Q3", list_name="Dial")
+    report = run_once(list_name="Dial")
     prep = [r for r in report["results"] if r["action"] == "prep_contact"][0]
     assert prep["ok"] is False and "octave 500" in prep["detail"]
     assert state.summarize()["acted_failed"] >= 1

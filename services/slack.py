@@ -14,7 +14,6 @@ def build_slack_messages(session_data):
     Returns (header, thread_messages) — header is the parent message;
     thread_messages are follow-up chunks.
     """
-    campaign = session_data.get("campaign", "Unknown Crusade")
     calling_date = session_data.get("calling_date", "")
     stats = session_data.get("stats", {})
     call_sheet = session_data.get("call_sheet", [])
@@ -31,7 +30,7 @@ def build_slack_messages(session_data):
 
     # Header message
     header = (
-        f":crossed_swords: _{date_display} Battle Plan — {campaign}_\n"
+        f":crossed_swords: _{date_display} Call Sheet_\n"
         f"_{total_prepped} warriors armed for battle_ | "
         f":scroll: _= prophecy inscribed_\n"
         f"_Strategy: Every prospect called at their 10-11 AM local. "

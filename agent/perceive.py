@@ -19,7 +19,7 @@ _log = logging.getLogger(__name__)
 CONTACT_PROPERTIES = [
     "firstname", "lastname", "email", "company", "jobtitle",
     "phone", "mobilephone", "city", "state", "country", "hs_timezone",
-    "oracle_pending_action", "oracle_action_type", "oracle_campaign_id",
+    "oracle_pending_action", "oracle_action_type",
     "oracle_node_id", "oracle_step_number", "oracle_call_disposition",
     "oracle_last_action_date",
 ]
