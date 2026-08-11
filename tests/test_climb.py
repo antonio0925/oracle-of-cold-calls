@@ -170,3 +170,59 @@ def test_note_is_created_already_associated(monkeypatch):
     assoc = sent["payload"]["associations"][0]
     assert assoc["to"]["id"] == "42"
     assert assoc["types"][0]["associationTypeId"] == 202
+
+
+def test_do_not_call_sets_the_standard_hubspot_flag(client):
+    """Compliance: a note stops nobody else from dialling. The flag does."""
+    hs = MagicMock()
+    with patch.object(app_module, "HubSpotClient", return_value=hs), \
+            patch.object(app_module.config, "HUBSPOT_ACCESS_TOKEN", "tok"):
+        resp = client.post("/api/climb/complete", json={
+            "session_id": "s1", "contact_id": "1", "disposition": "do_not_call",
+        })
+
+    assert resp.status_code == 200
+    assert resp.get_json()["dnc_flag_set"] is True
+    props = hs.update_contact_properties.call_args[0][1]
+    assert props["donotcall"] == "true"
+
+
+def test_non_dnc_outcomes_never_touch_the_flag(client):
+    hs = MagicMock()
+    with patch.object(app_module, "HubSpotClient", return_value=hs), \
+            patch.object(app_module.config, "HUBSPOT_ACCESS_TOKEN", "tok"):
+        resp = client.post("/api/climb/complete", json={
+            "session_id": "s1", "contact_id": "1", "disposition": "voicemail",
+        })
+
+    assert resp.get_json()["dnc_flag_set"] is None
+    hs.update_contact_properties.assert_not_called()
+
+
+def test_a_failed_dnc_flag_is_reported_not_swallowed(client):
+    # Silently losing a legal request is the worst outcome here.
+    hs = MagicMock()
+    hs.update_contact_properties.side_effect = RuntimeError("property missing")
+    with patch.object(app_module, "HubSpotClient", return_value=hs), \
+            patch.object(app_module.config, "HUBSPOT_ACCESS_TOKEN", "tok"):
+        resp = client.post("/api/climb/complete", json={
+            "session_id": "s1", "contact_id": "1", "disposition": "do_not_call",
+        })
+
+    body = resp.get_json()
+    assert body["dnc_flag_set"] is False
+    assert "Do Not Call flag NOT set" in body["hubspot_error"]
+
+
+def test_the_dnc_flag_still_goes_out_when_the_note_fails(client):
+    # The note and the flag are separate calls on purpose.
+    hs = MagicMock()
+    hs.create_note_for_contact.side_effect = RuntimeError("note failed")
+    with patch.object(app_module, "HubSpotClient", return_value=hs), \
+            patch.object(app_module.config, "HUBSPOT_ACCESS_TOKEN", "tok"):
+        resp = client.post("/api/climb/complete", json={
+            "session_id": "s1", "contact_id": "1", "disposition": "do_not_call",
+        })
+
+    assert resp.get_json()["dnc_flag_set"] is True
+    assert hs.update_contact_properties.call_args[0][1]["donotcall"] == "true"

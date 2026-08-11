@@ -1488,13 +1488,14 @@ function log(box, cls, msg) {
     const el = document.getElementById(box);
     const entry = document.createElement('div');
     entry.className = 'log-entry ' + cls;
+    // Climbing theme, matching the mountain hero.
     const icons = {
-        status: '\u2604\uFE0F',
-        skip: '\u274C',
-        generating: '\uD83D\uDD2E',
-        done: '\u2694\uFE0F',
-        error: '\u26A1',
-        warn: '\u26A0\uFE0F',
+        status: '\uD83E\uDDED',      // compass: routing the day
+        skip: '\u21AA\uFE0F',        // arrow: stepped past this one
+        generating: '\uD83D\uDDFA\uFE0F', // map: drawing the script
+        done: '\uD83E\uDD7E',        // boot: another step taken
+        error: '\u26D4',              // no entry
+        warn: '\u26A0\uFE0F',        // warning
     };
     entry.textContent = (icons[cls] || '\u25B6') + ' ' + msg;
     el.appendChild(entry);
@@ -1502,7 +1503,7 @@ function log(box, cls, msg) {
 }
 
 // ===================================================================
-// CONSULT THE ORACLE (generate)
+// BUILD TODAY'S LIST (generate)
 // ===================================================================
 function consultTheOracle() {
     const segment = document.getElementById('segmentInput').value.trim();
@@ -1856,7 +1857,7 @@ function renderReview(data) {
 
     // Show sections
     document.getElementById('reviewSection').style.display = 'block';
-    // Quick mode: no approve/Kraken step (call sheet only, no HubSpot writes)
+    // Quick mode: no approve step (call sheet only, no HubSpot writes)
     if (data.quick_mode) {
         document.getElementById('approveSection').style.display = 'none';
         document.getElementById('consultBtn').disabled = false;
@@ -1873,7 +1874,7 @@ function renderReview(data) {
 }
 
 // ===================================================================
-// RELEASE THE KRAKEN (approve)
+// START THE CLIMB (write prep notes)
 // ===================================================================
 function releaseTheKraken() {
     if (!currentSessionId) {
@@ -1956,7 +1957,7 @@ function handleWriteMessage(msg) {
         document.getElementById('writeProgressBar').style.width = '100%';
         document.getElementById('writeProgressText').textContent = 'ALL SCROLLS INSCRIBED!';
         log('writeLogBox', 'status', msg.msg);
-        log('writeLogBox', 'status', '\uD83C\uDFC6 THE ORACLE HAS SPOKEN. GO FORTH AND CONQUER! \uD83C\uDFC6');
+        log('writeLogBox', 'done', 'Prep notes are in HubSpot. Head to Today\'s Climb.');
 
         // Reset form
         document.getElementById('consultBtn').disabled = false;
@@ -2173,10 +2174,10 @@ function handleCleanupMsg(msg) {
         summary.style.display = 'block';
 
         if (msg.removing === 0) {
-            summary.innerHTML = '&#9989; <strong>No false scrolls found!</strong> All notes are clean. Athena approves.';
+            summary.innerHTML = '&#9989; <strong>Nothing to clean up.</strong> No stale prep notes found.';
             document.getElementById('cleanupBtn').disabled = false;
         } else {
-            summary.innerHTML = '&#9876;&#65039; Found <strong style="color:#FF6B6B">' + msg.removing + '</strong> false scrolls to purge. ' +
+            summary.innerHTML = 'Found <strong style="color:var(--orange)">' + msg.removing + '</strong> stale prep notes to remove. ' +
                 '<strong style="color:#00FF00">' + msg.keeping + '</strong> true scrolls will be preserved.';
             document.getElementById('cleanupButtons').style.display = 'flex';
         }

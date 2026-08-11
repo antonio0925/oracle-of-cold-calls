@@ -80,18 +80,14 @@ Pick the one that matches what actually happened.
 | Meeting booked | You booked a meeting. Best outcome. |
 | Do not call | They asked never to be called again |
 
-**Do not call needs one extra step from you right now.**
+**Do not call is special.** When someone asks never to be called again, that
+is a legal request. Pick **Do not call**.
 
-When someone asks never to be called again, that is a legal request. Pick
-**Do not call** so it is recorded on their contact record.
+SUMMIT ticks the official "Do Not Call" box on their HubSpot contact record.
+That stops everyone at the company from calling that person, not only you.
 
-Then tell Antonio the same day. SUMMIT cannot tick the official "Do Not Call"
-box in HubSpot yet, because that field does not exist in this portal. Until
-Antonio adds it, the outcome is recorded as a note on the contact, and a note
-does not stop anyone else from calling that person. Antonio sets the official
-flag by hand.
-
-Do not use this outcome for anything else.
+If SUMMIT shows you a warning after you pick it, the box did not get ticked.
+Tell Antonio the same day. Do not use this outcome for anything else.
 
 ---
 

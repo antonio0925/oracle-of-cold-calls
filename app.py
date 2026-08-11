@@ -122,7 +122,7 @@ def healthz():
 
 
 # ---------------------------------------------------------------------------
-# Flask Routes — The Oracle
+# Flask Routes
 # ---------------------------------------------------------------------------
 @app.route("/")
 def index():
@@ -198,7 +198,7 @@ def api_recoverable_sessions():
 
 @app.route("/generate", methods=["POST"])
 def generate():
-    """SSE endpoint: runs Oracle Phases 1-2, streams progress, stores results."""
+    """SSE endpoint: build today's call list, streaming progress as it goes."""
     data = request.json
     segment_name = data.get("segment", "").strip()
     calling_date = data.get("calling_date", "").strip()
@@ -278,28 +278,28 @@ def generate():
         # Phase 1: Pull contacts
         if cached_scripts:
             yield emit("status", {
-                "msg": f"The Oracle remembers! Found {len(cached_scripts)} cached prophecies from a prior session. "
+                "msg": f"Found {len(cached_scripts)} scripts cached from an earlier run on this list. "
                        f"Only new warriors will be consulted..."
             })
         else:
-            yield emit("status", {"msg": "The Oracle awakens... searching for thy Legion..."})
+            yield emit("status", {"msg": "Finding your list in HubSpot..."})
 
         list_id = hs.search_lists(segment_name)
         if not list_id:
-            yield emit("error", {"msg": f"Zeus hurls a thunderbolt! Legion '{segment_name}' not found in HubSpot."})
+            yield emit("error", {"msg": f"List '{segment_name}' not found in HubSpot."})
             yield emit("done", {"session_id": None})
             return
 
-        yield emit("status", {"msg": f"Legion found! (List ID: {list_id}). Summoning warriors..."})
+        yield emit("status", {"msg": f"List found (ID {list_id}). Loading the contacts..."})
 
         try:
             contact_ids = hs.get_list_memberships(list_id)
         except Exception as e:
-            yield emit("error", {"msg": f"Failed to fetch Legion members: {e}"})
+            yield emit("error", {"msg": f"Could not load the list members: {e}"})
             yield emit("done", {"session_id": None, "stats": stats})
             return
         stats["total"] = len(contact_ids)
-        yield emit("status", {"msg": f"{len(contact_ids)} mortals found in the Legion. Beginning the trials..."})
+        yield emit("status", {"msg": f"{len(contact_ids)} contacts on the list. Checking who is dialable today..."})
 
         if not contact_ids:
             yield emit("done", {"session_id": None, "stats": stats})
@@ -311,7 +311,7 @@ def generate():
                 "phone", "mobilephone", "city", "state", "country", "hs_timezone",
             ])
         except Exception as e:
-            yield emit("error", {"msg": f"Failed to fetch warrior details: {e}"})
+            yield emit("error", {"msg": f"Could not load contact details: {e}"})
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
@@ -353,7 +353,7 @@ def generate():
                         stats["skipped_subscriber"] += 1
                         yield emit("skip", {
                             "name": name,
-                            "reason": f"Already a loyal subject (${mrr:.0f}/mo)"
+                            "reason": f"Already a customer (${mrr:.0f}/mo)"
                         })
                         break
                 if is_subscriber:
@@ -378,7 +378,7 @@ def generate():
                 has_prep = hs.search_notes_for_contact(cid)
                 if has_prep:
                     stats["skipped_existing"] += 1
-                    yield emit("skip", {"name": name, "reason": "Has already received the Oracle's wisdom"})
+                    yield emit("skip", {"name": name, "reason": "Prep note already written"})
                     continue
 
             # Filter D: call cooldown. A contact called inside the cooldown
@@ -463,17 +463,17 @@ def generate():
                 stats["errors"] += 1
                 yield emit("error_contact", {
                     "name": name,
-                    "msg": "The Oracle timed out consulting the stars! (120s timeout — skipping)",
+                    "msg": "Script generation timed out after 120s. Skipping this contact.",
                 })
             except http_requests.exceptions.ConnectionError:
                 stats["errors"] += 1
                 yield emit("error_contact", {
                     "name": name,
-                    "msg": "Lost connection to the Oracle of Octave! (Connection error — skipping)",
+                    "msg": "Lost the connection to Octave. Skipping this contact.",
                 })
             except Exception as e:
                 stats["errors"] += 1
-                yield emit("error_contact", {"name": name, "msg": f"Zeus hurls a thunderbolt! {str(e)}"})
+                yield emit("error_contact", {"name": name, "msg": f"{str(e)}"})
 
             time.sleep(1)
 
@@ -540,11 +540,11 @@ def generate():
         new_count = stats["prepped"] - cached_count
         if cached_count > 0:
             completion_msg = (
-                f"The Oracle has spoken! {stats['prepped']} mortals prepared for battle "
-                f"({cached_count} recalled from memory, {new_count} freshly consulted)."
+                f"Route planned. {stats['prepped']} contacts are ready to call "
+                f"({cached_count} reused from an earlier run, {new_count} newly written)."
             )
         else:
-            completion_msg = f"The Oracle has spoken! {stats['prepped']} mortals prepared for battle."
+            completion_msg = f"Route planned. {stats['prepped']} contacts are ready to call."
 
         yield emit("complete", {
             "session_id": session_id,
@@ -586,25 +586,25 @@ def quick_generate():
         def emit(msg_type, payload):
             return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
 
-        yield emit("status", {"msg": "⚔️ Preparing for battle! Searching for the Legion..."})
+        yield emit("status", {"msg": "Finding your list in HubSpot..."})
 
         # Find the HubSpot list
         list_id = hs.search_lists(segment_name)
         if not list_id:
-            yield emit("error", {"msg": f"Legion '{segment_name}' not found in HubSpot."})
+            yield emit("error", {"msg": f"List '{segment_name}' not found in HubSpot."})
             yield emit("done", {"session_id": None})
             return
 
-        yield emit("status", {"msg": f"Legion found! (List ID: {list_id}). Mustering warriors..."})
+        yield emit("status", {"msg": f"List found (ID {list_id}). Loading the contacts..."})
 
         try:
             contact_ids = hs.get_list_memberships(list_id)
         except Exception as e:
-            yield emit("error", {"msg": f"Failed to fetch Legion members: {e}"})
+            yield emit("error", {"msg": f"Could not load the list members: {e}"})
             yield emit("done", {"session_id": None, "stats": stats})
             return
         stats["total"] = len(contact_ids)
-        yield emit("status", {"msg": f"{len(contact_ids)} mortals found. Checking for existing battle scrolls..."})
+        yield emit("status", {"msg": f"{len(contact_ids)} contacts on the list. Looking for existing prep notes..."})
 
         if not contact_ids:
             yield emit("done", {"session_id": None, "stats": stats})
@@ -616,7 +616,7 @@ def quick_generate():
                 "phone", "mobilephone", "city", "state", "country", "hs_timezone",
             ])
         except Exception as e:
-            yield emit("error", {"msg": f"Failed to fetch warrior details: {e}"})
+            yield emit("error", {"msg": f"Could not load contact details: {e}"})
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
@@ -638,7 +638,7 @@ def quick_generate():
 
             if not prep_notes:
                 stats["skipped_no_notes"] += 1
-                yield emit("skip", {"name": name, "reason": "No battle scroll found — needs Oracle consultation"})
+                yield emit("skip", {"name": name, "reason": "No prep note yet. Build the full list to write one."})
                 continue
 
             # Use the most recent prep note
@@ -660,7 +660,7 @@ def quick_generate():
             yield emit("done_contact", {"name": name, "company": company_name, "tz": tz_lbl})
 
         if not prepped_contacts:
-            yield emit("error", {"msg": "No warriors have battle scrolls yet! Consult the Oracle first."})
+            yield emit("error", {"msg": "Nobody on this list has a prep note yet. Build the full list first."})
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
@@ -728,7 +728,7 @@ def quick_generate():
             "session_id": session_id,
             "stats": stats,
             "quick_mode": True,
-            "msg": f"⚔️ Battle stations ready! {stats['prepped']} warriors armed with existing scrolls. "
+            "msg": f"Route ready. {stats['prepped']} contacts already had prep notes. "
                    f"({stats['skipped_no_notes']} lack scrolls, {stats['errors']} errors.)",
         })
 
@@ -757,7 +757,7 @@ def approve(session_id):
         if prev_failed:
             pending = [c for c in contacts if str(c["contact_id"]) in prev_failed]
             yield emit("status", {
-                "msg": f"Retrying {len(pending)} failed scrolls from previous attempt..."
+                "msg": f"Retrying {len(pending)} notes that failed last time..."
             })
         else:
             pending = contacts
@@ -766,7 +766,7 @@ def approve(session_id):
         errors = 0
         failed_contact_ids = []
 
-        yield emit("status", {"msg": f"THE KRAKEN IS RELEASED! Inscribing {total} sacred scrolls..."})
+        yield emit("status", {"msg": f"Writing {total} prep notes to HubSpot..."})
 
         for i, c in enumerate(pending):
             name = c.get("name", "Unknown")
@@ -784,7 +784,7 @@ def approve(session_id):
                 failed_contact_ids.append(c["contact_id"])
                 yield emit("error_contact", {
                     "name": name,
-                    "msg": f"The scroll crumbles! {str(e)}",
+                    "msg": f"{str(e)}",
                 })
             time.sleep(0.5)
 
@@ -792,9 +792,9 @@ def approve(session_id):
         # re-inscribes failed scrolls; reposting duplicates the whole plan.
         slack_ok = False
         if prev_failed:
-            yield emit("status", {"msg": "Retry run — battle plan already posted to Slack, skipping."})
+            yield emit("status", {"msg": "Retry run. The call sheet already went to Slack, skipping."})
         else:
-            yield emit("status", {"msg": "Dispatching the battle plan to Slack..."})
+            yield emit("status", {"msg": "Posting the call sheet to Slack..."})
             slack_ok, slack_msg = post_to_slack(session_data)
             if slack_ok:
                 yield emit("status", {"msg": f"⚡ {slack_msg}"})
@@ -818,7 +818,7 @@ def approve(session_id):
             "success": success,
             "errors": errors,
             "slack_posted": slack_ok,
-            "msg": f"THE ORACLE HAS SPOKEN. {success} sacred scrolls inscribed in the annals of HubSpot!"
+            "msg": f"Done. {success} prep notes written to HubSpot."
                    + (f" ({errors} failed — session preserved for retry.)" if errors else ""),
         })
 
@@ -833,7 +833,7 @@ def discard(session_id):
     path = f"sessions/prep_{session_id}.json"
     if os.path.exists(path):
         os.remove(path)
-    return jsonify({"msg": "Banished to Tartarus! The scrolls have been destroyed."})
+    return jsonify({"msg": "Route plan discarded."})
 
 
 # ---------------------------------------------------------------------------
@@ -886,7 +886,7 @@ def cleanup_scan(session_id):
         total = len(contacts)
         manifest = []
 
-        yield emit("status", {"msg": f"Athena surveys the battlefield... scanning {total} contacts for duplicate scrolls."})
+        yield emit("status", {"msg": f"Scanning {total} contacts for duplicate prep notes."})
 
         total_remove = 0
         total_keep = 0
@@ -959,7 +959,7 @@ def cleanup_scan(session_id):
             "keeping": total_keep,
             "removing": total_remove,
             "manifest": manifest,
-            "msg": f"Athena's survey complete! Found {total_remove} false scrolls to purge across {total} contacts. "
+            "msg": f"Scan complete. Found {total_remove} stale prep notes across {total} contacts. "
                    f"({total_keep} true scrolls will be preserved.)",
         })
 
@@ -991,7 +991,7 @@ def execute_cleanup(session_id):
         archived = 0
         errors = 0
 
-        yield emit("status", {"msg": f"⚔️ SMITING {total_to_remove} false scrolls from HubSpot..."})
+        yield emit("status", {"msg": f"Removing {total_to_remove} stale prep notes from HubSpot..."})
 
         for entry in manifest:
             name = entry.get("name", "Unknown")
@@ -1009,7 +1009,7 @@ def execute_cleanup(session_id):
                     errors += 1
                     yield emit("error_contact", {
                         "name": name,
-                        "msg": f"Failed to smite note {note['id']}: {e}",
+                        "msg": f"Could not remove note {note['id']}: {e}",
                     })
                 time.sleep(0.3)
 
@@ -1021,7 +1021,7 @@ def execute_cleanup(session_id):
         yield emit("cleanup_complete", {
             "archived": archived,
             "errors": errors,
-            "msg": f"⚔️ {archived} false scrolls have been smitten! "
+            "msg": f"Removed {archived} stale prep notes. "
                    f"{'Zeus wept ' + str(errors) + ' times.' if errors else 'Flawless victory!'}",
         })
 
@@ -1124,7 +1124,9 @@ def api_climb_complete():
 
     # Then write the outcome to the contact as a note.
     hubspot_ok, hubspot_error = True, ""
+    dnc_ok = None
     if config.HUBSPOT_ACCESS_TOKEN:
+        hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
         entry = route["log_entry"]
         if notes:
             entry += f" | Notes: {notes}"
@@ -1134,12 +1136,28 @@ def api_climb_complete():
             f"<p>Logged by SUMMIT on {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>"
         )
         try:
-            HubSpotClient(config.HUBSPOT_ACCESS_TOKEN).create_note_for_contact(contact_id, body)
+            hs.create_note_for_contact(contact_id, body)
         except Exception as e:
             log.warning("Outcome note failed for contact %s: %s", contact_id, e)
             hubspot_ok, hubspot_error = False, str(e)
+
+        # Compliance: do_not_call must reach the standard HubSpot property,
+        # not only a note. A note stops nobody else from dialling. This runs
+        # in its own call so a failed note cannot swallow the DNC flag, and a
+        # failed flag is reported separately rather than hidden.
+        if disposition == "do_not_call":
+            try:
+                hs.update_contact_properties(contact_id, {"donotcall": "true"})
+                dnc_ok = True
+            except Exception as e:
+                log.error("DNC flag failed for contact %s: %s", contact_id, e)
+                dnc_ok = False
+                hubspot_error = (hubspot_error + " | " if hubspot_error else "") + \
+                    f"Do Not Call flag NOT set: {e}"
     else:
         hubspot_ok, hubspot_error = False, "No HubSpot token configured"
+        if disposition == "do_not_call":
+            dnc_ok = False
 
     completed = len(dispositions)
     return jsonify({
@@ -1148,6 +1166,9 @@ def api_climb_complete():
         "disposition": disposition,
         "completed": completed,
         "hubspot_note_written": hubspot_ok,
+        # None unless this was a do_not_call. True means the standard HubSpot
+        # Do Not Call flag is set. False must be escalated, not ignored.
+        "dnc_flag_set": dnc_ok,
         # Surfaced, not fatal. The card is already checked off locally.
         "hubspot_error": hubspot_error,
         "msg": route["log_entry"],
