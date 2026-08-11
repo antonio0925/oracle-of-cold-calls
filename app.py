@@ -325,15 +325,27 @@ def generate():
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
-        try:
-            contacts = hs.batch_get_contacts(contact_ids, [
-                "firstname", "lastname", "email", "company", "jobtitle",
-                "phone", "mobilephone", "city", "state", "country", "hs_timezone",
-            ])
-        except Exception as e:
-            yield emit("error", {"msg": f"Could not load contact details: {e}"})
-            yield emit("done", {"session_id": None, "stats": stats})
-            return
+        # Contact details are fetched a chunk at a time, as the loop consumes
+        # them. Reading all of them up front cost one request per 100 contacts
+        # before any work started: on a 3,400-contact list that is 34 requests
+        # the BDR waits through to make two calls. The loop stops at the
+        # target, so this now costs roughly one request per 100 contacts
+        # actually looked at.
+        CONTACT_PROPERTIES = [
+            "firstname", "lastname", "email", "company", "jobtitle",
+            "phone", "mobilephone", "city", "state", "country", "hs_timezone",
+        ]
+        CHUNK = 100
+
+        def contacts_in_chunks():
+            for start in range(0, len(contact_ids), CHUNK):
+                batch = contact_ids[start:start + CHUNK]
+                try:
+                    for c in hs.batch_get_contacts(batch, CONTACT_PROPERTIES):
+                        yield c
+                except Exception as e:
+                    log.warning("Contact chunk at %d failed: %s", start, e)
+                    stats["errors"] += 1
 
         # Call history is read per contact, on demand, and cached. Sweeping the
         # whole list up front cost one or two requests for every contact on it,
@@ -351,9 +363,9 @@ def generate():
             return last_calls.get(key, "")
 
         # Phase 2: Filter + generate, stopping at the target
-        for i, contact in enumerate(contacts):
+        for i, contact in enumerate(contacts_in_chunks()):
             if stats["prepped"] >= target:
-                stats["not_reached"] = len(contacts) - i
+                stats["not_reached"] = len(contact_ids) - i
                 yield emit("status", {
                     "msg": f"Target of {target} reached. "
                            f"{stats['not_reached']} contacts left untouched for another day.",
@@ -372,7 +384,7 @@ def generate():
                 "current": stats["prepped"] + 1,
                 "total": target,
                 "scanned": i + 1,
-                "scanned_total": len(contacts),
+                "scanned_total": len(contact_ids),
                 "name": name,
             })
 
@@ -654,20 +666,32 @@ def quick_generate():
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
-        try:
-            contacts = hs.batch_get_contacts(contact_ids, [
-                "firstname", "lastname", "email", "company", "jobtitle",
-                "phone", "mobilephone", "city", "state", "country", "hs_timezone",
-            ])
-        except Exception as e:
-            yield emit("error", {"msg": f"Could not load contact details: {e}"})
-            yield emit("done", {"session_id": None, "stats": stats})
-            return
+        # Contact details are fetched a chunk at a time, as the loop consumes
+        # them. Reading all of them up front cost one request per 100 contacts
+        # before any work started: on a 3,400-contact list that is 34 requests
+        # the BDR waits through to make two calls. The loop stops at the
+        # target, so this now costs roughly one request per 100 contacts
+        # actually looked at.
+        CONTACT_PROPERTIES = [
+            "firstname", "lastname", "email", "company", "jobtitle",
+            "phone", "mobilephone", "city", "state", "country", "hs_timezone",
+        ]
+        CHUNK = 100
+
+        def contacts_in_chunks():
+            for start in range(0, len(contact_ids), CHUNK):
+                batch = contact_ids[start:start + CHUNK]
+                try:
+                    for c in hs.batch_get_contacts(batch, CONTACT_PROPERTIES):
+                        yield c
+                except Exception as e:
+                    log.warning("Contact chunk at %d failed: %s", start, e)
+                    stats["errors"] += 1
 
         # Check each contact for existing COLD CALL PREP notes
-        for i, contact in enumerate(contacts):
+        for i, contact in enumerate(contacts_in_chunks()):
             if stats["prepped"] >= target:
-                stats["not_reached"] = len(contacts) - i
+                stats["not_reached"] = len(contact_ids) - i
                 yield emit("status", {
                     "msg": f"Target of {target} reached. "
                            f"{stats['not_reached']} contacts left untouched for another day.",
@@ -686,7 +710,7 @@ def quick_generate():
                 "current": stats["prepped"] + 1,
                 "total": target,
                 "scanned": i + 1,
-                "scanned_total": len(contacts),
+                "scanned_total": len(contact_ids),
                 "name": name,
             })
 

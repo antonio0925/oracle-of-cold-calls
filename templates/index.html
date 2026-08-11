@@ -1733,7 +1733,7 @@ function handleMessage(msg) {
         if (msg.cached) {
             log('logBox', 'done', msg.name + ' at ' + msg.company + ' [' + msg.tz + '] \u2014 RECALLED FROM MEMORY \uD83E\udDE0');
         } else {
-            log('logBox', 'done', msg.name + ' at ' + msg.company + ' [' + msg.tz + '] \u2014 PROPHECY RECEIVED');
+            log('logBox', 'done', msg.name + ' at ' + msg.company + ' [' + msg.tz + '] script ready');
             zeusFlash(); // Mini flash per completed contact (only for fresh ones)
         }
     } else if (t === 'error_contact') {
