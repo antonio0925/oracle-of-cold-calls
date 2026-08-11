@@ -7,6 +7,7 @@ from dateutil import parser as dateparser
 import config
 from services.retry import retry_request
 from services.call_sheet import user_tz_abbrev, et_to_user_hour, format_hour
+from services.formatting import format_clock
 
 
 def build_slack_messages(session_data):
@@ -15,6 +16,7 @@ def build_slack_messages(session_data):
     thread_messages are follow-up chunks.
     """
     calling_date = session_data.get("calling_date", "")
+    calling_time = session_data.get("calling_time", "")
     stats = session_data.get("stats", {})
     call_sheet = session_data.get("call_sheet", [])
     unknown_tz = session_data.get("unknown_tz", [])
@@ -27,6 +29,12 @@ def build_slack_messages(session_data):
         date_display = dt.strftime("%A %b %d")
     except Exception:
         date_display = calling_date
+
+    # The start time the BDR set. Older sessions have no time, so it is only
+    # added when it exists.
+    start_display = format_clock(calling_time)
+    if start_display:
+        date_display = f"{date_display}, from {start_display} {user_tz_abbrev()}"
 
     # Header message
     header = (

@@ -25,9 +25,16 @@ from services.sessions import (
     find_latest_session, record_disposition, clear_disposition, utc_now_iso,
 )
 from services.timezone import resolve_timezone, tz_label, work_day
-from services.filters import is_us_company, is_us_person
-from services.formatting import format_note_html, normalize_html_for_compare
-from services.call_sheet import title_seniority, TIME_BLOCKS, TZ_TO_BLOCKS, build_call_sheet
+from services.filters import (
+    is_us_company, is_us_person, has_left_the_company, international_reason,
+)
+from services.formatting import (
+    format_note_html, normalize_html_for_compare, format_plan_stamp,
+    clean_clock as _clean_clock,
+)
+from services.call_sheet import (
+    title_seniority, TIME_BLOCKS, TZ_TO_BLOCKS, build_call_sheet, user_tz_abbrev,
+)
 from services.hubspot import HubSpotClient
 from services.octave import OctaveClient, script_text as octave_script_text
 from services.slack import post_to_slack
@@ -61,6 +68,34 @@ def _cancel_futures(futures):
     cancelled = sum(1 for f in futures if f.cancel())
     if cancelled:
         log.info("Cancelled %d pending futures", cancelled)
+
+
+# ---------------------------------------------------------------------------
+# SSE
+# ---------------------------------------------------------------------------
+def sse_response(build_stream, label):
+    """Return an SSE Response whose generator cannot fail silently.
+
+    A generator that raises part way through just closes the response body.
+    The browser reads that as a clean end of stream. It never receives the
+    terminal event, so the page sits on the progress bar and reports nothing,
+    while the traceback is visible only in the server log. A crash after 40
+    minutes of work looked exactly like a hang.
+
+    Every failure now leaves by the same door as a handled one: an `error`
+    event the page can render.
+    """
+    def guarded():
+        try:
+            yield from build_stream()
+        except Exception as exc:  # noqa: BLE001 - the browser must hear this
+            log.exception("%s stream failed", label)
+            yield "data: " + json.dumps({
+                "type": "error",
+                "msg": f"The run stopped early: {exc}",
+            }) + "\n\n"
+
+    return Response(guarded(), mimetype="text/event-stream")
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +224,13 @@ def api_session(session_id):
     session_data = get_session(session_id) or load_session_from_disk(session_id)
     if not session_data:
         return jsonify({"error": "Session not found"}), 404
-    return jsonify(session_data)
+    # Rendered here rather than stored, so the stamp follows the configured
+    # work timezone instead of freezing whatever it was when the plan was built.
+    return jsonify(dict(session_data, plan_stamp=format_plan_stamp(
+        session_data.get("calling_date", ""),
+        session_data.get("calling_time", ""),
+        user_tz_abbrev(),
+    )))
 
 
 @app.route("/api/recoverable-sessions")
@@ -212,6 +253,7 @@ def api_recoverable_sessions():
                     "session_id": data.get("session_id", ""),
                     "segment": data.get("segment", ""),
                     "calling_date": data.get("calling_date", ""),
+                    "calling_time": data.get("calling_time", ""),
                     "prepped_count": len(data.get("contacts", [])),
                     "is_complete": data.get("generation_complete", False),
                     "modified": datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M"),
@@ -243,6 +285,9 @@ def generate():
     data = request.json
     segment_name = data.get("segment", "").strip()
     calling_date = data.get("calling_date", "").strip()
+    # When the BDR starts dialling. It stamps the plan, the prep note, and the
+    # Slack sheet. It does not change who is on the list.
+    calling_time = _clean_clock(data.get("calling_time"))
     skip_existing = data.get("skip_existing", False)
 
     # How many calls the BDR wants today. The loop stops once it has this
@@ -269,6 +314,7 @@ def generate():
         stats = {
             "total": 0, "prepped": 0,
             "skipped_subscriber": 0, "no_source_email": 0,
+            "skipped_left_company": 0, "skipped_international": 0,
             "skipped_existing": 0, "skipped_cached": 0,
             "skipped_recent_call": 0, "skipped_account_cap": 0,
             "errors": 0, "not_reached": 0, "unscanned": 0,
@@ -317,6 +363,7 @@ def generate():
                 "session_id": session_id,
                 "segment": segment_name,
                 "calling_date": calling_date,
+                "calling_time": calling_time,
                 "stats": stats,
                 "generation_complete": False,
                 "contacts": contacts_payload,
@@ -362,6 +409,8 @@ def generate():
         CONTACT_PROPERTIES = [
             "firstname", "lastname", "email", "company", "jobtitle",
             "phone", "mobilephone", "city", "state", "country", "hs_timezone",
+            # Both gates read from the record itself, so they cost no request.
+            "no_longer_with_company",
         ]
         CHUNK = 100
 
@@ -436,6 +485,25 @@ def generate():
                 "scanned_total": len(contact_ids),
                 "name": name,
             })
+
+            # Gate A: the person left. The call is wasted and the script
+            # would be about the wrong employer. Reported by the BDR after a
+            # VP who had left ClickUp reached her call list.
+            if has_left_the_company(props):
+                stats["skipped_left_company"] += 1
+                yield emit("skip", {
+                    "name": name,
+                    "reason": f"No longer with {company_name}",
+                })
+                continue
+
+            # Gate B: not dialable from a US desk. She reaches these people by
+            # email or LinkedIn instead.
+            non_us = international_reason(props)
+            if non_us:
+                stats["skipped_international"] += 1
+                yield emit("skip", {"name": name, "reason": non_us})
+                continue
 
             # Filter A: Active subscriber check
             try:
@@ -515,7 +583,10 @@ def generate():
                 stats["skipped_cached"] += 1
                 stats["prepped"] += 1
                 per_account[account_key] += 1
-                fresh_html = format_note_html(props, cached["script_content"])
+                fresh_html = format_note_html(
+                    props, cached["script_content"],
+                    calling_date, calling_time, user_tz_abbrev(),
+                )
                 prepped_contacts.append({
                     "contact": contact,
                     "tz": tz,
@@ -551,7 +622,10 @@ def generate():
                     "tz_label": tz_lbl,
                     "script_content": script_content,
                     "email_data": email_data,
-                    "note_html": format_note_html(props, script_content),
+                    "note_html": format_note_html(
+                        props, script_content,
+                        calling_date, calling_time, user_tz_abbrev(),
+                    ),
                 })
                 stats["prepped"] += 1
                 per_account[account_key] += 1
@@ -645,6 +719,7 @@ def generate():
             "session_id": session_id,
             "segment": segment_name,
             "calling_date": calling_date,
+            "calling_time": calling_time,
             "generation_complete": True,
             "stats": stats,
             "call_sheet": call_sheet,
@@ -677,7 +752,7 @@ def generate():
             "msg": completion_msg,
         })
 
-    return Response(stream(), mimetype="text/event-stream")
+    return sse_response(stream, "/generate")
 
 
 @app.route("/quick-generate", methods=["POST"])
@@ -690,6 +765,7 @@ def quick_generate():
     data = request.json
     segment_name = data.get("segment", "").strip()
     calling_date = data.get("calling_date", "").strip()
+    calling_time = _clean_clock(data.get("calling_time"))
 
     target = _clamp_target(data.get("target"))
 
@@ -706,6 +782,7 @@ def quick_generate():
         stats = {
             "total": 0, "prepped": 0,
             "skipped_no_notes": 0, "errors": 0, "not_reached": 0,
+            "skipped_left_company": 0, "skipped_international": 0,
             "tz_breakdown": {},
         }
         prepped_contacts = []
@@ -746,6 +823,8 @@ def quick_generate():
         CONTACT_PROPERTIES = [
             "firstname", "lastname", "email", "company", "jobtitle",
             "phone", "mobilephone", "city", "state", "country", "hs_timezone",
+            # Both gates read from the record itself, so they cost no request.
+            "no_longer_with_company",
         ]
         CHUNK = 100
 
@@ -774,7 +853,9 @@ def quick_generate():
                     yield c
 
         # Check each contact for existing COLD CALL PREP notes
+        resolved = 0
         for i, contact in enumerate(contacts_in_chunks()):
+            resolved += 1
             if stats["prepped"] >= target:
                 stats["not_reached"] = len(contact_ids) - i
                 yield emit("status", {
@@ -798,6 +879,25 @@ def quick_generate():
                 "scanned_total": len(contact_ids),
                 "name": name,
             })
+
+            # Gate A: the person left. The call is wasted and the script
+            # would be about the wrong employer. Reported by the BDR after a
+            # VP who had left ClickUp reached her call list.
+            if has_left_the_company(props):
+                stats["skipped_left_company"] += 1
+                yield emit("skip", {
+                    "name": name,
+                    "reason": f"No longer with {company_name}",
+                })
+                continue
+
+            # Gate B: not dialable from a US desk. She reaches these people by
+            # email or LinkedIn instead.
+            non_us = international_reason(props)
+            if non_us:
+                stats["skipped_international"] += 1
+                yield emit("skip", {"name": name, "reason": non_us})
+                continue
 
             try:
                 prep_notes = hs.get_all_prep_notes_for_contact(cid)
@@ -829,8 +929,17 @@ def quick_generate():
 
             yield emit("done_contact", {"name": name, "company": company_name, "tz": tz_lbl})
 
-        if not prepped_contacts:
-            yield emit("error", {"msg": "Nobody on this list has a prep note yet. Build the full list first."})
+        # A list whose members are not contacts resolves to nothing. Silence
+        # here reads as a broken app, so say what happened. This is checked
+        # before the prep-note message below, because "none of these are
+        # contacts" and "none of these contacts have a note" are different
+        # problems with different fixes.
+        if resolved == 0 and contact_ids:
+            yield emit("error", {
+                "msg": f"This list has {len(contact_ids)} members, but none of them "
+                       f"are contacts. It is probably a company or deal list. "
+                       f"Pick a contact list.",
+            })
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
@@ -845,14 +954,8 @@ def quick_generate():
                        + ". Rerun to pick them up.",
             })
 
-        # A list whose members are not contacts resolves to nothing. Silence
-        # here reads as a broken app, so say what happened.
-        if resolved == 0 and contact_ids:
-            yield emit("error", {
-                "msg": f"This list has {len(contact_ids)} members, but none of them "
-                       f"are contacts. It is probably a company or deal list. "
-                       f"Pick a contact list.",
-            })
+        if not prepped_contacts:
+            yield emit("error", {"msg": "Nobody on this list has a prep note yet. Build the full list first."})
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
@@ -899,6 +1002,7 @@ def quick_generate():
             "session_id": session_id,
             "segment": segment_name,
             "calling_date": calling_date,
+            "calling_time": calling_time,
             "generation_complete": True,
             "quick_mode": True,
             "stats": stats,
@@ -924,7 +1028,7 @@ def quick_generate():
                    f"({stats['skipped_no_notes']} had no prep note, {stats['errors']} errors.)",
         })
 
-    return Response(stream(), mimetype="text/event-stream")
+    return sse_response(stream, "/quick-generate")
 
 
 @app.route("/approve/<session_id>", methods=["POST"])
@@ -1014,7 +1118,7 @@ def approve(session_id):
                    + (f" ({errors} failed — session preserved for retry.)" if errors else ""),
         })
 
-    return Response(stream(), mimetype="text/event-stream")
+    return sse_response(stream, "/approve")
 
 
 @app.route("/discard/<session_id>", methods=["POST"])
@@ -1155,7 +1259,7 @@ def cleanup_scan(session_id):
                    f"({total_keep} current notes will be kept.)",
         })
 
-    return Response(stream(), mimetype="text/event-stream")
+    return sse_response(stream, "/cleanup")
 
 
 @app.route("/execute-cleanup/<session_id>", methods=["POST"])
@@ -1217,7 +1321,7 @@ def execute_cleanup(session_id):
                    f"{str(errors) + ' failed.' if errors else 'No failures.'}",
         })
 
-    return Response(stream(), mimetype="text/event-stream")
+    return sse_response(stream, "/execute-cleanup")
 
 
 # ---------------------------------------------------------------------------
@@ -1298,6 +1402,11 @@ def api_climb():
         "session_id": data.get("session_id"),
         "segment": data.get("segment", ""),
         "calling_date": data.get("calling_date", ""),
+        "calling_time": data.get("calling_time", ""),
+        "plan_stamp": format_plan_stamp(
+            data.get("calling_date", ""), data.get("calling_time", ""),
+            user_tz_abbrev(),
+        ),
         "blocks": blocks,
         "unknown_tz": unknown,
         "dispositions": dispositions,

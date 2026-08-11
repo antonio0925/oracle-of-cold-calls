@@ -18,7 +18,7 @@ Open the link. Type the password. Press "Start the climb".
 
 **2. Plan the route**
 
-You land on **Route Plan**. Two things to set:
+You land on **Route Plan**. Four things to set:
 
 - **Call List**: the HubSpot list you are calling today. The picker takes a
   few seconds to fill. It only shows contact lists, so you cannot pick a
@@ -26,6 +26,15 @@ You land on **Route Plan**. Two things to set:
 - **How many calls today?**: defaults to 50. SUMMIT stops as soon as it has
   that many, so a smaller number is much faster. A list can hold thousands of
   people; you are never working all of them in one day.
+- **Call Day**: the day you make the calls. It defaults to today. Set it to
+  tomorrow when you build the list the evening before.
+- **Start Time**: the time you start dialling, in your own time zone. It
+  defaults to 9:00 AM.
+
+The day and the start time are written onto every prep note, onto the Slack
+call sheet, and onto the top of Today's Climb. They record the plan. They do
+not change who is on the list, and they do not reorder the time blocks. You
+still call each person during their own working hours.
 
 Press **BUILD TODAY'S LIST**. SUMMIT reads the contacts, works out each
 person's time zone, and writes a call script and a voicemail script for each
@@ -42,6 +51,11 @@ lost, and tomorrow's run picks up from a fresh check.
 
 SUMMIT also drops people it should not call today. It tells you why:
 
+- **Left the company.** The person is marked "No Longer With Company" in
+  HubSpot. Calling them wastes the dial and the script names the wrong
+  employer.
+- **Not a US number.** Their phone is not a US number, or they are based
+  outside the US. Reach these people by email or LinkedIn instead.
 - **Called too recently.** Anyone called yesterday or today rests. Two days
   between calls is fine.
 - **Account already covered.** Two people per company per day, maximum. This
@@ -54,8 +68,23 @@ Go to **Today's Climb**. Your contacts are grouped by time zone, so you call
 people during their working hours, not yours. Work top to bottom.
 
 Each card shows the person, their title, their company, and their phone
-number. Press **Script** to open their call script and voicemail script. It
-opens instantly, because it was written when you built the list.
+number. Press **Script** to open their prep. It opens instantly, because it was
+written when you built the list.
+
+Every prep note has four parts, in this order:
+
+- **Read this first.** Why they qualified, their segment fit, recent signals,
+  your angle with this person, and one opening question. Read this before you
+  dial.
+- **Voicemail script.** Short bullets, not sentences. Say them in your own
+  words.
+- **Live call script.** Bullets grouped into the opener, the hook and bridge,
+  and the ask.
+- **Objection handling.** What they are likely to say, and two short answers
+  for each.
+
+The bullets are prompts, not a script to read out. Nothing below "Read this
+first" is written for you to say word for word.
 
 **4. Log every call**
 
@@ -120,5 +149,7 @@ Tell Antonio if:
 - The call list is empty when you know the HubSpot list has people in it.
 - Saving a call outcome shows an error instead of ticking the card off.
 - A prep script is empty or is about the wrong company.
+- The progress bar finishes but no call list appears. SUMMIT now shows a
+  message when a run stops early. Tell Antonio what the message said.
 
 Say what you clicked and what you saw. That is enough for him to find it.
