@@ -18,9 +18,14 @@ Open the link. Type the password. Press "Start the climb".
 
 **2. Plan the route**
 
-You land on **Route Plan**. Pick one thing: the **Call List**, meaning the
-HubSpot list you are calling today. The list picker takes a few seconds to
-fill, because it loads every list in the portal.
+You land on **Route Plan**. Two things to set:
+
+- **Call List**: the HubSpot list you are calling today. The picker takes a
+  few seconds to fill. It only shows contact lists, so you cannot pick a
+  company list by mistake.
+- **How many calls today?**: defaults to 50. SUMMIT stops as soon as it has
+  that many, so a smaller number is much faster. A list can hold thousands of
+  people; you are never working all of them in one day.
 
 Press **BUILD TODAY'S LIST**. SUMMIT reads the contacts, works out each
 person's time zone, and writes a call script and a voicemail script for each
@@ -31,6 +36,9 @@ Nothing has been saved to HubSpot yet. Look over the route, then press
 **START THE CLIMB**. That is the step that writes the prep notes onto the
 contact records. If the list looks wrong, press **Discard This Plan** instead
 and nothing is written.
+
+Everyone SUMMIT does not reach is left alone for another day. Nothing is
+lost, and tomorrow's run picks up from a fresh check.
 
 SUMMIT also drops people it should not call today. It tells you why:
 
