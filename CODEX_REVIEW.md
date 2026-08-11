@@ -1,5 +1,10 @@
 # Adversarial review brief: SUMMIT, branch `fix/review-top-three`
 
+> **Status: this review was run and all nine confirmed findings are fixed in
+> `85dd0ed`.** The brief is kept as written, because the suspect list below is
+> what a second reviewer should attack next, and because it records what the
+> first pass missed. See "Outcome" at the end before re-reviewing.
+
 You are reviewing a working tree that one agent wrote in one sitting, deployed to
 production, and verified with its own tests. Assume that agent was wrong.
 
@@ -178,3 +183,50 @@ sleep, and what the session file looks like if the stream dies at contact 300.
 - **Taste**, brief and clearly separated.
 - One paragraph: would you let a BDR use this against a production CRM tomorrow,
   and what single change would most reduce the risk?
+
+
+---
+
+## Outcome of the first review
+
+Codex confirmed nine defects, refuted three suspects, and raised three new
+risks. All nine were fixed in `85dd0ed`; the refutations were correct and no
+change was made for them.
+
+**Fixed**
+
+| # | Defect | Fix |
+|---|---|---|
+| 1 | Failed Do Not Call could read as success | Response carries `compliance_failure`; that path un-ticks the card and shows a distinct message |
+| 2 | `record_disposition` lost completions under concurrency | One locked helper for record and undo; 40-thread test fails against the old code |
+| 3 | Contact name could break out of an `onclick` attribute | Data attributes and delegated listeners; nothing prospect-controlled reaches executable markup |
+| 4 | Cooldown compared UTC days to a Pacific workday | `services/timezone.work_day`, used by both the cutoff and `_call_date` |
+| 5 | `/api/climb` guessed the session | Explicit id, then browser-session binding; only an unnamed request falls back |
+| 6 | Failed chunk skipped 100 contacts silently | Chunk failures and omitted records counted and reported |
+| 7 | Completions were not idempotent | Repeat completion writes no second note |
+| 8 | `not_reached` overcounted | Subtracts unscanned; cannot go negative |
+| 9 | Stale config comment | Corrected |
+
+**Correctly refuted, unchanged:** association type 202, `formatScript` escape
+order, and the per-account cap across a completed scan.
+
+**Verified in production, not just in tests:** the hostile-name payload
+`Ann" onmouseover="window.__pwned=1" x="` renders as literal text and fires
+nothing; a named-but-missing `session_id` returns empty instead of another
+list; `work_day` and the UTC date genuinely disagreed on the day this was
+written, so #4 was live.
+
+**Raised and still open**
+
+- **No CSRF tokens on write routes.** `SameSite=Lax` is the only defence.
+  Judged acceptable for now: a shared-password app, no cross-site form targets,
+  and no cookie-authenticated GET that mutates. It should not stay this way if
+  the app ever gains a second user or a real login.
+- **Filter ordering.** The subscriber check runs before the cooldown and
+  account-cap checks and costs 2+ HubSpot requests per contact. Reordering is
+  a straight win and has not been done.
+- **`format_note_html` does not escape** contact fields or Octave output into
+  HubSpot note HTML. HubSpot may sanitise; the app should not rely on it.
+
+Those three are the best starting points for a second pass, along with
+anything the suspect list above did not cover.
