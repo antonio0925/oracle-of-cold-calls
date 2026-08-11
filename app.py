@@ -36,6 +36,9 @@ from services.routing_config import get_route, list_dispositions
 app = Flask(__name__)
 log = logging.getLogger(__name__)
 
+# HubSpot object type for contacts. Companies are 0-2, deals 0-3.
+CONTACT_OBJECT_TYPE = "0-1"
+
 # Signs the session cookie. If FLASK_SECRET_KEY is unset we generate a random
 # key at boot: sessions do not survive a restart, which is inconvenient but
 # never insecure. A hardcoded fallback would be forgeable.
@@ -141,14 +144,20 @@ def api_lists():
         try:
             data = hs._post("/crm/v3/lists/search", {"query": "", "offset": offset})
             for lst in data.get("lists", []):
-                if lst.get("createdById") == config.HUBSPOT_CREATOR_ID:
-                    size = lst.get("additionalProperties", {}).get("hs_list_size", "0")
-                    all_lists.append({
-                        "listId": lst["listId"],
-                        "name": lst["name"],
-                        "size": int(size) if size else 0,
-                        "type": lst.get("processingType", ""),
-                    })
+                if lst.get("createdById") != config.HUBSPOT_CREATOR_ID:
+                    continue
+                # Contact lists only. A company or deal list looks identical in
+                # the picker but resolves to zero contacts, so the BDR gets an
+                # empty route with nothing explaining why.
+                if lst.get("objectTypeId") != CONTACT_OBJECT_TYPE:
+                    continue
+                size = lst.get("additionalProperties", {}).get("hs_list_size", "0")
+                all_lists.append({
+                    "listId": lst["listId"],
+                    "name": lst["name"],
+                    "size": int(size) if size else 0,
+                    "type": lst.get("processingType", ""),
+                })
             if not data.get("hasMore"):
                 break
             offset = data.get("offset", offset + 20)
@@ -363,7 +372,9 @@ def generate():
             return last_calls.get(key, "")
 
         # Phase 2: Filter + generate, stopping at the target
+        resolved = 0
         for i, contact in enumerate(contacts_in_chunks()):
+            resolved += 1
             if stats["prepped"] >= target:
                 stats["not_reached"] = len(contact_ids) - i
                 yield emit("status", {
@@ -530,6 +541,17 @@ def generate():
                 yield emit("error_contact", {"name": name, "msg": f"{str(e)}"})
 
             time.sleep(1)
+
+        # A list whose members are not contacts resolves to nothing. Silence
+        # here reads as a broken app, so say what happened.
+        if resolved == 0 and contact_ids:
+            yield emit("error", {
+                "msg": f"This list has {len(contact_ids)} members, but none of them "
+                       f"are contacts. It is probably a company or deal list. "
+                       f"Pick a contact list.",
+            })
+            yield emit("done", {"session_id": None, "stats": stats})
+            return
 
         # Build call sheet
         blocks, unknowns = build_call_sheet(prepped_contacts)
@@ -746,6 +768,17 @@ def quick_generate():
 
         if not prepped_contacts:
             yield emit("error", {"msg": "Nobody on this list has a prep note yet. Build the full list first."})
+            yield emit("done", {"session_id": None, "stats": stats})
+            return
+
+        # A list whose members are not contacts resolves to nothing. Silence
+        # here reads as a broken app, so say what happened.
+        if resolved == 0 and contact_ids:
+            yield emit("error", {
+                "msg": f"This list has {len(contact_ids)} members, but none of them "
+                       f"are contacts. It is probably a company or deal list. "
+                       f"Pick a contact list.",
+            })
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
