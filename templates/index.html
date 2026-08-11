@@ -636,6 +636,19 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     margin: 12px 0;
 }
 
+.resume-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    flex-wrap: wrap;
+    max-width: 760px; margin: 0 auto 18px;
+    background: #fffbeb; border: 1px solid #fcd34d; border-left: 4px solid var(--amber);
+    border-radius: var(--radius); padding: 16px 18px;
+}
+.resume-text { color: #92400e; font-size: 14px; line-height: 1.5; }
+.resume-text strong { color: #78350f; }
+#resumeDetail { color: #a16207; font-size: 13px; margin-top: 3px; }
+.resume-actions { display: flex; gap: 8px; align-items: center; }
+.resume-actions .oracle-btn { margin: 0; padding: 9px 20px; font-size: 14px; }
+
 /* ===== battle plan (Today's Climb) ===== */
 .climb-source { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
 .block-meta { text-align: center; color: var(--faint); font-size: 12px; margin: -4px 0 12px; }
@@ -1026,6 +1039,19 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     <!-- ===== ORACLE VIEW (existing) ===== -->
     <div id="oracleView">
 
+    <!-- Unwritten route plan. A successful write deletes the session file, so
+         a file that survives means the scripts exist but never reached HubSpot. -->
+    <div class="resume-banner" id="resumeBanner" style="display:none;">
+        <div class="resume-text">
+            <strong>You have a route plan that was never written to HubSpot.</strong>
+            <div id="resumeDetail"></div>
+        </div>
+        <div class="resume-actions">
+            <button class="oracle-btn" id="resumeOpenBtn">Open it</button>
+            <button class="battle-btn undo" id="resumeDiscardBtn">Discard</button>
+        </div>
+    </div>
+
     <!-- ===== FORM ===== -->
     <div class="oracle-form" id="formSection">
         <h2>Plan the Route</h2>
@@ -1123,8 +1149,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
     <!-- ===== APPROVE ===== -->
     <div class="approve-section" id="approveSection">
-        <h2>Ready to Climb?</h2>
-        <p style="text-align:center;color:#64748b;">The route looks good? Write the prep notes to HubSpot and start dialing.</p>
+        <h2>Nothing is in HubSpot yet</h2>
+        <p style="text-align:center;color:#64748b;">
+            The scripts above exist only here until you press the button.
+            <strong>START THE CLIMB</strong> writes a prep note onto every contact
+            record. Discarding writes nothing.
+        </p>
         <div class="btn-row">
             <button class="kraken-btn" id="krakenBtn" onclick="releaseTheKraken()">
                 START THE CLIMB
@@ -2316,6 +2346,50 @@ function switchView(view) {
     localStorage.setItem('activeView', view);
 }
 
+// ===================================================================
+// UNWRITTEN ROUTE PLAN
+// ===================================================================
+// Generating and writing are two steps, and the write button only ever
+// appeared at the end of a generate stream. currentSessionId lived in memory,
+// so a reload, a tab switch, or a closed laptop lost the only route to it:
+// the scripts sat on disk, finished, and could never reach HubSpot without
+// regenerating from scratch. /api/recoverable-sessions already existed and
+// nothing called it.
+function checkForUnwrittenPlan() {
+    fetch('/api/recoverable-sessions')
+        .then(r => r.json())
+        .then(data => {
+            // A successful write deletes the session file. A complete file
+            // that is still here means the notes never landed.
+            const pending = (data.sessions || [])
+                .filter(x => x.is_complete && x.prepped_count > 0)[0];
+            if (!pending) return;
+
+            document.getElementById('resumeDetail').textContent =
+                pending.segment + ' \u00b7 ' + pending.prepped_count + ' contacts \u00b7 built ' + pending.modified;
+            document.getElementById('resumeBanner').style.display = 'flex';
+
+            document.getElementById('resumeOpenBtn').onclick = function() {
+                document.getElementById('resumeBanner').style.display = 'none';
+                fetch('/api/session/' + pending.session_id)
+                    .then(r => r.json())
+                    .then(sessionData => {
+                        currentSessionId = pending.session_id;
+                        renderReview(sessionData);
+                    })
+                    .catch(err => showError('Could not reopen that route plan.', err.message));
+            };
+
+            document.getElementById('resumeDiscardBtn').onclick = function() {
+                if (!confirm('Discard this route plan? The generated scripts will be lost.')) return;
+                fetch('/discard/' + pending.session_id, {method: 'POST'})
+                    .then(() => { document.getElementById('resumeBanner').style.display = 'none'; })
+                    .catch(err => showError('Could not discard it.', err.message));
+            };
+        })
+        .catch(() => {});
+}
+
 // Restore view from localStorage.
 // Deferred to DOMContentLoaded on purpose: switchView('battle') calls
 // loadBattlePlan(), which touches `let` bindings declared further down this
@@ -2323,6 +2397,7 @@ function switchView(view) {
 // left anyone who reloaded straight into Today's Climb with a dead page.
 document.addEventListener('DOMContentLoaded', function() {
     if (localStorage.getItem('activeView') === 'battle') switchView('battle');
+    checkForUnwrittenPlan();
 });
 
 // ===== TODAY'S CLIMB =====
