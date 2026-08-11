@@ -31,6 +31,12 @@ SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID", "C0AELNTNNDV")
 USER_TIMEZONE = os.getenv("USER_TIMEZONE", "US/Pacific")
 USER_START_HOUR = float(os.getenv("USER_START_HOUR", "6.5"))  # 6:30 AM
 
+# --- Call target ---
+# How many calls a BDR plans for the day. The route builder stops here, so a
+# 400-contact list does not cost 400 Octave calls to work 50.
+DEFAULT_CALL_TARGET = int(os.getenv("DEFAULT_CALL_TARGET", "50"))
+MAX_CALL_TARGET = int(os.getenv("MAX_CALL_TARGET", "500"))
+
 # --- Call pacing ---
 # Never burn an account in one day. Two people per company, maximum.
 MAX_CONTACTS_PER_ACCOUNT_PER_DAY = int(os.getenv("MAX_CONTACTS_PER_ACCOUNT_PER_DAY", "2"))

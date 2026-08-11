@@ -1048,6 +1048,14 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         <div class="form-group">
             <label>
+                How many calls today?
+                <span class="label-desc">SUMMIT stops once it has this many. A smaller number is much faster.</span>
+            </label>
+            <input type="number" id="callTarget" value="50" min="1" max="500" step="10">
+        </div>
+
+        <div class="form-group">
+            <label>
                 Call Day
                 <span class="label-desc">The day you make the calls</span>
             </label>
@@ -1544,6 +1552,7 @@ function consultTheOracle() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             segment: segment,
+            target: parseInt(document.getElementById('callTarget').value) || 50,
             calling_date: callingDate,
             skip_existing: skipExisting,
         }),
@@ -1637,6 +1646,7 @@ function prepareForBattle() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             segment: segment,
+            target: parseInt(document.getElementById('callTarget').value) || 50,
             calling_date: callingDate,
         }),
     }).then(response => {
@@ -1701,12 +1711,16 @@ function handleMessage(msg) {
         const pct = Math.round((msg.current / msg.total) * 100);
         document.getElementById('progressBar').style.width = pct + '%';
         document.getElementById('progressText').textContent = pct + '%';
-        document.getElementById('currentAction').textContent = 'Evaluating ' + msg.name;
-        document.getElementById('currentActionSub').textContent = 'Warrior ' + msg.current + ' of ' + msg.total;
+        document.getElementById('currentAction').textContent = 'Checking ' + msg.name;
+        // Two numbers, because they answer different questions: how close am I
+        // to the target, and how far through the list did that take.
+        document.getElementById('currentActionSub').textContent =
+            msg.current + ' of ' + msg.total + ' calls'
+            + (msg.scanned ? '  \u00b7  scanned ' + msg.scanned + ' of ' + msg.scanned_total : '');
     } else if (t === 'skip') {
         liveSkipped++;
         document.getElementById('lsSkipped').textContent = liveSkipped;
-        log('logBox', 'skip', msg.name + ' \u2014 ' + msg.reason);
+        log('logBox', 'skip', msg.name + ': ' + msg.reason);
     } else if (t === 'generating') {
         document.getElementById('currentAction').textContent = 'Writing the script for ' + msg.name + '...';
         document.getElementById('currentActionSub').textContent = msg.company;
@@ -1784,6 +1798,10 @@ function renderReview(data) {
         <div class="stat-item"><div class="stat-num" style="color:var(--muted)">${subscribers}</div><div class="stat-label">Already a customer</div></div>
         <div class="stat-item"><div class="stat-num" style="color:var(--muted)">${existing}</div><div class="stat-label">Already prepped</div></div>
         <div class="stat-item"><div class="stat-num" style="color:var(--orange)">${errors}</div><div class="stat-label">Errors</div></div>`;
+    const notReached = stats.not_reached || 0;
+    if (notReached > 0) {
+        statsHtml += `<div class="stat-item"><div class="stat-num" style="color:var(--slate)">${notReached}</div><div class="stat-label">Left for another day</div></div>`;
+    }
     if (noSource > 0) {
         statsHtml += `<div class="stat-item"><div class="stat-num" style="color:var(--muted)">${noSource}</div><div class="stat-label">Script from profile only</div></div>`;
     }

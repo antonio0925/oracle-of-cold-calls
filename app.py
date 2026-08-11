@@ -196,6 +196,22 @@ def api_recoverable_sessions():
     return jsonify({"sessions": results[:20]})
 
 
+def _clamp_target(raw):
+    """Resolve the requested daily call target.
+
+    Absent means the default. Present but out of range clamps. These are
+    separate on purpose: `int(raw or DEFAULT)` treats 0 as absent, so a
+    target of 0 silently became 50 while -5 clamped to 1.
+    """
+    if raw is None or raw == "":
+        return config.DEFAULT_CALL_TARGET
+    try:
+        target = int(raw)
+    except (TypeError, ValueError):
+        return config.DEFAULT_CALL_TARGET
+    return max(1, min(target, config.MAX_CALL_TARGET))
+
+
 @app.route("/generate", methods=["POST"])
 def generate():
     """SSE endpoint: build today's call list, streaming progress as it goes."""
@@ -203,6 +219,10 @@ def generate():
     segment_name = data.get("segment", "").strip()
     calling_date = data.get("calling_date", "").strip()
     skip_existing = data.get("skip_existing", False)
+
+    # How many calls the BDR wants today. The loop stops once it has this
+    # many, so a 400-contact list does not cost 400 Octave calls to work 50.
+    target = _clamp_target(data.get("target"))
 
     if not segment_name:
         return jsonify({"error": "A call list is required"}), 400
@@ -226,7 +246,7 @@ def generate():
             "skipped_subscriber": 0, "no_source_email": 0,
             "skipped_existing": 0, "skipped_cached": 0,
             "skipped_recent_call": 0, "skipped_account_cap": 0,
-            "errors": 0,
+            "errors": 0, "not_reached": 0,
             "tz_breakdown": {},
         }
         prepped_contacts = []
@@ -315,24 +335,46 @@ def generate():
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
-        # One pass for call history. Doing this per contact inside the loop
-        # would multiply the request count by the size of the list.
-        yield emit("status", {"msg": "Checking recent call activity..."})
-        try:
-            last_calls = hs.last_call_dates([c["id"] for c in contacts])
-        except Exception as e:
-            log.warning("Call history sweep failed: %s", e)
-            yield emit("warn", {"name": "", "msg": f"Could not read call history: {e}"})
-            last_calls = {}
+        # Call history is read per contact, on demand, and cached. Sweeping the
+        # whole list up front cost one or two requests for every contact on it,
+        # which is most of the wait on a large list when the BDR only wants a
+        # few dozen calls. The loop stops at the target, so this now scales
+        # with the target instead of the list.
+        def last_call_for(cid):
+            key = str(cid)
+            if key not in last_calls:
+                try:
+                    last_calls.update(hs.last_call_dates([cid]))
+                except Exception as e:
+                    log.warning("Call history lookup failed for %s: %s", cid, e)
+                    last_calls[key] = ""
+            return last_calls.get(key, "")
 
-        # Phase 2: Filter + generate
+        # Phase 2: Filter + generate, stopping at the target
         for i, contact in enumerate(contacts):
+            if stats["prepped"] >= target:
+                stats["not_reached"] = len(contacts) - i
+                yield emit("status", {
+                    "msg": f"Target of {target} reached. "
+                           f"{stats['not_reached']} contacts left untouched for another day.",
+                })
+                break
+
             cid = contact["id"]
             props = contact.get("properties", {})
             name = f"{props.get('firstname', '')} {props.get('lastname', '')}".strip() or f"Contact {cid}"
             company_name = props.get("company", "Unknown")
 
-            yield emit("progress", {"current": i + 1, "total": len(contacts), "name": name})
+            # Progress tracks the target, because that is the finish line the
+            # BDR asked for. Showing progress against the full list would crawl
+            # to 12% and stop, which reads as a hang.
+            yield emit("progress", {
+                "current": stats["prepped"] + 1,
+                "total": target,
+                "scanned": i + 1,
+                "scanned_total": len(contacts),
+                "name": name,
+            })
 
             # Filter A: Active subscriber check
             try:
@@ -383,7 +425,7 @@ def generate():
 
             # Filter D: call cooldown. A contact called inside the cooldown
             # window rests. A voicemail counts as a call.
-            last_call = last_calls.get(str(cid), "")
+            last_call = last_call_for(cid)
             if last_call and last_call >= cooldown_cutoff:
                 stats["skipped_recent_call"] += 1
                 yield emit("skip", {
@@ -566,6 +608,8 @@ def quick_generate():
     segment_name = data.get("segment", "").strip()
     calling_date = data.get("calling_date", "").strip()
 
+    target = _clamp_target(data.get("target"))
+
     if not segment_name:
         return jsonify({"error": "A call list is required"}), 400
 
@@ -578,7 +622,7 @@ def quick_generate():
     def stream():
         stats = {
             "total": 0, "prepped": 0,
-            "skipped_no_notes": 0, "errors": 0,
+            "skipped_no_notes": 0, "errors": 0, "not_reached": 0,
             "tz_breakdown": {},
         }
         prepped_contacts = []
@@ -622,12 +666,29 @@ def quick_generate():
 
         # Check each contact for existing COLD CALL PREP notes
         for i, contact in enumerate(contacts):
+            if stats["prepped"] >= target:
+                stats["not_reached"] = len(contacts) - i
+                yield emit("status", {
+                    "msg": f"Target of {target} reached. "
+                           f"{stats['not_reached']} contacts left untouched for another day.",
+                })
+                break
+
             cid = contact["id"]
             props = contact.get("properties", {})
             name = f"{props.get('firstname', '')} {props.get('lastname', '')}".strip() or f"Contact {cid}"
             company_name = props.get("company", "Unknown")
 
-            yield emit("progress", {"current": i + 1, "total": len(contacts), "name": name})
+            # Progress tracks the target, because that is the finish line the
+            # BDR asked for. Showing progress against the full list would crawl
+            # to 12% and stop, which reads as a hang.
+            yield emit("progress", {
+                "current": stats["prepped"] + 1,
+                "total": target,
+                "scanned": i + 1,
+                "scanned_total": len(contacts),
+                "name": name,
+            })
 
             try:
                 prep_notes = hs.get_all_prep_notes_for_contact(cid)
