@@ -29,3 +29,6 @@ server.log
 
 .venv/
 agent.log
+
+# Stray editor/script backups
+*.bak

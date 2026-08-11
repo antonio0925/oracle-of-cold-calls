@@ -30,7 +30,7 @@ def _lst(list_id, name, object_type, creator="87514817", size="10"):
 def test_company_and_deal_lists_are_excluded():
     payload = _search_payload([
         _lst("1", "My Contacts", "0-1"),
-        _lst("2", "Hera Tiered Accounts", "0-2"),   # companies
+        _lst("2", "Target Accounts", "0-2"),        # companies
         _lst("3", "Open Deals", "0-3"),             # deals
     ])
     with patch.object(app_module.HubSpotClient, "_post", return_value=payload), \
