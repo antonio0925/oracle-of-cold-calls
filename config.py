@@ -59,6 +59,15 @@ SUPERSEND_TEAM_ID = os.getenv("SUPERSEND_TEAM_ID", "")
 SUPERSEND_CAMPAIGN_ID = os.getenv("SUPERSEND_CAMPAIGN_ID", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
+# --- Auth ---
+# Shared password for the UI. There is no default on purpose: an empty
+# value makes the gate reject every login attempt instead of opening the
+# app to the internet.
+SUMMIT_PASSWORD = os.getenv("SUMMIT_PASSWORD", "")
+# Signs the session cookie. No hardcoded fallback: a known secret key lets
+# anyone forge a logged-in session. Generate one per deployment.
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "")
+
 # --- Server ---
 FLASK_PORT = int(os.getenv("FLASK_PORT", "5001"))
 FLASK_DEBUG = os.getenv("FLASK_DEBUG", "true").lower() in ("true", "1", "yes")

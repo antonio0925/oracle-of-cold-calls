@@ -8,9 +8,12 @@ import time
 import re
 import uuid
 import hmac
+import secrets
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from flask import Flask, render_template, request, Response, jsonify
+from flask import (
+    Flask, render_template, request, Response, jsonify, session, redirect,
+)
 import requests as http_requests
 
 import logging
@@ -36,6 +39,18 @@ from services.routing_config import get_route, list_dispositions
 app = Flask(__name__)
 log = logging.getLogger(__name__)
 
+# Signs the session cookie. If FLASK_SECRET_KEY is unset we generate a random
+# key at boot: sessions do not survive a restart, which is inconvenient but
+# never insecure. A hardcoded fallback would be forgeable.
+app.secret_key = config.FLASK_SECRET_KEY or secrets.token_hex(32)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    # Secure cookies need HTTPS. The deploy platform terminates TLS; local
+    # development over plain http would never receive the cookie back.
+    SESSION_COOKIE_SECURE=not config.FLASK_DEBUG,
+)
+
 # Shared thread pool for all SSE generators — bounds total concurrency and
 # prevents zombie pools when clients disconnect mid-stream.
 _pool = ThreadPoolExecutor(max_workers=8)
@@ -46,6 +61,68 @@ def _cancel_futures(futures):
     cancelled = sum(1 for f in futures if f.cancel())
     if cancelled:
         log.info("Cancelled %d pending futures", cancelled)
+
+
+# ---------------------------------------------------------------------------
+# Auth — shared password gate
+# ---------------------------------------------------------------------------
+# Every UI route writes to production HubSpot, so the whole app is closed by
+# default and opened path by path. The webhooks carry their own header auth
+# and must stay reachable without a browser session.
+_PUBLIC_PREFIXES = ("/static/", "/api/webhook/")
+_PUBLIC_PATHS = ("/login", "/healthz")
+
+
+def _is_public(path):
+    return path in _PUBLIC_PATHS or path.startswith(_PUBLIC_PREFIXES)
+
+
+@app.before_request
+def _require_login():
+    if _is_public(request.path) or session.get("summit_auth"):
+        return None
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Not authenticated"}), 401
+    return redirect("/login")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """Shared-password sign-in. The BDR gets a URL and this one password."""
+    if request.method == "GET":
+        if session.get("summit_auth"):
+            return redirect("/")
+        return render_template("login.html")
+
+    # An unset password must fail closed. Otherwise an empty form field would
+    # authenticate and the app would be open to anyone who finds the URL.
+    if not config.SUMMIT_PASSWORD:
+        log.error("Login attempted but SUMMIT_PASSWORD is not set")
+        return render_template(
+            "login.html",
+            error="No password is configured on the server. Tell Antonio.",
+        ), 503
+
+    supplied = request.form.get("password", "")
+    if not hmac.compare_digest(supplied, config.SUMMIT_PASSWORD):
+        log.warning("Failed login attempt from %s", request.remote_addr)
+        return render_template("login.html", error="Wrong password."), 401
+
+    session["summit_auth"] = True
+    session.permanent = True
+    return redirect("/")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
+
+@app.route("/healthz")
+def healthz():
+    """Unauthenticated liveness probe for the deploy platform."""
+    return jsonify({"ok": True})
 
 
 # ---------------------------------------------------------------------------

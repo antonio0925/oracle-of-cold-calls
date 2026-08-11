@@ -30,6 +30,10 @@ def test_no_em_dashes_in_log_entries():
 
 def _complete(disposition, hs):
     client = app_module.app.test_client()
+    # The password gate covers every /api route. Sign in first, otherwise
+    # these assertions would only prove the gate works.
+    with client.session_transaction() as sess:
+        sess["summit_auth"] = True
     with patch.object(app_module, "HubSpotClient", return_value=hs), \
             patch.object(app_module.config, "HUBSPOT_ACCESS_TOKEN", "token"):
         return client.post(
