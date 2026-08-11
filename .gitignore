@@ -26,3 +26,7 @@ server.log
 
 # Claude project files
 .claude/
+
+.venv/
+.agent_state/
+agent.log
