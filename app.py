@@ -29,11 +29,9 @@ from services.hubspot import HubSpotClient
 from services.octave import OctaveClient, script_text as octave_script_text
 from services.notion import NotionClient
 from services.slack import post_to_slack
-from services.supersend import SupersendClient
 from services.signal_classifier import classify_signal, TIER_CONFIG
 from services.dedup import is_duplicate, mark_seen
 from services.routing_config import get_route, list_dispositions
-from services.anthropic import generate_followup_email
 
 app = Flask(__name__)
 log = logging.getLogger(__name__)
@@ -937,171 +935,6 @@ def execute_cleanup(session_id):
 
 
 # ---------------------------------------------------------------------------
-# VM FOLLOW-UP DISPATCH — Batch process voicemail follow-up emails
-# ---------------------------------------------------------------------------
-@app.route("/api/vm-followup/<session_id>", methods=["POST"])
-def vm_followup(session_id):
-    """SSE endpoint: scan for VM calls, generate follow-up emails, push to SuperSend."""
-    session_data = get_session(session_id) or load_session_from_disk(session_id)
-    if not session_data:
-        return jsonify({"error": "Session not found"}), 404
-
-    calling_date = session_data.get("calling_date", "")
-    if not calling_date:
-        return jsonify({"error": "No calling_date on session"}), 400
-
-    if not config.HUBSPOT_ACCESS_TOKEN:
-        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
-    if not config.ANTHROPIC_API_KEY:
-        return jsonify({"error": "Missing ANTHROPIC_API_KEY"}), 500
-    if not config.SUPERSEND_API_KEY:
-        return jsonify({"error": "Missing SUPERSEND_API_KEY"}), 500
-
-    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
-    ss = SupersendClient(config.SUPERSEND_API_KEY)
-
-    def stream():
-        def emit(msg_type, payload):
-            return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
-
-        stats = {"total_calls": 0, "processed": 0, "skipped": 0, "errors": 0}
-
-        # Phase 1: Scan HubSpot for calls
-        yield emit("status", {"msg": f"Hermes scours HubSpot for calls since {calling_date}..."})
-
-        try:
-            calls = hs.search_calls_by_date(calling_date)
-        except Exception as e:
-            yield emit("error", {"msg": f"HubSpot call search failed: {e}"})
-            yield emit("vm_followup_complete", {"stats": stats, "msg": "Failed to scan calls."})
-            return
-
-        stats["total_calls"] = len(calls)
-        if not calls:
-            yield emit("status", {"msg": "No voicemail or GFY calls found for this date."})
-            yield emit("vm_followup_complete", {"stats": stats, "msg": "No calls to process."})
-            return
-
-        vm_count = sum(1 for c in calls if c["disposition"] == "voicemail")
-        gfy_count = sum(1 for c in calls if c["disposition"] == "gfy")
-        yield emit("status", {
-            "msg": f"Found {len(calls)} actionable calls ({vm_count} VM, {gfy_count} GFY). Resolving contacts..."
-        })
-
-        # Phase 2: For each call, resolve contact -> lookup SuperSend -> generate -> push
-        for i, call in enumerate(calls):
-            call_id = call["call_id"]
-            disposition = call["disposition"]
-            dispo_label = "VM" if disposition == "voicemail" else "GFY"
-
-            # Step A: Resolve HubSpot contact
-            try:
-                contact = hs.resolve_contact_for_call(call_id)
-            except Exception as e:
-                stats["errors"] += 1
-                yield emit("error_contact", {
-                    "name": call.get("call_title", call_id),
-                    "msg": f"Contact resolution failed: {e}",
-                })
-                continue
-
-            if not contact or not contact.get("email"):
-                stats["skipped"] += 1
-                yield emit("skip", {
-                    "name": call.get("call_title", call_id),
-                    "reason": "No email found on associated contact",
-                })
-                continue
-
-            email = contact["email"]
-            first_name = ((contact.get("firstname") or "").split() or ["there"])[0]
-            company = contact.get("company", "")
-            name = f"{contact.get('firstname', '')} {contact.get('lastname', '')}".strip() or email
-
-            yield emit("progress", {
-                "current": i + 1,
-                "total": len(calls),
-                "name": f"{name} ({dispo_label})",
-            })
-
-            # Step B: Look up SuperSend contact
-            try:
-                ss_contact = ss.lookup_contact_by_email(email, config.SUPERSEND_TEAM_ID)
-            except Exception as e:
-                stats["errors"] += 1
-                yield emit("error_contact", {"name": name, "msg": f"SuperSend lookup failed: {e}"})
-                continue
-
-            if not ss_contact:
-                stats["skipped"] += 1
-                yield emit("skip", {"name": name, "reason": f"Not found in SuperSend ({email})"})
-                continue
-
-            ss_contact_id = ss_contact.get("id")
-            original_subject = (ss_contact.get("custom") or {}).get("subject_thread_1", "")
-            original_email = (ss_contact.get("custom") or {}).get("email_1", "")
-
-            if not original_email:
-                stats["skipped"] += 1
-                yield emit("skip", {"name": name, "reason": "No original cold email on SuperSend contact"})
-                continue
-
-            # Dedup guard: skip if follow-up already pushed
-            existing_followup = (ss_contact.get("custom") or {}).get("vm_followup_body", "")
-            if existing_followup and len(existing_followup) > 20:
-                stats["skipped"] += 1
-                yield emit("skip", {"name": name, "reason": "Follow-up already pushed (dedup)"})
-                continue
-
-            # Step C: Generate follow-up email via Anthropic Claude
-            yield emit("generating", {"name": name, "company": company})
-
-            try:
-                followup_body = generate_followup_email(
-                    api_key=config.ANTHROPIC_API_KEY,
-                    disposition=disposition,
-                    first_name=first_name,
-                    company_name=company,
-                    original_subject=original_subject,
-                )
-            except Exception as e:
-                stats["errors"] += 1
-                yield emit("error_contact", {"name": name, "msg": f"Claude generation failed: {e}"})
-                continue
-
-            # Step D: Push to SuperSend custom.vm_followup_body
-            try:
-                ss.update_contact_custom(
-                    ss_contact_id,
-                    {"vm_followup_body": followup_body},
-                    config.SUPERSEND_TEAM_ID,
-                    config.SUPERSEND_CAMPAIGN_ID,
-                )
-            except Exception as e:
-                stats["errors"] += 1
-                yield emit("error_contact", {"name": name, "msg": f"SuperSend update failed: {e}"})
-                continue
-
-            stats["processed"] += 1
-            yield emit("done_contact", {
-                "name": name,
-                "company": company,
-                "disposition": dispo_label,
-                "email_length": len(followup_body),
-            })
-
-            time.sleep(0.5)  # Rate limiting
-
-        yield emit("vm_followup_complete", {
-            "stats": stats,
-            "msg": f"Hermes' mission complete! {stats['processed']} follow-up emails "
-                   f"generated and pushed. {stats['skipped']} skipped, {stats['errors']} errors.",
-        })
-
-    return Response(stream(), mimetype="text/event-stream")
-
-
-# ---------------------------------------------------------------------------
 # THE FORGE — Campaign Pipeline Routes (Stages 1-4)
 # ---------------------------------------------------------------------------
 @app.route("/api/forge/campaigns")
@@ -1719,16 +1552,6 @@ def forge_approve_stage():
 # ORACLE v2 — Webhook-Driven Sales Pipeline
 # ---------------------------------------------------------------------------
 
-def _verify_webhook_secret(req):
-    """Verify the webhook secret from the Authorization header (timing-safe)."""
-    # An unset secret must fail closed — otherwise "Bearer " would authenticate.
-    if not config.ORACLE_WEBHOOK_SECRET:
-        return False
-    auth = req.headers.get("Authorization", "")
-    expected = f"Bearer {config.ORACLE_WEBHOOK_SECRET}"
-    return hmac.compare_digest(auth, expected)
-
-
 def _verify_signal_api_key(req):
     """Verify the signal webhook API key from X-API-Key header (timing-safe)."""
     # An unset key must fail closed — otherwise a request with no header would authenticate.
@@ -1736,64 +1559,6 @@ def _verify_signal_api_key(req):
         return False
     key = req.headers.get("X-API-Key", "")
     return hmac.compare_digest(key, config.SIGNAL_WEBHOOK_API_KEY)
-
-
-@app.route("/api/webhook/supersend-task", methods=["POST"])
-def webhook_supersend_task():
-    """Receive a task-completed webhook from Supersend.
-
-    When Supersend finishes a sequence step (email sent, call task created),
-    this webhook fires. We upsert the contact in HubSpot with oracle_ properties
-    so they appear on the Battle Plan.
-    """
-    if not _verify_webhook_secret(request):
-        return jsonify({"error": "Unauthorized"}), 401
-
-    data = request.json or {}
-    email = data.get("email", "").strip().lower()
-    if not email:
-        return jsonify({"error": "Missing email"}), 400
-
-    contact_name = data.get("name", data.get("firstName", ""))
-    campaign_id = data.get("campaign_id", data.get("sequence_id", ""))
-    node_id = data.get("node_id", data.get("step_id", ""))
-    step_number = data.get("step_number", data.get("step", 1))
-    action_type = data.get("action_type", data.get("task_type", "call"))
-    supersend_contact_id = data.get("contact_id", "")
-
-    if not config.HUBSPOT_ACCESS_TOKEN:
-        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
-
-    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
-
-    try:
-        now_iso = datetime.now(timezone.utc).isoformat()
-        oracle_props = {
-            "oracle_pending_action": "pending",
-            "oracle_action_type": str(action_type),
-            "oracle_campaign_id": str(campaign_id),
-            "oracle_node_id": str(node_id),
-            "oracle_step_number": str(step_number),
-            "oracle_last_action_date": now_iso,
-            "oracle_supersend_contact_id": str(supersend_contact_id),
-        }
-        contact_id = hs.upsert_contact_oracle(email, oracle_props)
-
-        # Append to journey log
-        hs.append_journey_log(
-            contact_id,
-            f"Webhook received: {action_type} task for step {step_number} "
-            f"(campaign {campaign_id})"
-        )
-
-        return jsonify({
-            "ok": True,
-            "contact_id": contact_id,
-            "msg": f"Contact {email} queued with pending action",
-        })
-    except Exception as e:
-        log.error("Webhook processing failed for %s: %s", email, e)
-        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/webhook/signal", methods=["POST"])
@@ -2050,8 +1815,8 @@ def api_battle_plan_call_prep():
 def api_action_complete():
     """Mark a battle plan item as completed with a disposition.
 
-    Updates HubSpot oracle_ properties and optionally advances the
-    Supersend sequence based on the disposition routing config.
+    Updates HubSpot oracle_ properties and appends the journey log.
+    Campaign enrollment is out of scope: dispositions are HubSpot-only.
     """
     data = request.json or {}
     contact_id = data.get("contact_id")
@@ -2073,89 +1838,31 @@ def api_action_complete():
     try:
         now_iso = datetime.now(timezone.utc).isoformat()
 
-        # Execute the Supersend action FIRST — the journey log must not claim
-        # an outcome ("permanently removed") before the sequence actually changed.
-        supersend_result = None
-        supersend_error = None
-        if config.SUPERSEND_API_KEY and route["action"] in ("advance", "transfer", "finish", "remove"):
-            try:
-                ss = SupersendClient(config.SUPERSEND_API_KEY)
-                # Get the Supersend contact ID from HubSpot
-                contact_data = hs.batch_get_contacts([contact_id], [
-                    "oracle_supersend_contact_id", "oracle_campaign_id",
-                    "oracle_step_number", "oracle_node_id",
-                ])
-                if contact_data:
-                    c_props = contact_data[0].get("properties", {})
-                    ss_contact_id = c_props.get("oracle_supersend_contact_id", "")
-                    campaign_id = c_props.get("oracle_campaign_id", "")
-                    step = int(c_props.get("oracle_step_number", "1") or "1")
-                    node_id = c_props.get("oracle_node_id", "")
-
-                    if ss_contact_id and campaign_id:
-                        if route["action"] == "advance":
-                            next_step = route.get("next_step") or step + 1
-                            supersend_result = ss.assign_step(
-                                ss_contact_id, campaign_id, next_step, node_id=node_id
-                            )
-                        elif route["action"] == "transfer":
-                            if route.get("transfer_to"):
-                                supersend_result = ss.transfer_contact(
-                                    ss_contact_id, campaign_id, route["transfer_to"]
-                                )
-                            else:
-                                # No destination configured: end the cold sequence
-                                # so a booked meeting never keeps getting cold emails.
-                                supersend_result = ss.finish_contact(ss_contact_id, campaign_id)
-                        elif route["action"] in ("finish", "remove"):
-                            # "remove" (do_not_call) must end the sequence. Supersend
-                            # has no true remove/unsubscribe bulk action; "finish"
-                            # stops the sequence (docs.supersend.io/docs/contact).
-                            supersend_result = ss.finish_contact(ss_contact_id, campaign_id)
-            except Exception as e:
-                log.warning("Supersend action failed for contact %s: %s", contact_id, e)
-                supersend_error = str(e)
-                supersend_result = {"error": supersend_error}
-
-        # Clear the pending action — the call itself happened either way
+        # Clear the pending action. The call itself happened either way.
         update_props = {
             "oracle_pending_action": "completed",
             "oracle_call_disposition": disposition,
             "oracle_last_action_date": now_iso,
         }
+
+        # Compliance: do_not_call must set the standard HubSpot donotcall
+        # property, not only the oracle_ disposition. Every HubSpot surface
+        # and integration reads donotcall; none of them read oracle_.
+        if disposition == "do_not_call":
+            update_props["donotcall"] = "true"
+
         hs.update_contact_properties(contact_id, update_props)
 
-        # Append to journey log — on Supersend failure, record the failure
-        # instead of the route's success message.
-        if supersend_error:
-            log_entry = (
-                f"{disposition} — SUPERSEND ACTION FAILED: {supersend_error}"
-                " | sequence NOT updated, reconcile manually"
-            )
-        else:
-            log_entry = route["log_entry"]
+        log_entry = route["log_entry"]
         if notes:
             log_entry += f" | Notes: {notes}"
         hs.append_journey_log(contact_id, log_entry)
-
-        if supersend_error:
-            return jsonify({
-                "ok": False,
-                # "error" key required: the UI treats any response without it
-                # as success and marks the battle card completed.
-                "error": f"Disposition logged, but Supersend action failed: {supersend_error}",
-                "contact_id": contact_id,
-                "disposition": disposition,
-                "route_action": route["action"],
-                "supersend_result": supersend_result,
-            }), 502
 
         return jsonify({
             "ok": True,
             "contact_id": contact_id,
             "disposition": disposition,
             "route_action": route["action"],
-            "supersend_result": supersend_result,
             "msg": f"Action completed: {route['log_entry']}",
         })
     except Exception as e:

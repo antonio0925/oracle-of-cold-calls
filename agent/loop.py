@@ -11,7 +11,6 @@ from datetime import datetime
 import config
 from services.hubspot import HubSpotClient
 from services.octave import OctaveClient
-from services.supersend import SupersendClient
 
 from agent import act as act_module
 from agent import decide as decide_module
@@ -31,7 +30,6 @@ class RunContext(object):
         self.dry_run = dry_run
         self.hubspot = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
         self.octave = OctaveClient(config.OCTAVE_API_KEY)
-        self.supersend = SupersendClient(config.SUPERSEND_API_KEY)
         self.prepped = []
 
 

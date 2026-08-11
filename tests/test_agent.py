@@ -204,7 +204,6 @@ def _patch_clients(monkeypatch, hs, octave, posted):
     import agent.act as act_mod
     monkeypatch.setattr(loop_mod, "HubSpotClient", lambda *a, **k: hs)
     monkeypatch.setattr(loop_mod, "OctaveClient", lambda *a, **k: octave)
-    monkeypatch.setattr(loop_mod, "SupersendClient", lambda *a, **k: object())
     monkeypatch.setattr(act_mod.slack, "post_to_slack", lambda data: posted.append(data))
 
 

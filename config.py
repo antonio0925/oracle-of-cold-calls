@@ -45,18 +45,19 @@ USER_START_HOUR = float(os.getenv("USER_START_HOUR", "6.5"))  # 6:30 AM
 # --- Thresholds ---
 QUAL_THRESHOLD = int(os.getenv("QUAL_THRESHOLD", "8"))
 
-# --- Oracle v2: Supersend + Signal Pipeline ---
-SUPERSEND_API_KEY = os.getenv("SUPERSEND_API_KEY", "")
-ORACLE_WEBHOOK_SECRET = os.getenv("ORACLE_WEBHOOK_SECRET", "")
+# --- Oracle v2: Signal Pipeline ---
 SIGNAL_WEBHOOK_API_KEY = os.getenv("SIGNAL_WEBHOOK_API_KEY", "")
 OCTAVE_CALL_PREP_AGENT = os.getenv("OCTAVE_CALL_PREP_AGENT", "ca_DLoI5XBlw9qGNEDBiV1a2")
 
-# --- Anthropic (Claude API for follow-up email generation) ---
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-
-# --- Supersend Campaign Config ---
+# --- Legacy, unused ---
+# Campaign enrollment was removed. Dispositions are HubSpot-only.
+# services/supersend.py and services/anthropic.py stay on disk but
+# nothing imports them. These keys are read for backward compatibility
+# only. Do not set them in a new deployment.
+SUPERSEND_API_KEY = os.getenv("SUPERSEND_API_KEY", "")
 SUPERSEND_TEAM_ID = os.getenv("SUPERSEND_TEAM_ID", "")
 SUPERSEND_CAMPAIGN_ID = os.getenv("SUPERSEND_CAMPAIGN_ID", "")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 # --- Server ---
 FLASK_PORT = int(os.getenv("FLASK_PORT", "5001"))
@@ -77,6 +78,6 @@ if USER_TIMEZONE not in _VALID_TIMEZONES:
     _log.warning("USER_TIMEZONE='%s' not recognized, defaulting to US/Pacific", USER_TIMEZONE)
     USER_TIMEZONE = "US/Pacific"
 
-for _key_name in ("HUBSPOT_ACCESS_TOKEN", "OCTAVE_API_KEY", "ANTHROPIC_API_KEY"):
+for _key_name in ("HUBSPOT_ACCESS_TOKEN", "OCTAVE_API_KEY"):
     if not locals()[_key_name]:
-        _log.warning("Required key %s is empty — some features will be unavailable", _key_name)
+        _log.warning("Required key %s is empty. Some features will be unavailable.", _key_name)

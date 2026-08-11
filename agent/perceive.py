@@ -21,7 +21,7 @@ CONTACT_PROPERTIES = [
     "phone", "mobilephone", "city", "state", "country", "hs_timezone",
     "oracle_pending_action", "oracle_action_type", "oracle_campaign_id",
     "oracle_node_id", "oracle_step_number", "oracle_call_disposition",
-    "oracle_supersend_contact_id", "oracle_last_action_date",
+    "oracle_last_action_date",
 ]
 
 
@@ -84,7 +84,7 @@ def perceive_list(hs, list_name, limit=None):
 def perceive_pending_actions(hs):
     """Observe contacts flagged oracle_pending_action = 'pending'.
 
-    These are dispositioned calls waiting to be routed through Supersend.
+    These are dispositioned calls whose outcome is not yet logged.
     """
     try:
         pending = hs.get_pending_actions()

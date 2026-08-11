@@ -16,7 +16,7 @@ Two views. One app.
 
 **The Forge** is the upstream automation engine. It reads campaign briefs from Notion, discovers and qualifies companies through Octave AI, enriches contacts, and hands everything off to The Oracle for the cold call layer.
 
-**The Battle Plan** is your real-time call dashboard. Contacts are bucketed into Hot/Warm/Parked tiers based on signal classification, with inline disposition tracking and one-click sequence routing through Supersend.
+**The Battle Plan** is your real-time call dashboard. Contacts are bucketed into Hot/Warm/Parked tiers based on signal classification, with inline disposition tracking logged straight back to HubSpot.
 
 ---
 
@@ -37,9 +37,9 @@ services/
   filters.py                  US-only filtering for Forge pipeline
   dedup.py                    Signal deduplication with TTL
   signal_classifier.py        Signal-to-tier classification (Hot/Warm/Parked)
-  routing_config.py           Disposition-to-Supersend sequence routing
+  routing_config.py           Disposition-to-journey-log routing (log-only)
   slack.py                    Slack dial sheet posting
-  supersend.py                Supersend sequence API client
+  supersend.py                Unused. Kept on disk for a possible later revival.
   retry.py                    Exponential-backoff HTTP retry utility
 ```
 
@@ -100,7 +100,7 @@ Stage 3: Enrich qualified companies (Octave REST)
 Stage 4: Discover & enrich people (Octave Prospector + Enrich Person)
     |                    [QA Gate: human reviews discovered contacts]
     v
-Stage 5: Export to HubSpot + Supersend
+Stage 5: Export to HubSpot
 ```
 
 Every stage has a human-in-the-loop QA gate. Nothing writes to your CRM without approval.
@@ -113,9 +113,9 @@ Real-time call dashboard with signal-based contact prioritization:
 
 - **Hot (Tier 1):** Demo requests, pricing page visits, high-intent signals. Call immediately.
 - **Warm (Tier 2):** Feature exploration, content engagement. Enrich then decide.
-- **Parked (Tier 3):** Low-signal contacts. Keep in sequence, revisit later.
+- **Parked (Tier 3):** Low-signal contacts. Revisit later.
 
-Inline disposition tracking lets you log call outcomes and route contacts to Supersend sequences without leaving the dashboard.
+Inline disposition tracking lets you log call outcomes to HubSpot without leaving the dashboard.
 
 ---
 
@@ -161,7 +161,7 @@ The email IS the demo. The call closes the loop.
 ### The Battle Plan
 - **Signal-based tiering** - Contacts automatically classified into Hot/Warm/Parked
 - **Inline dispositions** - Log call outcomes without leaving the dashboard
-- **Supersend routing** - One-click sequence assignment based on disposition
+- **HubSpot write-back** - Dispositions land on the contact record and the journey log
 - **Real-time activity refresh** - Auto-polling for new HubSpot activity signals
 
 ---
@@ -174,7 +174,7 @@ The email IS the demo. The call closes the loop.
 - **CRM:** HubSpot (contacts, companies, notes, email history)
 - **Campaign Management:** Notion (campaign briefs and ICP definitions)
 - **Notifications:** Slack webhooks (call sheets and battle plans)
-- **Email Sequences:** Supersend (disposition-based sequence routing)
+- **Dispositions:** HubSpot only (contact properties and the journey log)
 
 ---
 
@@ -187,7 +187,6 @@ The email IS the demo. The call closes the loop.
 - An Octave account with configured agents (content, qualify, prospector, enrich)
 - A Notion workspace with a Campaign Central database
 - A Slack webhook URL (optional, for call sheet notifications)
-- A Supersend account (optional, for sequence routing)
 
 ### Install
 
@@ -252,7 +251,7 @@ Navigate to `http://localhost:5001`
 3. **Tell Claude** to forge the campaign - Claude discovers companies via Octave MCP tools and injects domains into the app
 4. **Qualify** - The app scores each company and filters to US-only, 8+/10
 5. **Enrich** companies, then discover and enrich people at qualified companies
-6. **Export** approved contacts to HubSpot and Supersend sequences
+6. **Export** approved contacts to HubSpot
 
 ### The Battle Plan
 

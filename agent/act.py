@@ -40,28 +40,20 @@ def act_prep_contact(ctx, decision):
 
 
 def act_route_contact(ctx, decision):
-    """Push a dispositioned contact through its Supersend route."""
+    """Record a dispositioned contact's outcome in HubSpot.
+
+    Campaign enrollment was removed, so routing is log-only: append the
+    journey log and clear the pending action. No external sequence system
+    is called.
+    """
     obs = decision["obs"]
     route = decision["route"]
-    props = obs["properties"]
     cid = obs["contact_id"]
-
-    ss_contact_id = props.get("oracle_supersend_contact_id")
-    campaign_id = props.get("oracle_campaign_id")
-    if not ss_contact_id or not campaign_id:
-        return False, "missing supersend contact/campaign id on the record"
+    disposition = decision.get("disposition", "")
 
     action = route.get("action")
     if action == "advance":
-        step = route.get("next_step")
-        if step is None:
-            raw = props.get("oracle_step_number")
-            try:
-                step = int(raw) + 1
-            except (TypeError, ValueError):
-                return False, "cannot infer next step from oracle_step_number={!r}".format(raw)
-        ctx.supersend.assign_step(ss_contact_id, campaign_id, step, props.get("oracle_node_id"))
-        detail = "advanced to step {}".format(step)
+        detail = "disposition {} logged".format(disposition or action)
     elif action == "retry":
         # Retry keeps the contact in place; we only re-stamp the journey so the
         # next run knows when the retry window opened.
@@ -69,8 +61,14 @@ def act_route_contact(ctx, decision):
     else:
         return False, "executor does not handle action {!r}".format(action)
 
+    update = {"oracle_pending_action": "done"}
+    # Compliance guard: do_not_call must always reach the standard HubSpot
+    # property, on whichever path executes it.
+    if disposition == "do_not_call":
+        update["donotcall"] = "true"
+
     ctx.hubspot.append_journey_log(cid, route.get("log_entry", detail))
-    ctx.hubspot.update_contact_properties(cid, {"oracle_pending_action": "done"})
+    ctx.hubspot.update_contact_properties(cid, update)
     return True, detail
 
 

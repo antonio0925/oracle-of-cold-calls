@@ -6,7 +6,7 @@ truthful: the plan you see is exactly the plan that would execute.
 
 Actions the agent can plan:
   prep_contact   generate Octave call content + write a HubSpot prep note
-  route_contact  push a dispositioned contact through Supersend
+  route_contact  record a dispositioned contact's outcome in HubSpot
   post_call_sheet publish the timezone-ordered dial sheet to Slack
   skip           explicit no-op, with a reason (recorded, never silent)
 """
