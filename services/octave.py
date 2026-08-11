@@ -46,12 +46,32 @@ class OctaveClient:
         return r.json()
 
     def generate_call_script(self, person, email_subject, email_body):
-        """Call the Personalized Cold Call Content agent."""
-        runtime_ctx = (
-            "Here is the most recent outbound email sent to this prospect. "
-            "Use this as your source material for all outputs.\n\n"
-            f"Subject: {email_subject}\n\n{email_body}"
-        )
+        """Call the Personalized Cold Call Content agent.
+
+        The agent reads the prospect's whole CRM activity history through its
+        own crmActivity tool and writes to the relationship state it finds:
+        never contacted, touched repeatedly with no reply, engaged, or replied.
+
+        The most recent outbound email is passed as one more data point, not as
+        the source material. Framing it as the source is what produced
+        header-only notes for contacts who had never been emailed: the agent
+        was told to build everything from a thing that did not exist.
+        """
+        if email_subject or email_body:
+            runtime_ctx = (
+                "Supporting context: the most recent outbound email we have on "
+                "record for this prospect is below. Treat it as one signal among "
+                "the full activity history you pull from the CRM, not as the sole "
+                "source. Do not reuse an angle that has already gone unanswered.\n\n"
+                f"Subject: {email_subject}\n\n{email_body}"
+            )
+        else:
+            runtime_ctx = (
+                "No outbound email is on record for this prospect in the app's "
+                "lookup. Pull their activity history from the CRM. If it is also "
+                "empty, write for a first touch using their role, company, and "
+                "industry. Do not return empty output."
+            )
         payload = {
             "agentOId": config.OCTAVE_CONTENT_AGENT,
             "firstName": person.get("firstname", ""),

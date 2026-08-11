@@ -32,8 +32,20 @@ def _split_octave_sections(script_content):
     sections = {"voicemail": "", "objections": "", "live_call": ""}
 
     # Octave uses: ### OUTPUT 1: VOICEMAIL SCRIPT, ### OUTPUT 2: ..., ### OUTPUT 3: ...
-    # Also handle without "OUTPUT N:" prefix: ### VOICEMAIL SCRIPT
-    parts = re.split(r'###\s*(?:OUTPUT\s*\d+\s*:\s*)?', script_content, flags=re.IGNORECASE)
+    # Also handle without "OUTPUT N:" prefix: ### VOICEMAIL SCRIPT, and ## too.
+    #
+    # Split only on a top-level heading at the start of a line. The old pattern
+    # matched a bare "###" anywhere, so it also matched the first three hashes
+    # of a "#### Opener" sub-heading. The live call script now uses those for
+    # Opener, Hook and Bridge, and The Ask, and every one of them tore the
+    # section apart: the fragments began "# Opener" rather than "LIVE CALL", so
+    # they matched nothing and the whole script was silently dropped from the
+    # note. (?!#) keeps sub-headings as content where they belong.
+    parts = re.split(
+        r'(?m)^#{2,3}(?!#)\s*(?:OUTPUT\s*\d+\s*:\s*)?',
+        script_content,
+        flags=re.IGNORECASE,
+    )
 
     for part in parts:
         stripped = part.strip()
