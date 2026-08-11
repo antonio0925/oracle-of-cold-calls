@@ -231,5 +231,22 @@ written, so #4 was live.
   `normalize_html_for_compare` decodes entities so notes already in HubSpot
   still match their escaped replacements and the cleanup does not churn.
 
-The two remaining items are the best starting points for a second pass, along
-with anything the suspect list above did not cover.
+### The two remaining items
+
+Both are classified as planned hardening, not release blockers. Each has a
+trigger, so they get done for a reason rather than drifting.
+
+**CSRF on write routes.** Do it *before* any of: multi-user auth, wider
+distribution of the URL, or any embedded or shareable context. Today the only
+defence is `SameSite=Lax`, which holds because there is one shared password,
+no cross-site form target, and no cookie-authenticated GET that mutates. Every
+one of those three conditions stops holding the moment the app has real users.
+
+**Filter ordering.** Do it when HubSpot latency or rate limits start to hurt.
+The move is to put the cheap deterministic skips (call cooldown, per-account
+cap) ahead of the association-heavy subscriber check, which currently spends
+2+ requests per contact on people a free comparison would have dropped. Pure
+speed, no correctness risk, which is why it can wait.
+
+Both, plus anything the suspect list above did not cover, are the starting
+points for a second pass.
