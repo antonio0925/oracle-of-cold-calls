@@ -227,8 +227,8 @@ def generate():
     calling_date = data.get("calling_date", "").strip()
     skip_existing = data.get("skip_existing", False)
 
-    if not segment_name or not campaign:
-        return jsonify({"error": "Segment and campaign are required"}), 400
+    if not segment_name:
+        return jsonify({"error": "A call list is required"}), 400
 
     if not config.HUBSPOT_ACCESS_TOKEN or not config.OCTAVE_API_KEY:
         return jsonify({"error": "Missing API credentials in .env"}), 500
@@ -548,8 +548,8 @@ def quick_generate():
     campaign = data.get("campaign", "").strip()
     calling_date = data.get("calling_date", "").strip()
 
-    if not segment_name or not campaign:
-        return jsonify({"error": "Segment and campaign are required"}), 400
+    if not segment_name:
+        return jsonify({"error": "A call list is required"}), 400
 
     if not config.HUBSPOT_ACCESS_TOKEN:
         return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN in .env"}), 500

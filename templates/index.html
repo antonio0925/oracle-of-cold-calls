@@ -49,6 +49,9 @@ body {
 
 h1, h2, h3 { color: var(--ink); font-weight: 700; letter-spacing: -0.01em; }
 h2 { font-size: 22px; margin: 0 0 8px; }
+.label-opt { font-weight: 600; font-size: 11px; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--faint); border: 1px solid var(--border);
+    border-radius: 999px; padding: 1px 7px; margin-left: 6px; vertical-align: middle; }
 h3 { font-size: 16px; margin: 18px 0 8px; }
 a { color: var(--green); }
 a:hover { color: var(--green-bright); }
@@ -97,50 +100,60 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .error-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15,23,42,0.55);
+    background: rgba(15,23,42,0.45);
+    backdrop-filter: blur(2px);
     display: none;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     z-index: 9999;
     padding: 24px;
-    text-align: center;
 }
 .error-overlay.visible { display: flex; }
-.error-overlay h1 {
-    color: #fff;
-    font-size: 26px;
-    margin: 12px 0 6px;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+.error-card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lift);
+    padding: 28px 28px 24px;
+    text-align: center;
 }
-.crack-left, .crack-right { display: none; }
-.error-icon { font-size: 52px; }
+.error-icon {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #fef3c7;
+}
 .error-msg {
-    color: #f1f5f9;
-    font-size: 16px;
-    max-width: 520px;
+    color: var(--ink);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
 }
 .error-detail {
-    margin-top: 10px;
-    color: #cbd5e1;
-    font-family: var(--mono);
-    font-size: 12px;
-    max-width: 620px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
     word-break: break-word;
-    background: rgba(15,23,42,0.6);
-    border: 1px solid rgba(148,163,184,0.35);
-    border-radius: 8px;
-    padding: 10px 14px;
 }
 .dismiss-btn {
+    width: 100%;
     margin-top: 22px;
-    padding: 12px 28px;
+    padding: 11px 20px;
     border: none;
-    border-radius: 10px;
+    border-radius: 8px;
     background: var(--orange);
     color: #fff;
     font-size: 15px;
     font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
 }
 .dismiss-btn:hover { background: var(--orange-dark); }
 
@@ -1144,13 +1157,19 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 <!-- ===== ERROR OVERLAY ===== -->
 <div class="error-overlay" id="errorOverlay">
-    <div class="crack-left"></div>
-    <div class="crack-right"></div>
-    <div class="error-icon">&#9928;&#65039;</div>
-    <h1>STORM OVER THE PASS</h1>
-    <div class="error-msg" id="errorMsg">Something went wrong on the mountain.</div>
-    <div class="error-detail" id="errorDetail"></div>
-    <button class="dismiss-btn" onclick="dismissError()">BACK TO THE TRAIL</button>
+    <div class="error-card">
+        <div class="error-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                 stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3.5 1.8 20.5h20.4L12 3.5Z"/>
+                <path d="M12 10v4"/>
+                <path d="M12 17.5h.01"/>
+            </svg>
+        </div>
+        <div class="error-msg" id="errorMsg">Something went wrong.</div>
+        <div class="error-detail" id="errorDetail"></div>
+        <button class="dismiss-btn" onclick="dismissError()">Got it</button>
+    </div>
 </div>
 
 <!-- ===== TOP RIBBON ===== -->
@@ -1208,11 +1227,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         <div class="form-group">
             <label>
-                Campaign Enrollment
-                <span class="label-desc">The campaign these contacts belong to</span>
+                Campaign Enrollment <span class="label-opt">optional</span>
+                <span class="label-desc">Only a label on the prep note. Leave it blank if you do not need it.</span>
             </label>
             <div class="search-dropdown" id="campaignDropdown">
-                <input type="text" id="campaignInput" placeholder="Search or type a campaign name..." autocomplete="off"
+                <input type="text" id="campaignInput" placeholder="Optional" autocomplete="off"
                        onfocus="openDropdown('campaign')" oninput="filterDropdown('campaign')">
                 <span class="dd-arrow">&#9660;</span>
                 <div class="dd-list" id="campaignList">
@@ -1875,8 +1894,7 @@ document.getElementById('campaignInput').addEventListener('blur', () => closeDro
 // ERROR OVERLAY
 // ===================================================================
 function showError(msg, detail) {
-    zeusFlash();
-    document.getElementById('errorMsg').textContent = msg || 'An unknown force has disrupted the Oracle\'s vision.';
+    document.getElementById('errorMsg').textContent = msg || 'Something went wrong.';
     document.getElementById('errorDetail').textContent = detail || '';
     document.getElementById('errorDetail').style.display = detail ? 'block' : 'none';
     document.getElementById('errorOverlay').classList.add('visible');
@@ -1917,8 +1935,8 @@ function consultTheOracle() {
     const callingDate = document.getElementById('callingDate').value;
     const skipExisting = document.getElementById('skipExisting').checked;
 
-    if (!segment || !campaign) {
-        showError('The Oracle demands both a Legion and a Crusade name!', 'Fill in all required fields before consulting the Oracle.');
+    if (!segment) {
+        showError('Pick a call list first.', 'The call list is the only required field.');
         return;
     }
 
@@ -1958,7 +1976,7 @@ function consultTheOracle() {
     }).then(response => {
         if (!response.ok) {
             return response.json().then(d => {
-                showError(d.error || 'The Oracle refuses to speak.', 'HTTP ' + response.status);
+                showError(d.error || 'Could not build the route plan.', 'HTTP ' + response.status);
                 throw new Error('stop');
             });
         }
@@ -2002,7 +2020,7 @@ function consultTheOracle() {
         read();
     }).catch(err => {
         if (err.message !== 'stop') {
-            showError('A catastrophic disturbance in the ether!', err.message);
+            showError('The connection dropped.', err.message);
         }
     });
 }
@@ -2015,8 +2033,8 @@ function prepareForBattle() {
     const campaign = document.getElementById('campaignInput').value.trim();
     const callingDate = document.getElementById('callingDate').value;
 
-    if (!segment || !campaign) {
-        showError('The battle requires both a Legion and a Crusade name!', 'Fill in all required fields.');
+    if (!segment) {
+        showError('Pick a call list first.', 'The call list is the only required field.');
         return;
     }
 
@@ -2052,7 +2070,7 @@ function prepareForBattle() {
     }).then(response => {
         if (!response.ok) {
             return response.json().then(d => {
-                showError(d.error || 'The battle cannot begin.', 'HTTP ' + response.status);
+                showError(d.error || "Could not load today's climb.", 'HTTP ' + response.status);
                 throw new Error('stop');
             });
         }
@@ -2091,7 +2109,7 @@ function prepareForBattle() {
         read();
     }).catch(err => {
         if (err.message !== 'stop') {
-            showError('A catastrophic disturbance in the ether!', err.message);
+            showError('The connection dropped.', err.message);
         }
     });
 }
@@ -2160,12 +2178,12 @@ function handleMessage(msg) {
                     renderReview(sessionData);
                 })
                 .catch(err => {
-                    showError('Failed to load the battle plan!', err.message);
+                    showError("Could not load today's climb.", err.message);
                     document.getElementById('consultBtn').disabled = false;
                     document.getElementById('battleBtn').disabled = false;
                 });
         } else {
-            showError('No warriors qualified for battle.',
+            showError('No contacts are ready to call.',
                 'Check your Legion and filters. Make sure contacts have outbound emails.');
             document.getElementById('consultBtn').disabled = false;
             document.getElementById('battleBtn').disabled = false;
@@ -2282,7 +2300,7 @@ function renderReview(data) {
 // ===================================================================
 function releaseTheKraken() {
     if (!currentSessionId) {
-        showError('No session to approve!', 'Generate a battle plan first.');
+        showError('Nothing to approve yet.', 'Build a route plan first.');
         return;
     }
 
@@ -2300,7 +2318,7 @@ function releaseTheKraken() {
         .then(response => {
             if (!response.ok) {
                 return response.json().then(d => {
-                    showError(d.error || 'The Kraken refuses to write.', 'HTTP ' + response.status);
+                    showError(d.error || 'Could not write the prep notes to HubSpot.', 'HTTP ' + response.status);
                     throw new Error('stop');
                 });
             }
@@ -2380,7 +2398,7 @@ function banishToTartarus() {
     fetch('/discard/' + currentSessionId, {method: 'POST'})
         .then(r => r.json())
         .then(data => {
-            showError('Banished to Tartarus!', data.msg || 'The scrolls have been destroyed.');
+            showError('Discarded.', data.msg || 'The prep notes were removed.');
             document.getElementById('reviewSection').style.display = 'none';
             document.getElementById('approveSection').style.display = 'none';
             document.getElementById('consultBtn').disabled = false;
@@ -3145,13 +3163,13 @@ function handleProspectMsg(msg) {
 
 // ===== STAGE 2 → 3: ENRICH APPROVED COMPANIES =====
 function enrichCompanies() {
-    if (!forgeSessionId) { showError('No forge session!'); return; }
+    if (!forgeSessionId) { showError('No Trailhead Scout session is open.'); return; }
 
     const checkboxes = document.querySelectorAll('#prospectTable tbody input[type="checkbox"]:checked');
     const approvedDomains = Array.from(checkboxes).map(cb => cb.value).filter(v => v);
 
     if (approvedDomains.length === 0) {
-        showError('Select at least one company!');
+        showError('Pick at least one company.');
         return;
     }
 
@@ -3234,13 +3252,13 @@ function handleEnrichCompanyMsg(msg) {
 
 // ===== STAGE 3 → 4: DISCOVER & ENRICH PEOPLE =====
 function discoverEnrichPeople() {
-    if (!forgeSessionId) { showError('No forge session!'); return; }
+    if (!forgeSessionId) { showError('No Trailhead Scout session is open.'); return; }
 
     const checkboxes = document.querySelectorAll('#enrichCompanyTable tbody input[type="checkbox"]:checked');
     const approvedDomains = Array.from(checkboxes).map(cb => cb.value).filter(v => v);
 
     if (approvedDomains.length === 0) {
-        showError('Select at least one enriched company!');
+        showError('Pick at least one enriched company.');
         return;
     }
 
@@ -3330,13 +3348,13 @@ function handleDiscoverPeopleMsg(msg) {
 
 // ===== STAGE 4 → 5: EXPORT APPROVED PROSPECTS =====
 function exportProspects() {
-    if (!forgeSessionId) { showError('No forge session!'); return; }
+    if (!forgeSessionId) { showError('No Trailhead Scout session is open.'); return; }
 
     const checkboxes = document.querySelectorAll('#discoverPeopleTable tbody input[type="checkbox"]:checked');
     const approvedPeople = Array.from(checkboxes).map(cb => cb.value).filter(v => v);
 
     if (approvedPeople.length === 0) {
-        showError('Select at least one prospect!');
+        showError('Pick at least one prospect.');
         return;
     }
 

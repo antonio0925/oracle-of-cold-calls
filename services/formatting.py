@@ -194,9 +194,12 @@ def format_note_html(contact_props, campaign, script_content):
     parts = []
 
     # ── Header ──
+    # Campaign is optional. When it is blank the byline is just the date,
+    # and the title line must still be there.
+    byline = f"{campaign} | Generated {today_str}" if campaign else f"Generated {today_str}"
     parts.append(
         f"<p><strong>\U0001f525 COLD CALL PREP - {first} {last} | {company}</strong></p>"
-        f"<p>{campaign} | Generated {today_str}</p>"
+        f"<p>{byline}</p>"
     )
 
     # ── Voicemail ──
