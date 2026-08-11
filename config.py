@@ -51,6 +51,16 @@ QUAL_THRESHOLD = int(os.getenv("QUAL_THRESHOLD", "8"))
 # --- Octave ---
 OCTAVE_CALL_PREP_AGENT = os.getenv("OCTAVE_CALL_PREP_AGENT", "ca_DLoI5XBlw9qGNEDBiV1a2")
 
+# How many scripts to write at once. One Octave call takes about a minute, and
+# that minute is spent waiting on the network. Waiting on several at once is
+# what takes a 50-call route from about 53 minutes to about 11.
+#
+# The ceiling is the shared thread pool in app.py, which holds 8 workers.
+# Measured against the live agent, 8 concurrent calls all succeeded with no
+# rate limiting. 5 is the default because a 50-contact run is far more
+# sustained load than that test was.
+OCTAVE_CONCURRENCY = int(os.getenv("OCTAVE_CONCURRENCY", "5"))
+
 # --- Legacy, unused ---
 # Campaign enrollment was removed and its modules were deleted. These keys
 # are read only so an old .env does not break a boot. Do not set them.
@@ -78,6 +88,12 @@ _VALID_TIMEZONES = {"US/Eastern", "US/Central", "US/Mountain", "US/Pacific", "US
 if not 1 <= QUAL_THRESHOLD <= 10:
     _log.warning("QUAL_THRESHOLD=%d is outside 1-10 range, clamping", QUAL_THRESHOLD)
     QUAL_THRESHOLD = max(1, min(10, QUAL_THRESHOLD))
+
+# The pool has 8 workers. A higher value would queue rather than run, which
+# reads as a hang while looking like it was configured.
+if not 1 <= OCTAVE_CONCURRENCY <= 8:
+    _log.warning("OCTAVE_CONCURRENCY=%d is outside 1-8, clamping", OCTAVE_CONCURRENCY)
+    OCTAVE_CONCURRENCY = max(1, min(8, OCTAVE_CONCURRENCY))
 
 if not 1 <= FLASK_PORT <= 65535:
     _log.warning("FLASK_PORT=%d is outside valid range, defaulting to 5001", FLASK_PORT)
