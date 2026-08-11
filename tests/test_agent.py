@@ -151,6 +151,41 @@ def test_script_text_falls_back_to_json_for_unknown_shape():
     assert script_text({"weird": 1}) == '{"weird": 1}'
 
 
+# --- list resolution (real HubSpot contract) -----------------------------
+
+def test_resolve_list_id_accepts_numeric_id_without_search():
+    from agent.perceive import resolve_list_id
+
+    class NoSearch(object):
+        def search_lists(self, name):
+            raise AssertionError("should not search when given a numeric ID")
+
+    assert resolve_list_id(NoSearch(), "302") == "302"
+
+
+def test_resolve_list_id_resolves_exact_name():
+    from agent.perceive import resolve_list_id
+
+    class HS(object):
+        def search_lists(self, name):
+            return "302" if name == "Real List" else None
+
+    assert resolve_list_id(HS(), "Real List") == "302"
+
+
+def test_resolve_list_id_raises_actionable_error_on_miss():
+    from agent.perceive import resolve_list_id
+    import pytest as _pytest
+
+    class HS(object):
+        def search_lists(self, name):
+            return None
+
+    with _pytest.raises(LookupError) as err:
+        resolve_list_id(HS(), "Nope")
+    assert "exact" in str(err.value).lower()
+
+
 # --- full loop against fakes ---------------------------------------------
 
 class FakeHubSpot(object):
@@ -160,7 +195,9 @@ class FakeHubSpot(object):
         self.journey = []
 
     def search_lists(self, name):
-        return [{"listId": "42"}]
+        # Real contract (services/hubspot.py): returns the list ID string on an
+        # exact name match, or None. NOT a list of dicts.
+        return "42" if name == "Dial" else None
 
     def get_list_memberships(self, list_id):
         return ["1", "2"]

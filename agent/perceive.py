@@ -64,12 +64,28 @@ def _observe_contact(hs, contact, want_notes=True):
     return obs
 
 
+def resolve_list_id(hs, list_ref):
+    """Resolve a list reference to a HubSpot list ID.
+
+    Accepts either a numeric list ID ("302") or an exact list name.
+    services.hubspot.search_lists returns the ID string or None — it
+    deliberately does not fuzzy-match, so the name must be exact.
+    """
+    ref = str(list_ref).strip()
+    if ref.isdigit():
+        return ref
+    list_id = hs.search_lists(ref)
+    if not list_id:
+        raise LookupError(
+            "No HubSpot list exactly named {!r}. Pass the numeric list ID, or "
+            "check the name — matching is exact, not partial.".format(ref)
+        )
+    return str(list_id)
+
+
 def perceive_list(hs, list_name, limit=None):
-    """Observe every contact on a named HubSpot list."""
-    lists = hs.search_lists(list_name)
-    if not lists:
-        raise LookupError("No HubSpot list matching {!r}".format(list_name))
-    list_id = lists[0].get("listId") or lists[0].get("id")
+    """Observe every contact on a HubSpot list (by name or numeric ID)."""
+    list_id = resolve_list_id(hs, list_name)
 
     contact_ids = hs.get_list_memberships(list_id)
     if limit:

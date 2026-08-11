@@ -19,9 +19,20 @@ $PY - <<'EOF'
 import app
 rules = list(app.app.url_map.iter_rules())
 client = app.app.test_client()
-status = client.get("/api/dispositions").status_code
-assert status == 200, "readiness probe returned %s" % status
-print("boot ok: %d routes, /api/dispositions -> %d" % (len(rules), status))
+
+# The app is behind a shared-password gate: an unauthenticated /api/ call
+# must be refused with 401. Asserting 200 here would assert the gate is broken.
+anon = client.get("/api/dispositions").status_code
+assert anon == 401, "expected 401 for unauthenticated API call, got %s" % anon
+
+# With a session, the same route must serve real data.
+with client.session_transaction() as sess:
+    sess["summit_auth"] = True
+authed = client.get("/api/dispositions")
+assert authed.status_code == 200, "authed probe returned %s" % authed.status_code
+assert authed.get_json(), "authed probe returned empty payload"
+
+print("boot ok: %d routes, auth gate 401, authed /api/dispositions -> 200" % len(rules))
 EOF
 
 echo "=== 4/4 agent loop smoke ==="
