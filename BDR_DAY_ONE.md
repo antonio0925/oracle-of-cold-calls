@@ -23,9 +23,14 @@ HubSpot list you are calling today. The list picker takes a few seconds to
 fill, because it loads every list in the portal.
 
 Press **BUILD TODAY'S LIST**. SUMMIT reads the contacts, works out each
-person's time zone, writes a call script and a voicemail script for each one,
-and saves a prep note on their HubSpot contact record. This takes a few
-minutes for a large list. Leave the tab open while it runs.
+person's time zone, and writes a call script and a voicemail script for each
+one. This takes a few minutes for a large list. Leave the tab open while it
+runs.
+
+Nothing has been saved to HubSpot yet. Look over the route, then press
+**START THE CLIMB**. That is the step that writes the prep notes onto the
+contact records. If the list looks wrong, press **Discard This Plan** instead
+and nothing is written.
 
 SUMMIT also drops people it should not call today. It tells you why:
 
