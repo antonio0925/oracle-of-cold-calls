@@ -2,6 +2,7 @@
 HubSpot API client — lists, contacts, emails, notes, associations.
 """
 import logging
+import re
 from datetime import datetime, timezone
 import requests as http_requests
 from services.retry import retry_request
@@ -453,6 +454,68 @@ class HubSpotClient:
             }
         except Exception:
             return None
+
+    # ── Call pacing ───────────────────────────────────────────────
+
+    @staticmethod
+    def _call_date(raw):
+        """Normalise an hs_timestamp to YYYY-MM-DD.
+
+        HubSpot returns either an ISO 8601 string or epoch milliseconds
+        depending on the endpoint. A raw string compare across the two
+        formats silently never matches, which would disable the cooldown.
+        """
+        if not raw:
+            return ""
+        raw = str(raw)
+        if raw.isdigit():
+            try:
+                return datetime.fromtimestamp(
+                    int(raw) / 1000, tz=timezone.utc
+                ).strftime("%Y-%m-%d")
+            except (ValueError, OverflowError, OSError):
+                return ""
+        head = raw[:10]
+        # Must be a real YYYY-MM-DD. An unvalidated string sorts above a real
+        # date (any letter beats "2"), which would skip a dialable contact.
+        return head if re.match(r"^\d{4}-\d{2}-\d{2}$", head) else ""
+
+    def last_call_dates(self, contact_ids):
+        """Return {contact_id: latest logged call date} as YYYY-MM-DD.
+
+        Contacts with no logged call map to "". Used to enforce the cooldown:
+        a contact called yesterday is not dialable today, but one called two
+        days ago is. Counts every logged call, inbound or outbound, connected
+        or voicemail, because a voicemail is still a touch.
+        """
+        results = {str(cid): "" for cid in contact_ids}
+        for cid in contact_ids:
+            cid_str = str(cid)
+            try:
+                assoc = self._get(f"/crm/v3/objects/contacts/{cid}/associations/calls")
+                call_ids = [str(r["id"]) for r in assoc.get("results", [])]
+                if not call_ids:
+                    continue
+                latest = ""
+                # Newest calls are last; read the tail first so a contact with
+                # a long history still resolves in one batch.
+                for i in range(0, len(call_ids), 100):
+                    batch = call_ids[i:i + 100]
+                    data = self._post("/crm/v3/objects/calls/batch/read", {
+                        "inputs": [{"id": c} for c in batch],
+                        "properties": ["hs_timestamp"],
+                    })
+                    for obj in data.get("results", []):
+                        day = self._call_date(obj.get("properties", {}).get("hs_timestamp"))
+                        if day > latest:
+                            latest = day
+                results[cid_str] = latest
+            except Exception:
+                # A lookup failure must not silently make a contact dialable.
+                # "" means unknown, and the caller treats unknown as dialable,
+                # so log loudly rather than failing the whole run.
+                _log.warning("Call history lookup failed for contact %s", cid)
+        return results
 
     # ── Legacy: batch call activity check ─────────────────────────
 

@@ -31,11 +31,18 @@ SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID", "C0AELNTNNDV")
 USER_TIMEZONE = os.getenv("USER_TIMEZONE", "US/Pacific")
 USER_START_HOUR = float(os.getenv("USER_START_HOUR", "6.5"))  # 6:30 AM
 
+# --- Call pacing ---
+# Never burn an account in one day. Two people per company, maximum.
+MAX_CONTACTS_PER_ACCOUNT_PER_DAY = int(os.getenv("MAX_CONTACTS_PER_ACCOUNT_PER_DAY", "2"))
+# Days a contact rests after any logged call, voicemail included. 1 means a
+# contact called yesterday is not dialable today, but one called two days
+# ago is.
+CALL_COOLDOWN_DAYS = int(os.getenv("CALL_COOLDOWN_DAYS", "1"))
+
 # --- Thresholds ---
 QUAL_THRESHOLD = int(os.getenv("QUAL_THRESHOLD", "8"))
 
-# --- Oracle v2: Signal Pipeline ---
-SIGNAL_WEBHOOK_API_KEY = os.getenv("SIGNAL_WEBHOOK_API_KEY", "")
+# --- Octave ---
 OCTAVE_CALL_PREP_AGENT = os.getenv("OCTAVE_CALL_PREP_AGENT", "ca_DLoI5XBlw9qGNEDBiV1a2")
 
 # --- Legacy, unused ---

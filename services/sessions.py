@@ -1,8 +1,13 @@
 """
-Dual-layer session store — in-memory dict backed by atomic JSON files.
+Dual-layer session store: in-memory dict backed by atomic JSON files.
 
-Thread-safe via threading.Lock (Phase 4 addition).
-Covers both Oracle (prep_*) and Forge (forge_*) sessions.
+Thread-safe via threading.Lock.
+
+The session file is also the record of what the BDR has done. Each
+completed call is written into the session's "dispositions" map, so the
+call list checks itself off and survives a refresh, a reconnect, and a
+server restart. On the deployed service these files live on a persistent
+volume.
 """
 import os
 import json
@@ -102,9 +107,60 @@ def find_resumable_session(segment, calling_date):
     return None, None
 
 
-# ---------------------------------------------------------------------------
-# Forge session disk I/O
-# ---------------------------------------------------------------------------
+def find_latest_session():
+    """Return (session_id, data) for the newest completed call sheet.
+
+    Today's Climb opens on whatever the BDR generated last, so there is
+    nothing to pick from a list on a normal day.
+    """
+    sessions_dir = "sessions"
+    if not os.path.isdir(sessions_dir):
+        return None, None
+    best, best_time = None, None
+    for fname in os.listdir(sessions_dir):
+        if not fname.startswith("prep_") or not fname.endswith(".json"):
+            continue
+        path = os.path.join(sessions_dir, fname)
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            if not data.get("call_sheet"):
+                continue
+            mtime = os.path.getmtime(path)
+            if best_time is None or mtime > best_time:
+                best, best_time = data, mtime
+        except Exception:
+            continue
+    if best:
+        return best.get("session_id"), best
+    return None, None
+
+
+def record_disposition(session_id, contact_id, disposition, notes=""):
+    """Mark one contact done in the session and persist it.
+
+    Returns the updated dispositions map, or None if the session is gone.
+    Writing here is what checks the card off. It is deliberately separate
+    from the HubSpot write, so a HubSpot outage cannot make the BDR lose
+    their place in the list.
+    """
+    data = get_session(session_id) or load_session_from_disk(session_id)
+    if not data:
+        return None
+
+    dispositions = data.get("dispositions") or {}
+    dispositions[str(contact_id)] = {
+        "disposition": disposition,
+        "notes": notes,
+        "at": utc_now_iso(),
+    }
+    data["dispositions"] = dispositions
+
+    set_session(session_id, data)
+    save_session_to_disk(session_id, data)
+    return dispositions
+
+
 def utc_now_iso():
     """Return current UTC time as ISO string (replaces naive datetime.now())."""
     return datetime.now(timezone.utc).isoformat()

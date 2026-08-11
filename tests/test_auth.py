@@ -69,14 +69,6 @@ def test_api_route_returns_401_json_not_a_redirect(client, password_set):
     assert resp.get_json()["error"] == "Not authenticated"
 
 
-def test_webhook_stays_reachable_without_a_browser_session(client, password_set):
-    # The signal webhook has its own X-API-Key auth. The cookie gate must not
-    # shadow it, or the 401 would come from the wrong layer.
-    resp = client.post("/api/webhook/signal", json={})
-    assert resp.status_code != 302
-    assert resp.get_json()["error"] != "Not authenticated"
-
-
 def test_healthz_is_public(client, password_set):
     resp = client.get("/healthz")
     assert resp.status_code == 200

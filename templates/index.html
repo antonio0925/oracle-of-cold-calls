@@ -637,6 +637,23 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 /* ===== battle plan (Today's Climb) ===== */
+.climb-source { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+.block-meta { text-align: center; color: var(--faint); font-size: 12px; margin: -4px 0 12px; }
+.block-count {
+    float: right; font-size: 12px; font-weight: 600; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 999px; padding: 1px 9px;
+}
+.battle-section.block-done { opacity: 0.55; }
+.battle-section.block-done:hover { opacity: 1; }
+.tz-chip {
+    margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--green);
+    background: var(--green-tint); border: 1px solid var(--green-tint-border);
+    border-radius: 999px; padding: 1px 8px; vertical-align: middle;
+}
+.dispo-done { color: var(--green-bright); font-weight: 700; font-size: 13px; }
+.battle-btn.undo { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.battle-btn.undo:hover { color: var(--ink); border-color: var(--faint); }
+
 .battle-header { text-align: center; padding: 22px 28px; }
 .battle-header h2 { margin-bottom: 4px; }
 .battle-subtitle { margin-bottom: 0; }
@@ -1240,16 +1257,16 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         <div class="battle-stats-row">
             <div class="battle-stat-box hot">
-                <div class="stat-number" id="battleHotCount">-</div>
-                <div class="stat-label">Hot</div>
+                <div class="stat-number" id="climbLeft">-</div>
+                <div class="stat-label">Left to call</div>
             </div>
             <div class="battle-stat-box warm">
-                <div class="stat-number" id="battleWarmCount">-</div>
-                <div class="stat-label">Enriching</div>
+                <div class="stat-number" id="climbDone">-</div>
+                <div class="stat-label">Done</div>
             </div>
             <div class="battle-stat-box parked">
-                <div class="stat-number" id="battleParkedCount">-</div>
-                <div class="stat-label">Parked</div>
+                <div class="stat-number" id="climbTotal">-</div>
+                <div class="stat-label">On the list</div>
             </div>
         </div>
 
@@ -1263,30 +1280,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
             <div class="battle-loading">The climb loads when you switch to this view...</div>
         </div>
 
-        <!-- HOT section -->
-        <div class="battle-section" id="battleHotSection" style="display:none;">
-            <h3 class="hot">HOT &mdash; Call Now</h3>
-            <div id="battleHotList"></div>
-        </div>
-
-        <!-- ENRICHING section -->
-        <div class="battle-section" id="battleWarmSection" style="display:none;">
-            <h3 class="warm">ENRICHING &mdash; Waiting on Intel</h3>
-            <div id="battleWarmList"></div>
-        </div>
-
-        <!-- PARKED section -->
-        <div class="battle-section" id="battleParkedSection" style="display:none;">
-            <h3 class="parked">PARKED &mdash; Batch Review Queue</h3>
-            <div id="battleParkedList"></div>
-        </div>
+        <!-- One section per time-zone block, rendered from the call sheet -->
+        <div id="climbBlocks"></div>
 
     </div><!-- end battleView -->
 
     <!-- Disposition Modal -->
     <div class="disposition-overlay" id="dispoOverlay">
         <div class="disposition-modal">
-            <h3>Log the Call Outcome</h3>
+            <h3>What happened on the call?</h3>
             <p style="color:#64748b; text-align:center; margin-bottom:15px;">
                 Contact: <strong id="dispoContactName" style="color:#166534;"></strong>
             </p>
@@ -1295,7 +1297,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
             <textarea class="dispo-notes" id="dispoNotes" placeholder="Notes (optional)..."></textarea>
             <div class="dispo-submit-row">
                 <button class="battle-btn complete" onclick="submitDisposition()" id="dispoSubmitBtn">
-                    &#9989; Inscribe
+                    Save the outcome
                 </button>
                 <button class="battle-btn prep" onclick="closeDisposition()">
                     Cancel
@@ -1767,19 +1769,25 @@ function renderReview(data) {
     // Stats
     const stats = data.stats;
     const cachedCount = stats.skipped_cached || 0;
-    const noEmail = stats.skipped_no_email || 0;
+    const noSource = stats.no_source_email || 0;
+    const recentCall = stats.skipped_recent_call || 0;
+    const accountCap = stats.skipped_account_cap || 0;
     const subscribers = stats.skipped_subscriber || 0;
     const existing = stats.skipped_existing || 0;
     const errors = stats.errors || 0;
     let statsHtml = `
-        <div class="stat-item"><div class="stat-num">${stats.total || 0}</div><div class="stat-label">In the Legion</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#00FF00">${stats.prepped || 0}</div><div class="stat-label">Prepared for Battle</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#808080">${noEmail}</div><div class="stat-label">No Herald Sent</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#FF6B6B">${subscribers}</div><div class="stat-label">Already Conquered</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#666">${existing}</div><div class="stat-label">Already Anointed</div></div>
-        <div class="stat-item"><div class="stat-num" style="color:#FF0000">${errors}</div><div class="stat-label">Thunderbolts</div></div>`;
+        <div class="stat-item"><div class="stat-num">${stats.total || 0}</div><div class="stat-label">In the list</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--green-bright)">${stats.prepped || 0}</div><div class="stat-label">On today's climb</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--amber)">${recentCall}</div><div class="stat-label">Called too recently</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--amber)">${accountCap}</div><div class="stat-label">Account already covered</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--muted)">${subscribers}</div><div class="stat-label">Already a customer</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--muted)">${existing}</div><div class="stat-label">Already prepped</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:var(--orange)">${errors}</div><div class="stat-label">Errors</div></div>`;
+    if (noSource > 0) {
+        statsHtml += `<div class="stat-item"><div class="stat-num" style="color:var(--muted)">${noSource}</div><div class="stat-label">Script from profile only</div></div>`;
+    }
     if (cachedCount > 0) {
-        statsHtml += `<div class="stat-item"><div class="stat-num" style="color:#00BFFF">${cachedCount}</div><div class="stat-label">\uD83E\udDE0 Recalled from Memory</div></div>`;
+        statsHtml += `<div class="stat-item"><div class="stat-num" style="color:var(--slate)">${cachedCount}</div><div class="stat-label">Reused from earlier</div></div>`;
     }
     document.getElementById('statsBox').innerHTML = statsHtml;
 
@@ -2291,35 +2299,34 @@ function switchView(view) {
     if (localStorage.getItem('activeView') === 'battle') switchView('battle');
 })();
 
-// ===== BATTLE PLAN (Oracle v2) =====
+// ===== TODAY'S CLIMB =====
+// The list comes from the session the BDR just generated. Completion is
+// recorded server-side in that session, so a refresh never loses the place.
 let dispositions = [];
 let selectedDispo = null;
+let climbSessionId = null;
 
 function loadBattlePlan() {
     const content = document.getElementById('battlePlanContent');
-    content.innerHTML = '<div class="battle-loading">&#9876; The Oracle surveys the battlefield...</div>';
+    content.innerHTML = '<div class="battle-loading">Loading today\'s climb...</div>';
+    document.getElementById('climbBlocks').innerHTML = '';
 
-    // Hide sections while loading
-    document.getElementById('battleHotSection').style.display = 'none';
-    document.getElementById('battleWarmSection').style.display = 'none';
-    document.getElementById('battleParkedSection').style.display = 'none';
-
-    fetch('/api/battle-plan?all=true')
+    fetch('/api/climb')
         .then(r => r.json())
         .then(data => {
             if (data.error) {
-                content.innerHTML = '<div class="battle-empty">\u26A1 ' + escapeHtml(data.error) + '</div>';
+                content.innerHTML = '<div class="battle-empty">' + escapeHtml(data.error) + '</div>';
                 return;
             }
             battleData = data;
+            climbSessionId = data.session_id;
             battlePlanLoaded = true;
             renderBattlePlan();
         })
         .catch(err => {
-            content.innerHTML = '<div class="battle-empty">\u26A1 Failed to summon the list: ' + escapeHtml(err.message) + '</div>';
+            content.innerHTML = '<div class="battle-empty">Could not load the list: ' + escapeHtml(err.message) + '</div>';
         });
 
-    // Load dispositions for the modal
     if (!dispositions.length) {
         fetch('/api/dispositions')
             .then(r => r.json())
@@ -2378,118 +2385,127 @@ function updateMountainProgress() {
 function renderBattlePlan() {
     if (!battleData) return;
     const content = document.getElementById('battlePlanContent');
+    const host = document.getElementById('climbBlocks');
+    const t = battleData.totals || {total: 0, completed: 0, remaining: 0};
 
-    // Update stats
-    document.getElementById('battleHotCount').textContent = battleData.total_pending || 0;
-    document.getElementById('battleWarmCount').textContent = battleData.total_enriching || 0;
-    document.getElementById('battleParkedCount').textContent = battleData.total_parked || 0;
+    document.getElementById('climbTotal').textContent = t.total;
+    document.getElementById('climbDone').textContent = t.completed;
+    document.getElementById('climbLeft').textContent = t.remaining;
 
-    const total = (battleData.total_pending || 0) + (battleData.total_enriching || 0) + (battleData.total_parked || 0);
-    if (total === 0) {
-        content.innerHTML = '<div class="battle-empty">&#127942; All quiet on the battlefield. No warriors await thy command.</div>';
+    if (t.total === 0) {
+        content.innerHTML = '<div class="battle-empty">' +
+            escapeHtml(battleData.msg || 'No call list yet. Build one on Route Plan.') + '</div>';
+        host.innerHTML = '';
         updateMountainProgress();
         return;
     }
-    content.innerHTML = '';
 
-    // Render HOT
-    const hotSection = document.getElementById('battleHotSection');
-    const hotList = document.getElementById('battleHotList');
-    if (battleData.pending && battleData.pending.length > 0) {
-        hotSection.style.display = 'block';
-        hotList.innerHTML = battleData.pending.map(c => renderBattleCard(c, 'hot')).join('');
+    const where = battleData.segment
+        ? 'From <strong>' + escapeHtml(battleData.segment) + '</strong>'
+        : '';
+    content.innerHTML = where ? '<div class="climb-source">' + where + '</div>' : '';
+
+    // One section per time block. Blocks the BDR has cleared collapse to a
+    // single done line so the next live call is always the first thing on screen.
+    const sections = [];
+    (battleData.blocks || []).forEach(block => {
+        if (!block.contacts || !block.contacts.length) return;
+        sections.push(renderClimbBlock(block.label, block.local_time, block.description, block.contacts));
+    });
+    if (battleData.unknown_tz && battleData.unknown_tz.length) {
+        sections.push(renderClimbBlock(
+            'Time zone unknown', '', 'Call these when you have a gap.', battleData.unknown_tz));
     }
-
-    // Render WARM
-    const warmSection = document.getElementById('battleWarmSection');
-    const warmList = document.getElementById('battleWarmList');
-    if (battleData.enriching && battleData.enriching.length > 0) {
-        warmSection.style.display = 'block';
-        warmList.innerHTML = battleData.enriching.map(c => renderBattleCard(c, 'warm')).join('');
-    }
-
-    // Render PARKED
-    const parkedSection = document.getElementById('battleParkedSection');
-    const parkedList = document.getElementById('battleParkedList');
-    if (battleData.parked && battleData.parked.length > 0) {
-        parkedSection.style.display = 'block';
-        parkedList.innerHTML = battleData.parked.map(c => renderBattleCard(c, 'parked')).join('');
-    }
-
+    host.innerHTML = sections.join('');
     updateMountainProgress();
 }
 
-function renderBattleCard(contact, tier) {
-    const tierClass = tier === 'hot' ? '' : tier;
-    const badgeClass = tier === 'hot' ? '' : ' ' + tier;
-    const signal = escapeHtml((contact.action_type || '').replace('signal_', ''));
-    const cid = escapeHtml(contact.contact_id);
-    const hubspotUrl = 'https://app.hubspot.com/contacts/{{ hubspot_portal_id }}/contact/' + encodeURIComponent(contact.contact_id);
-    const phone = escapeHtml(contact.phone || '');
-    const phoneLink = phone ? '<a href="tel:' + phone + '">' + phone + '</a>' : 'No phone';
-    const name = escapeHtml(contact.name || 'Unknown');
-    const email = escapeHtml(contact.email || '');
-    const safeName = (contact.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
-
-    return '<div class="battle-card ' + tierClass + '" data-tier="' + escapeHtml(tier) + '" id="battle-card-' + cid + '">' +
-        '<div class="battle-card-info">' +
-            '<div class="contact-name">' + name + '</div>' +
-            '<div class="contact-detail">' + escapeHtml(contact.title || '') + (contact.title && contact.company ? ' @ ' : '') + escapeHtml(contact.company || '') + '</div>' +
-            '<div class="contact-detail">&#9742; ' + phoneLink + ' &bull; <a href="mailto:' + email + '">' + email + '</a></div>' +
-            '<div class="contact-detail"><a href="' + hubspotUrl + '" target="_blank">View in HubSpot &#8599;</a>' +
-            (contact.step_number ? ' &bull; Step ' + escapeHtml(contact.step_number) : '') + '</div>' +
-            (signal ? '<span class="signal-badge' + badgeClass + '">' + signal + '</span>' : '') +
-            '<div class="call-prep-panel" id="prep-' + cid + '"></div>' +
-        '</div>' +
-        '<div class="battle-card-actions">' +
-            '<button class="battle-btn prep" onclick="runCallPrep(\'' + cid + '\')">&#128220; Call Prep</button>' +
-            '<button class="battle-btn complete" onclick="openDisposition(\'' + cid + '\', \'' + safeName + '\')">&#9989; Complete</button>' +
-        '</div>' +
+function renderClimbBlock(label, localTime, description, contacts) {
+    const done = contacts.filter(c => c.completed).length;
+    const allDone = done === contacts.length;
+    const meta = [localTime, description].filter(Boolean).map(escapeHtml).join(' &bull; ');
+    return '<div class="battle-section' + (allDone ? ' block-done' : '') + '">' +
+        '<h3>' + escapeHtml(label) +
+            '<span class="block-count">' + done + ' of ' + contacts.length + '</span>' +
+        '</h3>' +
+        (meta ? '<div class="block-meta">' + meta + '</div>' : '') +
+        '<div>' + contacts.map(renderBattleCard).join('') + '</div>' +
     '</div>';
 }
 
-function runCallPrep(contactId) {
+function renderBattleCard(contact) {
+    const cid = escapeHtml(String(contact.contact_id));
+    const name = escapeHtml(contact.name || 'Unknown');
+    const phone = escapeHtml(contact.phone || '');
+    const email = escapeHtml(contact.email || '');
+    const hubspotUrl = 'https://app.hubspot.com/contacts/{{ hubspot_portal_id }}/contact/' + encodeURIComponent(contact.contact_id);
+    const phoneLink = phone ? '<a href="tel:' + phone + '">' + phone + '</a>' : 'No phone';
+    const safeName = (contact.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+    const done = !!contact.completed;
+
+    const actions = done
+        ? '<span class="dispo-done">Done: ' + escapeHtml((contact.disposition || '').replace(/_/g, ' ')) + '</span>' +
+          '<button class="battle-btn undo" onclick="undoDisposition(\'' + cid + '\')">Undo</button>'
+        : '<button class="battle-btn prep" onclick="toggleScript(\'' + cid + '\')">Script</button>' +
+          '<button class="battle-btn complete" onclick="openDisposition(\'' + cid + '\', \'' + safeName + '\')">Log the call</button>';
+
+    return '<div class="battle-card' + (done ? ' completed' : '') + '" id="battle-card-' + cid + '">' +
+        '<div class="battle-card-info">' +
+            '<div class="contact-name">' + name +
+                (contact.tz ? '<span class="tz-chip">' + escapeHtml(contact.tz) + '</span>' : '') +
+            '</div>' +
+            '<div class="contact-detail">' + escapeHtml(contact.title || '') +
+                (contact.title && contact.company ? ' @ ' : '') + escapeHtml(contact.company || '') + '</div>' +
+            '<div class="contact-detail">' + phoneLink +
+                (email ? ' &bull; <a href="mailto:' + email + '">' + email + '</a>' : '') + '</div>' +
+            '<div class="contact-detail"><a href="' + hubspotUrl + '" target="_blank">View in HubSpot &#8599;</a></div>' +
+            '<div class="call-prep-panel" id="prep-' + cid + '"></div>' +
+        '</div>' +
+        '<div class="battle-card-actions">' + actions + '</div>' +
+    '</div>';
+}
+
+// The script already came down with the list, so opening it is instant and
+// costs no request. No second Octave call per contact.
+function toggleScript(contactId) {
     const panel = document.getElementById('prep-' + contactId);
     if (!panel) return;
+    if (panel.classList.contains('show')) {
+        panel.classList.remove('show');
+        return;
+    }
+    const contact = findClimbContact(contactId);
+    const script = contact && contact.script ? contact.script : '';
+    panel.innerHTML = script
+        ? formatScript(script)
+        : '<em>No script was generated for this contact.</em>';
     panel.classList.add('show');
-    panel.innerHTML = '<em style="color:#CD853F;">&#128293; Consulting the Oracle...</em>';
+}
 
-    fetch('/api/battle-plan/call-prep', {
+function findClimbContact(contactId) {
+    const id = String(contactId);
+    const pools = (battleData.blocks || []).map(b => b.contacts || []);
+    pools.push(battleData.unknown_tz || []);
+    for (const pool of pools) {
+        for (const c of pool) {
+            if (String(c.contact_id) === id) return c;
+        }
+    }
+    return null;
+}
+
+function undoDisposition(contactId) {
+    fetch('/api/climb/undo', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({contact_id: contactId}),
-    }).then(response => {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        function read() {
-            reader.read().then(({done, value}) => {
-                if (done) return;
-                buffer += decoder.decode(value, {stream: true});
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
-                    try {
-                        const evt = JSON.parse(line.slice(6));
-                        if (evt.type === 'call_prep_ready') {
-                            panel.innerHTML = '<strong style="color:#FFD700;">&#128220; Call Prep for ' +
-                                escapeHtml(evt.name) + '</strong><br><br>' + formatScript(evt.script);
-                        } else if (evt.type === 'error') {
-                            panel.innerHTML = '<em style="color:#FF4500;">\u26A1 ' + escapeHtml(evt.msg) + '</em>';
-                        } else if (evt.type === 'status') {
-                            panel.innerHTML = '<em style="color:#CD853F;">' + escapeHtml(evt.msg) + '</em>';
-                        }
-                    } catch(e) {}
-                }
-                read();
-            });
-        }
-        read();
-    }).catch(err => {
-        panel.innerHTML = '<em style="color:#FF4500;">\u26A1 Call prep failed: ' + escapeHtml(err.message) + '</em>';
-    });
+        body: JSON.stringify({session_id: climbSessionId, contact_id: contactId}),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showError('Could not undo that.', data.error); return; }
+        loadBattlePlan();
+    })
+    .catch(err => showError('Could not undo that.', err.message));
 }
 
 function formatScript(text) {
@@ -2532,19 +2548,20 @@ function closeDisposition() {
 
 function submitDisposition() {
     if (!selectedDispo) {
-        alert('Select a disposition first!');
+        showError('Pick an outcome first.', 'Choose what happened on the call.');
         return;
     }
     const contactId = document.getElementById('dispoContactId').value;
     const notes = document.getElementById('dispoNotes').value;
     const btn = document.getElementById('dispoSubmitBtn');
-    btn.textContent = '⏳ Inscribing...';
+    btn.textContent = 'Saving...';
     btn.disabled = true;
 
-    fetch('/api/action/complete', {
+    fetch('/api/climb/complete', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
+            session_id: climbSessionId,
             contact_id: contactId,
             disposition: selectedDispo,
             notes: notes,
@@ -2552,35 +2569,38 @@ function submitDisposition() {
     })
     .then(r => r.json())
     .then(data => {
-        btn.textContent = '\u2705 Inscribe';
+        btn.textContent = 'Save the outcome';
         btn.disabled = false;
         if (data.error) {
-            alert('Error: ' + data.error);
+            showError('Could not save that outcome.', data.error);
             return;
         }
         closeDisposition();
-        // Mark card as completed visually
-        const card = document.getElementById('battle-card-' + contactId);
-        if (card) {
-            card.classList.add('completed');
-            updateMountainProgress();
-            const actionsDiv = card.querySelector('.battle-card-actions');
-            if (actionsDiv) {
-                actionsDiv.innerHTML = '<span style="color:#2ecc71; font-family:inherit;">\u2705 ' +
-                    escapeHtml(selectedDispo.replace(/_/g, ' ')) + '</span>';
-            }
+
+        // Update the local copy so the card, the counters, and the mountain
+        // all move together without a round trip.
+        const contact = findClimbContact(contactId);
+        if (contact) {
+            contact.completed = true;
+            contact.disposition = data.disposition;
+            contact.notes = notes;
         }
-        // Update count — decrement the correct tier counter
-        const tier = card ? card.getAttribute('data-tier') : 'hot';
-        const counterIds = {hot: 'battleHotCount', warm: 'battleWarmCount', parked: 'battleParkedCount'};
-        const countEl = document.getElementById(counterIds[tier] || 'battleHotCount');
-        const current = parseInt(countEl.textContent) || 0;
-        if (current > 0) countEl.textContent = current - 1;
+        if (battleData.totals) {
+            battleData.totals.completed = data.completed;
+            battleData.totals.remaining = battleData.totals.total - data.completed;
+        }
+        renderBattlePlan();
+
+        // The card is checked off either way. Say so if HubSpot did not take it.
+        if (data.hubspot_note_written === false) {
+            showError('Saved here, but HubSpot did not take the note.',
+                      (data.hubspot_error || '') + ' The call is still marked done on your list.');
+        }
     })
     .catch(err => {
-        btn.textContent = '\u2705 Inscribe';
+        btn.textContent = 'Save the outcome';
         btn.disabled = false;
-        alert('Failed: ' + err.message);
+        showError('Could not save that outcome.', err.message);
     });
 }
 </script>

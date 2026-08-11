@@ -9,7 +9,8 @@ import re
 import uuid
 import hmac
 import secrets
-from datetime import datetime, timezone
+from collections import defaultdict
+from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import (
     Flask, render_template, request, Response, jsonify, session, redirect,
@@ -21,7 +22,7 @@ import config
 from services.sessions import (
     get_session, set_session, delete_session, delete_session_file,
     save_session_to_disk, load_session_from_disk, find_resumable_session,
-    utc_now_iso,
+    find_latest_session, record_disposition, utc_now_iso,
 )
 from services.timezone import resolve_timezone, tz_label
 from services.filters import is_us_company, is_us_person
@@ -30,8 +31,6 @@ from services.call_sheet import title_seniority, TIME_BLOCKS, TZ_TO_BLOCKS, buil
 from services.hubspot import HubSpotClient
 from services.octave import OctaveClient, script_text as octave_script_text
 from services.slack import post_to_slack
-from services.signal_classifier import classify_signal, TIER_CONFIG
-from services.dedup import is_duplicate, mark_seen
 from services.routing_config import get_route, list_dispositions
 
 app = Flask(__name__)
@@ -65,9 +64,8 @@ def _cancel_futures(futures):
 # Auth — shared password gate
 # ---------------------------------------------------------------------------
 # Every UI route writes to production HubSpot, so the whole app is closed by
-# default and opened path by path. The webhooks carry their own header auth
-# and must stay reachable without a browser session.
-_PUBLIC_PREFIXES = ("/static/", "/api/webhook/")
+# default and opened path by path.
+_PUBLIC_PREFIXES = ("/static/",)
 _PUBLIC_PATHS = ("/login", "/healthz")
 
 
@@ -225,11 +223,22 @@ def generate():
     def stream():
         stats = {
             "total": 0, "prepped": 0,
-            "skipped_subscriber": 0, "skipped_no_email": 0,
-            "skipped_existing": 0, "skipped_cached": 0, "errors": 0,
+            "skipped_subscriber": 0, "no_source_email": 0,
+            "skipped_existing": 0, "skipped_cached": 0,
+            "skipped_recent_call": 0, "skipped_account_cap": 0,
+            "errors": 0,
             "tz_breakdown": {},
         }
         prepped_contacts = []
+
+        # Call pacing state, rebuilt each run.
+        #   per_account  how many contacts this company already has today
+        #   last_calls   contact_id -> latest logged call timestamp
+        per_account = defaultdict(int)
+        last_calls = {}
+        cooldown_cutoff = (
+            datetime.now(timezone.utc) - timedelta(days=config.CALL_COOLDOWN_DAYS)
+        ).strftime("%Y-%m-%d")
 
         # Build cache from previous session
         cached_scripts = {}
@@ -306,6 +315,16 @@ def generate():
             yield emit("done", {"session_id": None, "stats": stats})
             return
 
+        # One pass for call history. Doing this per contact inside the loop
+        # would multiply the request count by the size of the list.
+        yield emit("status", {"msg": "Checking recent call activity..."})
+        try:
+            last_calls = hs.last_call_dates([c["id"] for c in contacts])
+        except Exception as e:
+            log.warning("Call history sweep failed: %s", e)
+            yield emit("warn", {"name": "", "msg": f"Could not read call history: {e}"})
+            last_calls = {}
+
         # Phase 2: Filter + generate
         for i, contact in enumerate(contacts):
             cid = contact["id"]
@@ -342,17 +361,17 @@ def generate():
             except Exception as e:
                 yield emit("warn", {"name": name, "msg": f"Could not check subscription: {e}"})
 
-            # Filter B: Must have outbound email
+            # Filter B: Prior outbound email is source material, not a gate.
+            # A segment of cold contacts must still produce a call list, so a
+            # contact with no logged email gets a script from their profile.
             try:
                 email_data = hs.search_emails_for_contact(cid)
             except Exception as e:
-                stats["errors"] += 1
-                yield emit("error_contact", {"name": name, "msg": f"Email search failed: {e}"})
-                continue
+                yield emit("warn", {"name": name, "msg": f"Email lookup failed, using profile only: {e}"})
+                email_data = None
             if not email_data:
-                stats["skipped_no_email"] += 1
-                yield emit("skip", {"name": name, "reason": "No herald has been dispatched to this mortal"})
-                continue
+                stats["no_source_email"] += 1
+                email_data = {"subject": "", "body_html": "", "body_text": ""}
 
             # Filter C: Existing prep check
             if skip_existing:
@@ -362,8 +381,29 @@ def generate():
                     yield emit("skip", {"name": name, "reason": "Has already received the Oracle's wisdom"})
                     continue
 
+            # Filter D: call cooldown. A contact called inside the cooldown
+            # window rests. A voicemail counts as a call.
+            last_call = last_calls.get(str(cid), "")
+            if last_call and last_call >= cooldown_cutoff:
+                stats["skipped_recent_call"] += 1
+                yield emit("skip", {
+                    "name": name,
+                    "reason": f"Called {last_call[:10]}, inside the {config.CALL_COOLDOWN_DAYS}-day cooldown",
+                })
+                continue
+
+            # Filter E: account cap. Never burn a whole account in one day.
+            account_key = (props.get("company") or "").strip().lower() or f"contact:{cid}"
+            if per_account[account_key] >= config.MAX_CONTACTS_PER_ACCOUNT_PER_DAY:
+                stats["skipped_account_cap"] += 1
+                yield emit("skip", {
+                    "name": name,
+                    "reason": f"{company_name} already has {config.MAX_CONTACTS_PER_ACCOUNT_PER_DAY} on today's list",
+                })
+                continue
+
             # Resume check — after the filters, so a cached script never
-            # bypasses the subscriber, email, or existing-prep gates
+            # bypasses the subscriber, cooldown, account-cap, or prep gates
             if str(cid) in cached_scripts:
                 cached = cached_scripts[str(cid)]
                 tz = resolve_timezone(props)
@@ -371,6 +411,7 @@ def generate():
                 stats["tz_breakdown"][tz_lbl] = stats["tz_breakdown"].get(tz_lbl, 0) + 1
                 stats["skipped_cached"] += 1
                 stats["prepped"] += 1
+                per_account[account_key] += 1
                 fresh_html = format_note_html(props, cached["script_content"])
                 prepped_contacts.append({
                     "contact": contact,
@@ -410,6 +451,7 @@ def generate():
                     "note_html": format_note_html(props, script_content),
                 })
                 stats["prepped"] += 1
+                per_account[account_key] += 1
                 yield emit("done_contact", {"name": name, "company": company_name, "tz": tz_lbl})
 
                 try:
@@ -987,337 +1029,154 @@ def execute_cleanup(session_id):
 
 
 # ---------------------------------------------------------------------------
-# ORACLE v2 — Webhook-Driven Sales Pipeline
+# TODAY'S CLIMB — the call list the BDR works through
 # ---------------------------------------------------------------------------
+# The list comes from the session the BDR just generated, not from HubSpot
+# custom properties. Completion is recorded in the session file, which lives
+# on a persistent volume, so the list checks itself off and survives a
+# refresh or a restart. HubSpot receives the outcome as a note on the
+# contact, which needs no custom schema.
 
-def _verify_signal_api_key(req):
-    """Verify the signal webhook API key from X-API-Key header (timing-safe)."""
-    # An unset key must fail closed — otherwise a request with no header would authenticate.
-    if not config.SIGNAL_WEBHOOK_API_KEY:
-        return False
-    key = req.headers.get("X-API-Key", "")
-    return hmac.compare_digest(key, config.SIGNAL_WEBHOOK_API_KEY)
+@app.route("/api/climb")
+def api_climb():
+    """Return the current call list with per-contact completion state."""
+    session_id = request.args.get("session_id", "").strip()
 
+    if session_id:
+        data = get_session(session_id) or load_session_from_disk(session_id)
+    else:
+        session_id, data = find_latest_session()
 
-@app.route("/api/webhook/signal", methods=["POST"])
-def webhook_signal():
-    """Ingest a product/intent signal and classify it.
-
-    Replaces Slack channel monitoring. Signals come from product analytics,
-    marketing automation, or manual triggers.
-    """
-    if not _verify_signal_api_key(request):
-        return jsonify({"error": "Unauthorized"}), 401
-
-    data = request.json or {}
-    email = data.get("email", "").strip().lower()
-    signal_type = data.get("signal_type", "").strip()
-
-    if not email or not signal_type:
-        return jsonify({"error": "Missing email or signal_type"}), 400
-
-    # Dedup check
-    if is_duplicate(email, signal_type):
+    if not data:
         return jsonify({
-            "ok": True,
-            "action": "deduplicated",
-            "msg": f"Signal {signal_type} for {email} already processed within cooldown",
+            "session_id": None,
+            "blocks": [],
+            "unknown_tz": [],
+            "dispositions": {},
+            "totals": {"total": 0, "completed": 0, "remaining": 0},
+            "msg": "No call list yet. Build one on Route Plan.",
         })
 
-    # Classify
-    tier, tier_config = classify_signal(signal_type)
-    if tier is None:
-        return jsonify({"error": f"Unknown signal type: {signal_type}"}), 400
+    dispositions = data.get("dispositions") or {}
 
-    if not config.HUBSPOT_ACCESS_TOKEN:
-        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
+    # Scripts live alongside the sheet; index them so each card carries its own.
+    scripts = {
+        str(c.get("contact_id")): c.get("script_content", "")
+        for c in data.get("contacts", [])
+    }
 
-    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
+    def decorate(contact):
+        cid = str(contact.get("contact_id"))
+        done = dispositions.get(cid)
+        return dict(
+            contact,
+            script=scripts.get(cid, ""),
+            completed=bool(done),
+            disposition=(done or {}).get("disposition", ""),
+            notes=(done or {}).get("notes", ""),
+        )
 
-    try:
-        now_iso = datetime.now(timezone.utc).isoformat()
+    blocks = [
+        dict(block, contacts=[decorate(c) for c in block.get("contacts", [])])
+        for block in data.get("call_sheet", [])
+    ]
+    unknown = [decorate(c) for c in data.get("unknown_tz", [])]
 
-        if tier == 1:
-            # HOT — immediately add to battle plan
-            oracle_props = {
-                "oracle_pending_action": "pending",
-                "oracle_action_type": f"signal_{signal_type}",
-                "oracle_last_action_date": now_iso,
-            }
-            contact_id = hs.upsert_contact_oracle(email, oracle_props)
-            hs.append_journey_log(contact_id, f"HOT SIGNAL: {signal_type} — queued for immediate action")
+    total = sum(len(b["contacts"]) for b in blocks) + len(unknown)
+    completed = sum(1 for b in blocks for c in b["contacts"] if c["completed"])
+    completed += sum(1 for c in unknown if c["completed"])
 
-        elif tier == 2:
-            # WARM — enrich then decide (mark as enriching)
-            oracle_props = {
-                "oracle_pending_action": "enriching",
-                "oracle_action_type": f"signal_{signal_type}",
-                "oracle_last_action_date": now_iso,
-            }
-            contact_id = hs.upsert_contact_oracle(email, oracle_props)
-            hs.append_journey_log(contact_id, f"WARM SIGNAL: {signal_type} — enriching before routing")
-
-        else:
-            # AMBIENT — park for batch review
-            oracle_props = {
-                "oracle_pending_action": "parked",
-                "oracle_action_type": f"signal_{signal_type}",
-                "oracle_last_action_date": now_iso,
-            }
-            contact_id = hs.upsert_contact_oracle(email, oracle_props)
-            hs.append_journey_log(contact_id, f"AMBIENT SIGNAL: {signal_type} — parked for review")
-
-        mark_seen(email, signal_type)
-
-        return jsonify({
-            "ok": True,
-            "tier": tier,
-            "tier_label": tier_config["label"],
-            "action": tier_config["action"],
-            "contact_id": contact_id,
-            "msg": f"Signal classified as {tier_config['label']} — {tier_config['description']}",
-        })
-    except Exception as e:
-        log.error("Signal processing failed for %s/%s: %s", email, signal_type, e)
-        return jsonify({"error": str(e)}), 500
+    return jsonify({
+        "session_id": data.get("session_id"),
+        "segment": data.get("segment", ""),
+        "calling_date": data.get("calling_date", ""),
+        "blocks": blocks,
+        "unknown_tz": unknown,
+        "dispositions": dispositions,
+        "totals": {
+            "total": total,
+            "completed": completed,
+            "remaining": total - completed,
+        },
+    })
 
 
-@app.route("/api/battle-plan")
-def api_battle_plan():
-    """Return contacts with pending oracle actions for the Battle Plan UI.
-
-    Includes contacts in 'pending' state (ready to call) and optionally
-    'enriching' and 'parked' states.
-    """
-    if not config.HUBSPOT_ACCESS_TOKEN:
-        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
-
-    include_all = request.args.get("all", "false").lower() == "true"
-
-    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
-
-    try:
-        # Get pending contacts
-        pending = hs.get_pending_actions()
-
-        # Optionally also get enriching and parked
-        enriching = []
-        parked = []
-        if include_all:
-            try:
-                enriching_search = hs._post("/crm/v3/objects/contacts/search", {
-                    "filterGroups": [{
-                        "filters": [{
-                            "propertyName": "oracle_pending_action",
-                            "operator": "EQ",
-                            "value": "enriching",
-                        }]
-                    }],
-                    "properties": [
-                        "firstname", "lastname", "email", "company", "jobtitle",
-                        "phone", "mobilephone",
-                    ] + hs.ORACLE_PROPERTIES,
-                    "limit": 100,
-                })
-                enriching = enriching_search.get("results", [])
-            except Exception:
-                pass
-            try:
-                parked_search = hs._post("/crm/v3/objects/contacts/search", {
-                    "filterGroups": [{
-                        "filters": [{
-                            "propertyName": "oracle_pending_action",
-                            "operator": "EQ",
-                            "value": "parked",
-                        }]
-                    }],
-                    "properties": [
-                        "firstname", "lastname", "email", "company", "jobtitle",
-                        "phone", "mobilephone",
-                    ] + hs.ORACLE_PROPERTIES,
-                    "limit": 100,
-                })
-                parked = parked_search.get("results", [])
-            except Exception:
-                pass
-
-        def _format_contact(c, status="pending"):
-            props = c.get("properties", {})
-            fn = props.get("firstname") or ""
-            ln = props.get("lastname") or ""
-            return {
-                "contact_id": c["id"],
-                "name": f"{fn} {ln}".strip() or props.get("email", "Unknown"),
-                "email": props.get("email", ""),
-                "company": props.get("company", ""),
-                "title": props.get("jobtitle", ""),
-                "phone": props.get("phone", "") or props.get("mobilephone", ""),
-                "action_type": props.get("oracle_action_type", ""),
-                "campaign_id": props.get("oracle_campaign_id", ""),
-                "step_number": props.get("oracle_step_number", ""),
-                "last_action_date": props.get("oracle_last_action_date", ""),
-                "status": status,
-                "supersend_contact_id": props.get("oracle_supersend_contact_id", ""),
-            }
-
-        result = {
-            "pending": [_format_contact(c, "pending") for c in pending],
-            "enriching": [_format_contact(c, "enriching") for c in enriching],
-            "parked": [_format_contact(c, "parked") for c in parked],
-            "total_pending": len(pending),
-            "total_enriching": len(enriching),
-            "total_parked": len(parked),
-        }
-
-        return jsonify(result)
-    except Exception as e:
-        log.error("Battle plan fetch failed: %s", e)
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/battle-plan/call-prep", methods=["POST"])
-def api_battle_plan_call_prep():
-    """SSE: Generate Octave call prep for a single contact from the battle plan."""
+@app.route("/api/climb/complete", methods=["POST"])
+def api_climb_complete():
+    """Log a call outcome: mark it done in the session, note it in HubSpot."""
     data = request.json or {}
-    contact_id = data.get("contact_id")
+    session_id = (data.get("session_id") or "").strip()
+    contact_id = (data.get("contact_id") or "").strip()
+    disposition = (data.get("disposition") or "").strip()
+    notes = (data.get("notes") or "").strip()
 
-    if not contact_id:
-        return jsonify({"error": "Missing contact_id"}), 400
+    if not session_id or not contact_id or not disposition:
+        return jsonify({"error": "Missing session_id, contact_id, or disposition"}), 400
 
-    if not config.HUBSPOT_ACCESS_TOKEN or not config.OCTAVE_API_KEY:
-        return jsonify({"error": "Missing API credentials"}), 500
-
-    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
-    octave = OctaveClient(config.OCTAVE_API_KEY)
-
-    def stream():
-        def emit(msg_type, payload):
-            return f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
-
-        yield emit("status", {"msg": "The Oracle awakens for this warrior..."})
-
-        # Fetch contact details
-        try:
-            contacts = hs.batch_get_contacts([contact_id], [
-                "firstname", "lastname", "email", "company", "jobtitle",
-                "phone", "mobilephone", "city", "state", "country", "hs_timezone",
-            ])
-            if not contacts:
-                yield emit("error", {"msg": "Contact not found in HubSpot"})
-                return
-            contact = contacts[0]
-            props = contact.get("properties", {})
-            name = f"{props.get('firstname', '')} {props.get('lastname', '')}".strip()
-        except Exception as e:
-            yield emit("error", {"msg": f"Failed to fetch contact: {e}"})
-            return
-
-        yield emit("status", {"msg": f"Consulting the Oracle for {name}..."})
-
-        # Get most recent outbound email
-        try:
-            email_data = hs.search_emails_for_contact(contact_id)
-        except Exception:
-            email_data = None
-
-        if not email_data:
-            yield emit("status", {"msg": "No outbound email found — generating script from profile only..."})
-            email_data = {"subject": "", "body_html": "", "body_text": ""}
-
-        # Generate call prep via Octave
-        try:
-            script_data = octave.generate_call_script(
-                props,
-                email_data.get("subject", ""),
-                email_data.get("body_html") or email_data.get("body_text", ""),
-            )
-            script_content = octave_script_text(script_data)
-
-            yield emit("call_prep_ready", {
-                "contact_id": contact_id,
-                "name": name,
-                "company": props.get("company", ""),
-                "title": props.get("jobtitle", ""),
-                "phone": props.get("phone", "") or props.get("mobilephone", ""),
-                "email": props.get("email", ""),
-                "script": script_content,
-                "msg": f"The Oracle has spoken for {name}!",
-            })
-        except Exception as e:
-            yield emit("error", {"msg": f"Oracle consultation failed: {e}"})
-
-    return Response(stream(), mimetype="text/event-stream")
-
-
-@app.route("/api/action/complete", methods=["POST"])
-def api_action_complete():
-    """Mark a battle plan item as completed with a disposition.
-
-    Updates HubSpot oracle_ properties and appends the journey log.
-    Campaign enrollment is out of scope: dispositions are HubSpot-only.
-    """
-    data = request.json or {}
-    contact_id = data.get("contact_id")
-    disposition = data.get("disposition", "").strip()
-    notes = data.get("notes", "").strip()
-
-    if not contact_id or not disposition:
-        return jsonify({"error": "Missing contact_id or disposition"}), 400
-
-    if not config.HUBSPOT_ACCESS_TOKEN:
-        return jsonify({"error": "Missing HUBSPOT_ACCESS_TOKEN"}), 500
-
-    hs = HubSpotClient(config.HUBSPOT_ACCESS_TOKEN)
     route = get_route(disposition)
-
     if not route:
         return jsonify({"error": f"Unknown disposition: {disposition}"}), 400
 
-    try:
-        now_iso = datetime.now(timezone.utc).isoformat()
+    # Record it first. The BDR keeps their place even if HubSpot is down.
+    dispositions = record_disposition(session_id, contact_id, disposition, notes)
+    if dispositions is None:
+        return jsonify({"error": "Session not found"}), 404
 
-        # Clear the pending action. The call itself happened either way.
-        update_props = {
-            "oracle_pending_action": "completed",
-            "oracle_call_disposition": disposition,
-            "oracle_last_action_date": now_iso,
-        }
-
-        # Compliance: do_not_call must set the standard HubSpot donotcall
-        # property, not only the oracle_ disposition. Every HubSpot surface
-        # and integration reads donotcall; none of them read oracle_.
-        if disposition == "do_not_call":
-            update_props["donotcall"] = "true"
-
-        hs.update_contact_properties(contact_id, update_props)
-
-        log_entry = route["log_entry"]
+    # Then write the outcome to the contact as a note.
+    hubspot_ok, hubspot_error = True, ""
+    if config.HUBSPOT_ACCESS_TOKEN:
+        entry = route["log_entry"]
         if notes:
-            log_entry += f" | Notes: {notes}"
-        hs.append_journey_log(contact_id, log_entry)
+            entry += f" | Notes: {notes}"
+        body = (
+            f"<p><strong>\U0001f4de CALL OUTCOME</strong></p>"
+            f"<p>{entry}</p>"
+            f"<p>Logged by SUMMIT on {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>"
+        )
+        try:
+            HubSpotClient(config.HUBSPOT_ACCESS_TOKEN).create_note_for_contact(contact_id, body)
+        except Exception as e:
+            log.warning("Outcome note failed for contact %s: %s", contact_id, e)
+            hubspot_ok, hubspot_error = False, str(e)
+    else:
+        hubspot_ok, hubspot_error = False, "No HubSpot token configured"
 
-        return jsonify({
-            "ok": True,
-            "contact_id": contact_id,
-            "disposition": disposition,
-            "route_action": route["action"],
-            "msg": f"Action completed: {route['log_entry']}",
-        })
-    except Exception as e:
-        log.error("Action completion failed for %s: %s", contact_id, e)
-        return jsonify({"error": str(e)}), 500
+    completed = len(dispositions)
+    return jsonify({
+        "ok": True,
+        "contact_id": contact_id,
+        "disposition": disposition,
+        "completed": completed,
+        "hubspot_note_written": hubspot_ok,
+        # Surfaced, not fatal. The card is already checked off locally.
+        "hubspot_error": hubspot_error,
+        "msg": route["log_entry"],
+    })
 
 
+@app.route("/api/climb/undo", methods=["POST"])
+def api_climb_undo():
+    """Clear one contact's outcome so a misclick does not strand a call."""
+    data = request.json or {}
+    session_id = (data.get("session_id") or "").strip()
+    contact_id = (data.get("contact_id") or "").strip()
+    if not session_id or not contact_id:
+        return jsonify({"error": "Missing session_id or contact_id"}), 400
+
+    sess = get_session(session_id) or load_session_from_disk(session_id)
+    if not sess:
+        return jsonify({"error": "Session not found"}), 404
+
+    dispositions = sess.get("dispositions") or {}
+    dispositions.pop(str(contact_id), None)
+    sess["dispositions"] = dispositions
+    set_session(session_id, sess)
+    save_session_to_disk(session_id, sess)
+    return jsonify({"ok": True, "completed": len(dispositions)})
 @app.route("/api/dispositions")
 def api_dispositions():
     """Return all known dispositions for the UI dropdown."""
     return jsonify({"dispositions": list_dispositions()})
-
-
-@app.route("/api/signal-tiers")
-def api_signal_tiers():
-    """Return signal tier configuration for the UI."""
-    return jsonify({"tiers": TIER_CONFIG})
 
 
 if __name__ == "__main__":
