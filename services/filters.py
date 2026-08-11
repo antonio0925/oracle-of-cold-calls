@@ -18,6 +18,12 @@ US_STATE_CODES = {
 }
 
 
+def _normalize_country(raw):
+    # "U.S." -> "US", "U.S.A." -> "USA", collapse repeated whitespace.
+    country = re.sub(r"\.", "", (raw or "")).strip().upper()
+    return re.sub(r"\s+", " ", country)
+
+
 def _location_mentions_us(location):
     # Word-boundary match: a bare substring test makes "US" match
     # AUSTRALIA, AUSTRIA, RUSSIA, BELARUS, and CYPRUS.
@@ -34,12 +40,14 @@ def _location_ends_with_us_state(location):
 
 def is_us_company(company_data):
     """Check if a company is based in the US."""
-    country = (company_data.get("country") or company_data.get("countryCode") or "").strip().upper()
+    country = _normalize_country(company_data.get("country") or company_data.get("countryCode"))
     if country in US_COUNTRY_ALIASES:
         return True
-    if country:
-        # Explicit non-US country — do not fall through to location guessing.
+    if country and country not in US_STATE_CODES:
+        # Unambiguously non-US country — do not fall through to location guessing.
         return False
+    # Empty, or a two-letter value that may be a dirty US state code in the
+    # country field ("CA" = California or Canada) — let the location decide.
     # Check location text fallback
     location = (company_data.get("location") or company_data.get("locationText") or "").upper()
     if _location_mentions_us(location):
@@ -52,12 +60,14 @@ def is_us_company(company_data):
 
 def is_us_person(person_data):
     """Check if a person is based in the US."""
-    country = (person_data.get("countryCode") or person_data.get("country") or "").strip().upper()
+    country = _normalize_country(person_data.get("countryCode") or person_data.get("country"))
     if country in US_COUNTRY_ALIASES:
         return True
-    if country:
-        # Explicit non-US country — do not fall through to location guessing.
+    if country and country not in US_STATE_CODES:
+        # Unambiguously non-US country — do not fall through to location guessing.
         return False
+    # Empty, or a two-letter value that may be a dirty US state code in the
+    # country field ("CA" = California or Canada) — let the location decide.
     location = (person_data.get("locationText") or person_data.get("location") or "").upper()
     if _location_mentions_us(location):
         return True

@@ -41,31 +41,37 @@ class SupersendClient:
         r.raise_for_status()
         return r.json()
 
-    def assign_step(self, contact_id, sequence_id, step_number):
-        """Move a contact to a specific step in a Supersend sequence."""
-        return self._post("/bulk-action", {
+    # Bulk actions are POST /v1/contact/bulk-action with campaign_id /
+    # to_campaign_id fields (docs.supersend.io/docs/contact) — NOT
+    # /v1/bulk-action with sequence_id.
+    def assign_step(self, contact_id, campaign_id, step_number, node_id=None):
+        """Move a contact to a specific step in a Supersend campaign."""
+        payload = {
             "action": "assign_step",
+            "campaign_id": campaign_id,
             "contact_ids": [contact_id],
-            "sequence_id": sequence_id,
             "step_number": step_number,
-        })
+        }
+        if node_id:
+            payload["node_id"] = node_id
+        return self._post("/contact/bulk-action", payload)
 
-    def transfer_contact(self, contact_id, from_sequence_id, to_sequence_id, step_number=1):
-        """Transfer a contact from one sequence to another."""
-        return self._post("/bulk-action", {
+    def transfer_contact(self, contact_id, campaign_id, to_campaign_id):
+        """Transfer a contact from one campaign to another."""
+        return self._post("/contact/bulk-action", {
             "action": "transfer",
+            "campaign_id": campaign_id,
+            "to_campaign_id": to_campaign_id,
             "contact_ids": [contact_id],
-            "from_sequence_id": from_sequence_id,
-            "to_sequence_id": to_sequence_id,
-            "step_number": step_number,
         })
 
-    def finish_contact(self, contact_id, sequence_id):
-        """Mark a contact as finished in a sequence."""
-        return self._post("/bulk-action", {
+    def finish_contact(self, contact_id, campaign_id):
+        """Finish a contact in a campaign. Per docs this stops the sequence;
+        there is no true remove/unsubscribe bulk action."""
+        return self._post("/contact/bulk-action", {
             "action": "finish",
+            "campaign_id": campaign_id,
             "contact_ids": [contact_id],
-            "sequence_id": sequence_id,
         })
 
     def get_contact(self, contact_id):

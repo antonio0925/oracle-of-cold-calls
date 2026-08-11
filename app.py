@@ -2041,39 +2041,31 @@ def api_action_complete():
     try:
         now_iso = datetime.now(timezone.utc).isoformat()
 
-        # Clear the pending action
-        update_props = {
-            "oracle_pending_action": "completed",
-            "oracle_call_disposition": disposition,
-            "oracle_last_action_date": now_iso,
-        }
-        hs.update_contact_properties(contact_id, update_props)
-
-        # Append to journey log
-        log_entry = route["log_entry"]
-        if notes:
-            log_entry += f" | Notes: {notes}"
-        hs.append_journey_log(contact_id, log_entry)
-
-        # Execute Supersend action if configured
+        # Execute the Supersend action FIRST — the journey log must not claim
+        # an outcome ("permanently removed") before the sequence actually changed.
         supersend_result = None
+        supersend_error = None
         if config.SUPERSEND_API_KEY and route["action"] in ("advance", "transfer", "finish", "remove"):
             try:
                 ss = SupersendClient(config.SUPERSEND_API_KEY)
                 # Get the Supersend contact ID from HubSpot
                 contact_data = hs.batch_get_contacts([contact_id], [
-                    "oracle_supersend_contact_id", "oracle_campaign_id", "oracle_step_number",
+                    "oracle_supersend_contact_id", "oracle_campaign_id",
+                    "oracle_step_number", "oracle_node_id",
                 ])
                 if contact_data:
                     c_props = contact_data[0].get("properties", {})
                     ss_contact_id = c_props.get("oracle_supersend_contact_id", "")
                     campaign_id = c_props.get("oracle_campaign_id", "")
                     step = int(c_props.get("oracle_step_number", "1") or "1")
+                    node_id = c_props.get("oracle_node_id", "")
 
                     if ss_contact_id and campaign_id:
                         if route["action"] == "advance":
                             next_step = route.get("next_step") or step + 1
-                            supersend_result = ss.assign_step(ss_contact_id, campaign_id, next_step)
+                            supersend_result = ss.assign_step(
+                                ss_contact_id, campaign_id, next_step, node_id=node_id
+                            )
                         elif route["action"] == "transfer":
                             if route.get("transfer_to"):
                                 supersend_result = ss.transfer_contact(
@@ -2084,12 +2076,47 @@ def api_action_complete():
                                 # so a booked meeting never keeps getting cold emails.
                                 supersend_result = ss.finish_contact(ss_contact_id, campaign_id)
                         elif route["action"] in ("finish", "remove"):
-                            # "remove" (do_not_call) must end the sequence — the
-                            # journey log already promises the contact is removed.
+                            # "remove" (do_not_call) must end the sequence. Supersend
+                            # has no true remove/unsubscribe bulk action; "finish"
+                            # stops the sequence (docs.supersend.io/docs/contact).
                             supersend_result = ss.finish_contact(ss_contact_id, campaign_id)
             except Exception as e:
                 log.warning("Supersend action failed for contact %s: %s", contact_id, e)
-                supersend_result = {"error": str(e)}
+                supersend_error = str(e)
+                supersend_result = {"error": supersend_error}
+
+        # Clear the pending action — the call itself happened either way
+        update_props = {
+            "oracle_pending_action": "completed",
+            "oracle_call_disposition": disposition,
+            "oracle_last_action_date": now_iso,
+        }
+        hs.update_contact_properties(contact_id, update_props)
+
+        # Append to journey log — on Supersend failure, record the failure
+        # instead of the route's success message.
+        if supersend_error:
+            log_entry = (
+                f"{disposition} — SUPERSEND ACTION FAILED: {supersend_error}"
+                " | sequence NOT updated, reconcile manually"
+            )
+        else:
+            log_entry = route["log_entry"]
+        if notes:
+            log_entry += f" | Notes: {notes}"
+        hs.append_journey_log(contact_id, log_entry)
+
+        if supersend_error:
+            return jsonify({
+                "ok": False,
+                # "error" key required: the UI treats any response without it
+                # as success and marks the battle card completed.
+                "error": f"Disposition logged, but Supersend action failed: {supersend_error}",
+                "contact_id": contact_id,
+                "disposition": disposition,
+                "route_action": route["action"],
+                "supersend_result": supersend_result,
+            }), 502
 
         return jsonify({
             "ok": True,
