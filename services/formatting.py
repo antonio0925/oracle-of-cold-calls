@@ -3,8 +3,28 @@ HTML note formatting — transforms Octave markdown into structured HubSpot note
 
 Also includes normalize_html_for_compare used by the cleanup routes.
 """
+import html as _html
 import re
 from datetime import date
+
+
+def _esc(text):
+    """Escape text for insertion into the note HTML.
+
+    Everything this module emits is written to a HubSpot contact record that
+    other people read. Two of the three inputs are outside our control: the
+    contact's own CRM fields, and Octave's generated output. Relying on
+    HubSpot to sanitise what we send is a trust boundary we do not need.
+
+    Only the structural tags this module builds are literal HTML. Every piece
+    of text passes through here first.
+    """
+    return _html.escape(str(text or ""), quote=True)
+
+
+def _esc_block(text):
+    """Escape a block of text, then restore its line breaks as <br>."""
+    return _esc(text).replace(chr(10), "<br>")
 
 
 def _split_octave_sections(script_content):
@@ -51,7 +71,7 @@ def _format_voicemail_html(vm_text):
     clean = re.sub(r'^[\*\-_]{3,}\s*$', '', clean, flags=re.MULTILINE)
     # Convert double newlines to paragraph breaks, single newlines to <br>
     paragraphs = re.split(r'\n\s*\n', clean)
-    return "".join(f"<p>{p.strip().replace(chr(10), '<br>')}</p>" for p in paragraphs if p.strip())
+    return "".join(f"<p>{_esc_block(p.strip())}</p>" for p in paragraphs if p.strip())
 
 
 def _format_live_call_html(lc_text):
@@ -96,11 +116,11 @@ def _format_live_call_html(lc_text):
         # Convert paragraphs (double newline) and lines
         paragraphs = re.split(r'\n\s*\n', content)
         content_html = "".join(
-            f"<p>{p.strip().replace(chr(10), '<br>')}</p>"
+            f"<p>{_esc_block(p.strip())}</p>"
             for p in paragraphs if p.strip()
         )
         if label:
-            html_parts.append(f"<p><strong>{label}:</strong></p>{content_html}")
+            html_parts.append(f"<p><strong>{_esc(label)}:</strong></p>{content_html}")
         else:
             html_parts.append(content_html)
 
@@ -162,13 +182,15 @@ def _format_objections_html(obj_text):
     html_parts = []
     for category, objection, responses in blocks:
         if category:
-            html_parts.append(f"<p><strong>{category}:</strong> \u201c{objection}\u201d</p>")
+            html_parts.append(
+                f"<p><strong>{_esc(category)}:</strong> \u201c{_esc(objection)}\u201d</p>"
+            )
         else:
-            html_parts.append(f"<p><strong>\u201c{objection}\u201d</strong></p>")
+            html_parts.append(f"<p><strong>\u201c{_esc(objection)}\u201d</strong></p>")
         if responses:
             html_parts.append("<ul>")
             for r in responses:
-                html_parts.append(f"<li>{r}</li>")
+                html_parts.append(f"<li>{_esc(r)}</li>")
             html_parts.append("</ul>")
 
     return "".join(html_parts)
@@ -195,7 +217,8 @@ def format_note_html(contact_props, script_content):
 
     # ── Header ──
     parts.append(
-        f"<p><strong>\U0001f525 COLD CALL PREP - {first} {last} | {company}</strong></p>"
+        f"<p><strong>\U0001f525 COLD CALL PREP - "
+        f"{_esc(first)} {_esc(last)} | {_esc(company)}</strong></p>"
         f"<p>Generated {today_str}</p>"
     )
 
@@ -232,6 +255,11 @@ def normalize_html_for_compare(html):
         return ""
     # Remove all HTML tags
     text = re.sub(r'<[^>]+>', ' ', html)
+    # Decode entities before comparing. Notes generated now are escaped and
+    # notes already in HubSpot are not, so "Smith &amp; Co" and "Smith & Co"
+    # must compare equal. Without this, the cleanup would read every existing
+    # note containing &, <, or a quote as different from its replacement.
+    text = _html.unescape(text)
     # Collapse whitespace
     text = re.sub(r'\s+', ' ', text).strip()
     # Normalize unicode quotes

@@ -225,8 +225,11 @@ written, so #4 was live.
 - **Filter ordering.** The subscriber check runs before the cooldown and
   account-cap checks and costs 2+ HubSpot requests per contact. Reordering is
   a straight win and has not been done.
-- **`format_note_html` does not escape** contact fields or Octave output into
-  HubSpot note HTML. HubSpot may sanitise; the app should not rely on it.
+- ~~**`format_note_html` does not escape** contact fields or Octave output into
+  HubSpot note HTML.~~ **Fixed.** Every text insertion point escapes; only
+  structural tags (`p`, `strong`, `br`, `ul`, `li`) can reach a note now.
+  `normalize_html_for_compare` decodes entities so notes already in HubSpot
+  still match their escaped replacements and the cleanup does not churn.
 
-Those three are the best starting points for a second pass, along with
-anything the suspect list above did not cover.
+The two remaining items are the best starting points for a second pass, along
+with anything the suspect list above did not cover.
